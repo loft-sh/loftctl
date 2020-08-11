@@ -37,7 +37,7 @@ const (
 	LoginPath            = "%s/login?cli=true"
 	RedirectPath         = "%s/clusters"
 	TokenPath            = "%s/auth/token?username=%s&key=%s"
-	OIDCTokenPath        = "%s/auth/oidc/token?token=%s"
+	OIDCTokenPath        = "%s/auth/oidc/token?token=%s&access_token=%s"
 	OIDCRefreshTokenPath = "%s/auth/oidc/refresh?refresh_token=%s"
 )
 
@@ -229,6 +229,7 @@ func (c *client) loginWithOIDCToken(host string, oidcToken *types.OIDCToken, ins
 	c.config.Username = ""
 	c.config.AccessKey = ""
 	c.config.OIDCToken = oidcToken.IDToken
+	c.config.OIDCAccessToken = oidcToken.AccessToken
 	c.config.OIDCRefreshToken = oidcToken.RefreshToken
 	c.config.Token = ""
 	c.config.TokenExp = 0
@@ -250,6 +251,7 @@ func (c *client) LoginWithAccessKey(host, username, accessKey string, insecure b
 	c.config.Username = username
 	c.config.AccessKey = accessKey
 	c.config.OIDCToken = ""
+	c.config.OIDCAccessToken = ""
 	c.config.OIDCRefreshToken = ""
 	c.config.Token = ""
 	c.config.TokenExp = 0
@@ -363,7 +365,7 @@ func (c *client) refreshToken() error {
 }
 
 func (c *client) getTokenByOIDC(client *http.Client) ([]byte, error) {
-	resp, err := client.Get(fmt.Sprintf(OIDCTokenPath, c.config.Host, c.config.OIDCToken))
+	resp, err := client.Get(fmt.Sprintf(OIDCTokenPath, c.config.Host, c.config.OIDCToken, c.config.OIDCAccessToken))
 	if err != nil {
 		if urlError, ok := err.(*url.Error); ok {
 			if _, ok := urlError.Err.(x509.UnknownAuthorityError); ok {
@@ -402,6 +404,7 @@ func (c *client) getTokenByOIDC(client *http.Client) ([]byte, error) {
 
 		// update the config
 		c.config.OIDCToken = oidcToken.IDToken
+		c.config.OIDCAccessToken = oidcToken.AccessToken
 		c.config.OIDCRefreshToken = oidcToken.RefreshToken
 		err = c.save()
 		if err != nil {
@@ -409,7 +412,7 @@ func (c *client) getTokenByOIDC(client *http.Client) ([]byte, error) {
 		}
 
 		// try to refetch
-		tokenResponse, err := client.Get(fmt.Sprintf(OIDCTokenPath, c.config.Host, c.config.OIDCToken))
+		tokenResponse, err := client.Get(fmt.Sprintf(OIDCTokenPath, c.config.Host, c.config.OIDCToken, c.config.OIDCAccessToken))
 		if err != nil {
 			return nil, err
 		}
