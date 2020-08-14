@@ -9,7 +9,6 @@ import (
 	"github.com/loft-sh/loftctl/cmd/loftctl/flags"
 	"github.com/loft-sh/loftctl/pkg/client"
 	"github.com/loft-sh/loftctl/pkg/client/helper"
-	"github.com/loft-sh/loftctl/pkg/kube"
 	"github.com/loft-sh/loftctl/pkg/kubeconfig"
 	"github.com/loft-sh/loftctl/pkg/log"
 	"github.com/loft-sh/loftctl/pkg/upgrade"
@@ -108,14 +107,14 @@ func (cmd *SpaceCmd) Run(cobraCmd *cobra.Command, args []string) error {
 		}
 	}
 
-	// create a cluster client
-	clusterClient, err := baseClient.Cluster(clusterName)
+	// get owner references
+	ownerReferences, err := getOwnerReferences(baseClient, clusterName, accountName)
 	if err != nil {
 		return err
 	}
 
-	// get owner references
-	ownerReferences, err := getOwnerReferences(clusterClient, clusterName, accountName)
+	// create a cluster client
+	clusterClient, err := baseClient.Cluster(clusterName)
 	if err != nil {
 		return err
 	}
@@ -150,24 +149,25 @@ func (cmd *SpaceCmd) Run(cobraCmd *cobra.Command, args []string) error {
 	return nil
 }
 
-func getOwnerReferences(clusterClient kube.Interface, cluster, accountName string) ([]metav1.OwnerReference, error) {
-	clusterMembers, err := clusterClient.Loft().ManagementV1().Clusters().ListMembers(context.TODO(), cluster, metav1.GetOptions{})
-	if err != nil {
-		return nil, err
-	}
-	account := findOwnerAccount(append(clusterMembers.Teams, clusterMembers.Users...), accountName)
+func getOwnerReferences(baseClient client.Client, cluster, accountName string) ([]metav1.OwnerReference, error) {
+	/*
+		clusterMembers, err := clusterClient.Loft().ManagementV1().Clusters().ListMembers(context.TODO(), cluster, metav1.GetOptions{})
+		if err != nil {
+			return nil, err
+		}
+		account := findOwnerAccount(append(clusterMembers.Teams, clusterMembers.Users...), accountName)
 
-	if account != nil {
-		return []metav1.OwnerReference{
-			{
-				APIVersion: account.APIVersion,
-				Kind:       account.Kind,
-				Name:       account.Name,
-				UID:        account.UID,
-			},
-		}, nil
-	}
-
+		if account != nil {
+			return []metav1.OwnerReference{
+				{
+					APIVersion: account.APIVersion,
+					Kind:       account.Kind,
+					Name:       account.Name,
+					UID:        account.UID,
+				},
+			}, nil
+		}
+	*/
 	return []metav1.OwnerReference{}, nil
 }
 

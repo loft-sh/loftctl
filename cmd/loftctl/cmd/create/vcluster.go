@@ -149,7 +149,7 @@ func (cmd *VirtualClusterCmd) Run(cobraCmd *cobra.Command, args []string) error 
 		}
 
 		// get owner references
-		ownerReferences, err := getOwnerReferences(clusterClient, cmd.Cluster, accountName)
+		ownerReferences, err := getOwnerReferences(baseClient, cmd.Cluster, accountName)
 		if err != nil {
 			return err
 		}
