@@ -2,6 +2,8 @@ package delete
 
 import (
 	"context"
+	"time"
+
 	"github.com/loft-sh/loftctl/cmd/loftctl/flags"
 	"github.com/loft-sh/loftctl/pkg/client"
 	"github.com/loft-sh/loftctl/pkg/client/helper"
@@ -21,6 +23,8 @@ type VirtualClusterCmd struct {
 	Space         string
 	Cluster       string
 	DeleteContext bool
+	DeleteSpace   bool
+	Wait          bool
 
 	log log.Logger
 }
@@ -70,6 +74,8 @@ devspace delete vcluster myvirtualcluster --space myspace --cluster mycluster
 	c.Flags().StringVar(&cmd.Space, "space", "", "The space to use")
 	c.Flags().StringVar(&cmd.Cluster, "cluster", "", "The cluster to use")
 	c.Flags().BoolVar(&cmd.DeleteContext, "delete-context", true, "If the corresponding kube context should be deleted if there is any")
+	c.Flags().BoolVar(&cmd.DeleteSpace, "delete-space", false, "Should the corresponding space be deleted")
+	c.Flags().BoolVar(&cmd.Wait, "wait", false, "Termination of this command waits for space to be deleted. Without the flag delete-space, this flag has no effect.")
 	return c
 }
 
@@ -111,6 +117,25 @@ func (cmd *VirtualClusterCmd) Run(cobraCmd *cobra.Command, args []string) error 
 		}
 
 		cmd.log.Donef("Successfully deleted kube context for virtual cluster %s", ansi.Color(virtualClusterName, "white+b"))
+	}
+
+	// delete space
+	if cmd.DeleteSpace {
+		err = clusterClient.CoreV1().Namespaces().Delete(context.TODO(), spaceName, metav1.DeleteOptions{})
+		if err != nil {
+			return err
+		}
+
+		// wait for termination
+		if cmd.Wait {
+			cmd.log.StartWait("Waiting for space to be deleted")
+			for isSpaceStillThere(clusterClient, spaceName) {
+				time.Sleep(time.Second)
+			}
+			cmd.log.StopWait()
+		}
+
+		cmd.log.Donef("Successfully deleted space %s", spaceName)
 	}
 
 	return nil

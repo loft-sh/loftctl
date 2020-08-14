@@ -2,6 +2,8 @@ package create
 
 import (
 	"context"
+	"strings"
+
 	tenancyv1alpha1 "github.com/kiosk-sh/kiosk/pkg/apis/tenancy/v1alpha1"
 	storagev1 "github.com/loft-sh/api/pkg/apis/storage/v1"
 	"github.com/loft-sh/loftctl/cmd/loftctl/flags"
@@ -16,7 +18,6 @@ import (
 	"github.com/spf13/cobra"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"strings"
 )
 
 // VirtualClusterCmd holds the cmd flags
@@ -138,6 +139,7 @@ func (cmd *VirtualClusterCmd) Run(cobraCmd *cobra.Command, args []string) error 
 			return err
 		}
 
+		// determine account name
 		accountName := cmd.Account
 		if accountName == "" {
 			accountName, err = helper.SelectAccount(baseClient, cmd.Cluster, cmd.log)
@@ -146,10 +148,17 @@ func (cmd *VirtualClusterCmd) Run(cobraCmd *cobra.Command, args []string) error 
 			}
 		}
 
+		// get owner references
+		ownerReferences, err := getOwnerReferences(clusterClient, cmd.Cluster, accountName)
+		if err != nil {
+			return err
+		}
+
 		// create the space
 		_, err = clusterClient.Kiosk().TenancyV1alpha1().Spaces().Create(ctx, &tenancyv1alpha1.Space{
 			ObjectMeta: metav1.ObjectMeta{
-				Name: cmd.Space,
+				Name:            cmd.Space,
+				OwnerReferences: ownerReferences,
 			},
 			Spec: tenancyv1alpha1.SpaceSpec{
 				Account: accountName,
