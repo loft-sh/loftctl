@@ -2,6 +2,7 @@ package create
 
 import (
 	"context"
+	"github.com/loft-sh/loftctl/pkg/kube"
 
 	"github.com/kiosk-sh/kiosk/pkg/apis/config/v1alpha1"
 	tenancyv1alpha1 "github.com/kiosk-sh/kiosk/pkg/apis/tenancy/v1alpha1"
@@ -107,8 +108,13 @@ func (cmd *SpaceCmd) Run(cobraCmd *cobra.Command, args []string) error {
 		}
 	}
 
+	managementClient, err := baseClient.Management()
+	if err != nil {
+		return err
+	}
+
 	// get owner references
-	ownerReferences, err := getOwnerReferences(baseClient, clusterName, accountName)
+	ownerReferences, err := getOwnerReferences(managementClient, clusterName, accountName)
 	if err != nil {
 		return err
 	}
@@ -149,25 +155,24 @@ func (cmd *SpaceCmd) Run(cobraCmd *cobra.Command, args []string) error {
 	return nil
 }
 
-func getOwnerReferences(baseClient client.Client, cluster, accountName string) ([]metav1.OwnerReference, error) {
-	/*
-		clusterMembers, err := clusterClient.Loft().ManagementV1().Clusters().ListMembers(context.TODO(), cluster, metav1.GetOptions{})
-		if err != nil {
-			return nil, err
-		}
-		account := findOwnerAccount(append(clusterMembers.Teams, clusterMembers.Users...), accountName)
+func getOwnerReferences(client kube.Interface, cluster, accountName string) ([]metav1.OwnerReference, error) {
+	clusterMembers, err := client.Loft().ManagementV1().Clusters().ListMembers(context.TODO(), cluster, metav1.GetOptions{})
+	if err != nil {
+		return nil, err
+	}
+	account := findOwnerAccount(append(clusterMembers.Teams, clusterMembers.Users...), accountName)
 
-		if account != nil {
-			return []metav1.OwnerReference{
-				{
-					APIVersion: account.APIVersion,
-					Kind:       account.Kind,
-					Name:       account.Name,
-					UID:        account.UID,
-				},
-			}, nil
-		}
-	*/
+	if account != nil {
+		return []metav1.OwnerReference{
+			{
+				APIVersion: account.APIVersion,
+				Kind:       account.Kind,
+				Name:       account.Name,
+				UID:        account.UID,
+			},
+		}, nil
+	}
+
 	return []metav1.OwnerReference{}, nil
 }
 
