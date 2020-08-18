@@ -8,6 +8,7 @@ import (
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/client-go/tools/clientcmd/api"
 	"os"
+	"path/filepath"
 )
 
 func ContextName(clusterName, namespaceName string) string {
@@ -47,8 +48,8 @@ func DeleteContext(contextName string) error {
 }
 
 // PrintKubeConfigTo prints the given config to the writer
-func PrintKubeConfigTo(clientConfig *client.Config, clusterName, namespaceName string, writer io.Writer) error {
-	contextName, cluster, authInfo, err := createSpaceContextInfo(clientConfig, clusterName, namespaceName)
+func PrintKubeConfigTo(clientConfig *client.Config, configPath, clusterName, namespaceName string, writer io.Writer) error {
+	contextName, cluster, authInfo, err := createSpaceContextInfo(clientConfig, configPath, clusterName, namespaceName)
 	if err != nil {
 		return err
 	}
@@ -57,8 +58,8 @@ func PrintKubeConfigTo(clientConfig *client.Config, clusterName, namespaceName s
 }
 
 // UpdateKubeConfig updates the kube config and adds the spaceConfig context
-func UpdateKubeConfig(clientConfig *client.Config, clusterName, namespaceName string, setActive bool) error {
-	contextName, cluster, authInfo, err := createSpaceContextInfo(clientConfig, clusterName, namespaceName)
+func UpdateKubeConfig(clientConfig *client.Config, configPath, clusterName, namespaceName string, setActive bool) error {
+	contextName, cluster, authInfo, err := createSpaceContextInfo(clientConfig, configPath, clusterName, namespaceName)
 	if err != nil {
 		return err
 	}
@@ -67,7 +68,7 @@ func UpdateKubeConfig(clientConfig *client.Config, clusterName, namespaceName st
 	return updateKubeConfig(contextName, cluster, authInfo, namespaceName, setActive)
 }
 
-func createSpaceContextInfo(clientConfig *client.Config, clusterName, namespaceName string) (string, *api.Cluster, *api.AuthInfo, error) {
+func createSpaceContextInfo(clientConfig *client.Config, configPath, clusterName, namespaceName string) (string, *api.Cluster, *api.AuthInfo, error) {
 	contextName := ContextName(clusterName, namespaceName)
 	cluster := api.NewCluster()
 	cluster.Server = clientConfig.Host + "/kubernetes/cluster/" + clusterName
@@ -78,11 +79,16 @@ func createSpaceContextInfo(clientConfig *client.Config, clusterName, namespaceN
 		return "", nil, nil, err
 	}
 
+	absConfigPath, err := filepath.Abs(configPath)
+	if err != nil {
+		return "", nil, nil, err
+	}
+
 	authInfo := api.NewAuthInfo()
 	authInfo.Exec = &api.ExecConfig{
 		APIVersion: v1alpha1.SchemeGroupVersion.String(),
 		Command:    command,
-		Args:       []string{"token", "--silent"},
+		Args:       []string{"token", "--silent", "--config", absConfigPath},
 	}
 	return contextName, cluster, authInfo, nil
 }

@@ -144,7 +144,7 @@ func (cmd *SpaceCmd) Run(cobraCmd *cobra.Command, args []string) error {
 	// should we create a kube context for the space
 	if cmd.CreateContext {
 		// update kube config
-		err = kubeconfig.UpdateKubeConfig(baseClient.Config(), clusterName, spaceName, cmd.SwitchContext)
+		err = kubeconfig.UpdateKubeConfig(baseClient.Config(), cmd.Config, clusterName, spaceName, cmd.SwitchContext)
 		if err != nil {
 			return err
 		}

@@ -104,13 +104,13 @@ func (cmd *ClusterCmd) Run(cobraCmd *cobra.Command, args []string) error {
 
 	// check if we should print or update the config
 	if cmd.Print {
-		err = kubeconfig.PrintKubeConfigTo(baseClient.Config(), clusterName, "", os.Stdout)
+		err = kubeconfig.PrintKubeConfigTo(baseClient.Config(), cmd.Config, clusterName, "", os.Stdout)
 		if err != nil {
 			return err
 		}
 	} else {
 		// update kube config
-		err = kubeconfig.UpdateKubeConfig(baseClient.Config(), clusterName, "", true)
+		err = kubeconfig.UpdateKubeConfig(baseClient.Config(), cmd.Config, clusterName, "", true)
 		if err != nil {
 			return err
 		}

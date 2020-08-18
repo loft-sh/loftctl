@@ -56,7 +56,7 @@ devspace login https://my-loft.com --username myuser --access-key myaccesskey
 		Use:   "login",
 		Short: "Login to a loft instance",
 		Long:  description,
-		Args:  cobra.ExactArgs(1),
+		Args:  cobra.MaximumNArgs(1),
 		RunE: func(cobraCmd *cobra.Command, args []string) error {
 			return cmd.RunLogin(cobraCmd, args)
 		},
@@ -73,6 +73,17 @@ func (cmd *LoginCmd) RunLogin(cobraCmd *cobra.Command, args []string) error {
 	loader, err := client.NewClientFromPath(cmd.Config)
 	if err != nil {
 		return err
+	}
+
+	// Print login information
+	if len(args) == 0 {
+		config := loader.Config()
+		if config.Host == "" {
+			cmd.Log.Info("Not logged in")
+		}
+
+		cmd.Log.Infof("Logged into %s as %s", config.Host, config.Username)
+		return nil
 	}
 
 	url := args[0]
