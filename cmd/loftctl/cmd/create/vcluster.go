@@ -178,6 +178,9 @@ func (cmd *VirtualClusterCmd) Run(cobraCmd *cobra.Command, args []string) error 
 		},
 		Spec: storagev1.VirtualClusterSpec{
 			HelmRelease: &storagev1.VirtualClusterHelmRelease{
+				Chart: storagev1.VirtualClusterHelmChart{
+					Version: defaults.LatestVersion,
+				},
 				Values: defaults.Values,
 			},
 			Pod: &storagev1.PodSelector{
