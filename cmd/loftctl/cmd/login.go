@@ -18,14 +18,14 @@ type LoginCmd struct {
 	AccessKey string
 	Insecure  bool
 
-	log log.Logger
+	Log log.Logger
 }
 
 // NewLoginCmd creates a new open command
 func NewLoginCmd(globalFlags *flags.GlobalFlags) *cobra.Command {
 	cmd := &LoginCmd{
 		GlobalFlags: globalFlags,
-		log:         log.GetInstance(),
+		Log:         log.GetInstance(),
 	}
 
 	description := `
@@ -84,13 +84,13 @@ func (cmd *LoginCmd) RunLogin(cobraCmd *cobra.Command, args []string) error {
 	if cmd.Username != "" && cmd.AccessKey != "" {
 		err = loader.LoginWithAccessKey(url, cmd.Username, cmd.AccessKey, cmd.Insecure)
 	} else {
-		err = loader.Login(url, cmd.Insecure, cmd.log)
+		err = loader.Login(url, cmd.Insecure, cmd.Log)
 	}
 
 	if err != nil {
 		return err
 	}
 
-	cmd.log.Donef("Successfully logged into loft at %s", ansi.Color(url, "white+b"))
+	cmd.Log.Donef("Successfully logged into loft at %s", ansi.Color(url, "white+b"))
 	return nil
 }

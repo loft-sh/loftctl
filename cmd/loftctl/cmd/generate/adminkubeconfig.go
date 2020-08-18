@@ -15,6 +15,7 @@ import (
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 	"time"
 )
@@ -66,23 +67,23 @@ devspace generate admin-kube-config --namespace mynamespace
 		Long:  description,
 		Args:  cobra.NoArgs,
 		RunE: func(cobraCmd *cobra.Command, args []string) error {
-			return cmd.Run(cobraCmd, args)
+			loader := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(clientcmd.NewDefaultClientConfigLoadingRules(), &clientcmd.ConfigOverrides{})
+			c, err := loader.ClientConfig()
+			if err != nil {
+				return err
+			}
+
+			return cmd.Run(c, cobraCmd, args)
 		},
 	}
 
 	c.Flags().StringVar(&cmd.Namespace, "namespace", "loft", "The namespace to generate the service account in. The namespace will be created if it does not exist")
-	c.Flags().StringVar(&cmd.ServiceAccount, "service-account", "loft", "The service account name to create")
+	c.Flags().StringVar(&cmd.ServiceAccount, "service-account", "loft-admin", "The service account name to create")
 	return c
 }
 
 // Run executes the command
-func (cmd *AdminKubeConfigCmd) Run(cobraCmd *cobra.Command, args []string) error {
-	loader := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(clientcmd.NewDefaultClientConfigLoadingRules(), &clientcmd.ConfigOverrides{})
-	c, err := loader.ClientConfig()
-	if err != nil {
-		return err
-	}
-
+func (cmd *AdminKubeConfigCmd) Run(c *rest.Config, cobraCmd *cobra.Command, args []string) error {
 	client, err := kubernetes.NewForConfig(c)
 	if err != nil {
 		return errors.Wrap(err, "create kube client")

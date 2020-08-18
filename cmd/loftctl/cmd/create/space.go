@@ -28,14 +28,14 @@ type SpaceCmd struct {
 	CreateContext bool
 	SwitchContext bool
 
-	log log.Logger
+	Log log.Logger
 }
 
 // NewSpaceCmd creates a new command
 func NewSpaceCmd(globalFlags *flags.GlobalFlags) *cobra.Command {
 	cmd := &SpaceCmd{
 		GlobalFlags: globalFlags,
-		log:         log.GetInstance(),
+		Log:         log.GetInstance(),
 	}
 	description := `
 #######################################################
@@ -93,7 +93,7 @@ func (cmd *SpaceCmd) Run(cobraCmd *cobra.Command, args []string) error {
 	// determine cluster name
 	clusterName := cmd.Cluster
 	if clusterName == "" {
-		clusterName, err = helper.SelectCluster(baseClient, cmd.log)
+		clusterName, err = helper.SelectCluster(baseClient, cmd.Log)
 		if err != nil {
 			return err
 		}
@@ -102,7 +102,7 @@ func (cmd *SpaceCmd) Run(cobraCmd *cobra.Command, args []string) error {
 	// determine account name
 	accountName := cmd.Account
 	if accountName == "" {
-		accountName, err = helper.SelectAccount(baseClient, clusterName, cmd.log)
+		accountName, err = helper.SelectAccount(baseClient, clusterName, cmd.Log)
 		if err != nil {
 			return err
 		}
@@ -139,7 +139,7 @@ func (cmd *SpaceCmd) Run(cobraCmd *cobra.Command, args []string) error {
 		return errors.Wrap(err, "create space")
 	}
 
-	cmd.log.Donef("Successfully created the space %s in cluster %s", ansi.Color(spaceName, "white+b"), ansi.Color(clusterName, "white+b"))
+	cmd.Log.Donef("Successfully created the space %s in cluster %s", ansi.Color(spaceName, "white+b"), ansi.Color(clusterName, "white+b"))
 
 	// should we create a kube context for the space
 	if cmd.CreateContext {
@@ -149,7 +149,7 @@ func (cmd *SpaceCmd) Run(cobraCmd *cobra.Command, args []string) error {
 			return err
 		}
 
-		cmd.log.Donef("Successfully updated kube context to use space %s in cluster %s", ansi.Color(spaceName, "white+b"), ansi.Color(clusterName, "white+b"))
+		cmd.Log.Donef("Successfully updated kube context to use space %s in cluster %s", ansi.Color(spaceName, "white+b"), ansi.Color(clusterName, "white+b"))
 	}
 
 	return nil

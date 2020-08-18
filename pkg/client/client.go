@@ -49,7 +49,10 @@ func init() {
 
 type Client interface {
 	Management() (kube.Interface, error)
+	ManagementConfig() (*rest.Config, error)
+
 	Cluster(cluster string) (kube.Interface, error)
+	ClusterConfig(cluster string) (*rest.Config, error)
 
 	Login(host string, insecure bool, log log.Logger) error
 	LoginWithAccessKey(host, username, accessKey string, insecure bool) error
@@ -130,8 +133,12 @@ func (c *client) save() error {
 	return ioutil.WriteFile(c.configPath, out, 0666)
 }
 
+func (c *client) ManagementConfig() (*rest.Config, error) {
+	return c.restConfig("/kubernetes/management")
+}
+
 func (c *client) Management() (kube.Interface, error) {
-	restConfig, err := c.restConfig("/kubernetes/management")
+	restConfig, err := c.ManagementConfig()
 	if err != nil {
 		return nil, err
 	}
@@ -139,8 +146,12 @@ func (c *client) Management() (kube.Interface, error) {
 	return kube.NewForConfig(restConfig)
 }
 
+func (c *client) ClusterConfig(cluster string) (*rest.Config, error) {
+	return c.restConfig("/kubernetes/cluster/" + cluster)
+}
+
 func (c *client) Cluster(cluster string) (kube.Interface, error) {
-	restConfig, err := c.restConfig("/kubernetes/cluster/" + cluster)
+	restConfig, err := c.ClusterConfig(cluster)
 	if err != nil {
 		return nil, err
 	}
