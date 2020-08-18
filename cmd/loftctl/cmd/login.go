@@ -80,6 +80,7 @@ func (cmd *LoginCmd) RunLogin(cobraCmd *cobra.Command, args []string) error {
 		config := loader.Config()
 		if config.Host == "" {
 			cmd.Log.Info("Not logged in")
+			return nil
 		}
 
 		cmd.Log.Infof("Logged into %s as %s", config.Host, config.Username)
