@@ -2,6 +2,8 @@ package create
 
 import (
 	"context"
+	"io"
+	"os"
 	"strings"
 
 	tenancyv1alpha1 "github.com/kiosk-sh/kiosk/pkg/apis/tenancy/v1alpha1"
@@ -30,7 +32,9 @@ type VirtualClusterCmd struct {
 	Account       string
 	CreateContext bool
 	SwitchContext bool
+	Print         bool
 
+	Out io.Writer
 	Log log.Logger
 }
 
@@ -38,6 +42,7 @@ type VirtualClusterCmd struct {
 func NewVirtualClusterCmd(globalFlags *flags.GlobalFlags) *cobra.Command {
 	cmd := &VirtualClusterCmd{
 		GlobalFlags: globalFlags,
+		Out:         os.Stdout,
 		Log:         log.GetInstance(),
 	}
 	description := `
@@ -83,6 +88,7 @@ devspace create vcluster test --cluster mycluster --space myspace
 	c.Flags().StringVar(&cmd.Cluster, "cluster", "", "The cluster to create the virtual cluster in")
 	c.Flags().StringVar(&cmd.Space, "space", "", "The space to create the virtual cluster in")
 	c.Flags().StringVar(&cmd.Account, "account", "", "The cluster account to create the space with if it doesn't exist")
+	c.Flags().BoolVar(&cmd.Print, "print", true, "If enabled, prints the context to the console")
 	c.Flags().BoolVar(&cmd.CreateContext, "create-context", true, "If loft should create a kube context for the space")
 	c.Flags().BoolVar(&cmd.SwitchContext, "switch-context", true, "If loft should switch the current context to the new context")
 	return c
@@ -205,7 +211,7 @@ func (cmd *VirtualClusterCmd) Run(cobraCmd *cobra.Command, args []string) error 
 	cmd.Log.Donef("Successfully created the virtual cluster %s in cluster %s and space %s", ansi.Color(virtualClusterName, "white+b"), ansi.Color(cmd.Cluster, "white+b"), ansi.Color(cmd.Space, "white+b"))
 
 	// should we create a kube context for the virtual context
-	if cmd.CreateContext {
+	if cmd.CreateContext || cmd.Print {
 		// get token for virtual cluster
 		cmd.Log.StartWait("Waiting for virtual cluster to become ready...")
 		token, err := virtualcluster.GetVirtualClusterToken(ctx, clusterClient, virtualClusterName, cmd.Space)
@@ -214,13 +220,21 @@ func (cmd *VirtualClusterCmd) Run(cobraCmd *cobra.Command, args []string) error 
 			return err
 		}
 
-		// update kube config
-		err = kubeconfig.UpdateKubeConfigVirtualCluster(baseClient.Config(), cmd.Cluster, cmd.Space, virtualClusterName, token, cmd.SwitchContext)
-		if err != nil {
-			return err
-		}
+		// check if we should print or update the config
+		if cmd.Print {
+			err = kubeconfig.PrintVirtualClusterKubeConfigTo(baseClient.Config(), cmd.Cluster, cmd.Space, virtualClusterName, token, cmd.Out)
+			if err != nil {
+				return err
+			}
+		} else {
+			// update kube config
+			err = kubeconfig.UpdateKubeConfigVirtualCluster(baseClient.Config(), cmd.Cluster, cmd.Space, virtualClusterName, token, cmd.SwitchContext)
+			if err != nil {
+				return err
+			}
 
-		cmd.Log.Donef("Successfully updated kube context to use virtual cluster %s in space %s and cluster %s", ansi.Color(virtualClusterName, "white+b"), ansi.Color(cmd.Space, "white+b"), ansi.Color(cmd.Cluster, "white+b"))
+			cmd.Log.Donef("Successfully updated kube context to use virtual cluster %s in space %s and cluster %s", ansi.Color(virtualClusterName, "white+b"), ansi.Color(cmd.Space, "white+b"), ansi.Color(cmd.Cluster, "white+b"))
+		}
 	}
 
 	return nil

@@ -11,6 +11,7 @@ import (
 	"github.com/loft-sh/loftctl/pkg/virtualcluster"
 	"github.com/mgutz/ansi"
 	"github.com/spf13/cobra"
+	"io"
 	"os"
 )
 
@@ -21,14 +22,17 @@ type VirtualClusterCmd struct {
 	Space   string
 	Cluster string
 	Print   bool
-	log     log.Logger
+
+	Out io.Writer
+	Log log.Logger
 }
 
 // NewVirtualClusterCmd creates a new command
 func NewVirtualClusterCmd(globalFlags *flags.GlobalFlags) *cobra.Command {
 	cmd := &VirtualClusterCmd{
 		GlobalFlags: globalFlags,
-		log:         log.GetInstance(),
+		Out:         os.Stdout,
+		Log:         log.GetInstance(),
 	}
 
 	description := `
@@ -87,7 +91,7 @@ func (cmd *VirtualClusterCmd) Run(cobraCmd *cobra.Command, args []string) error 
 		virtualClusterName = args[0]
 	}
 
-	virtualClusterName, spaceName, clusterName, err := helper.SelectVirtualClusterAndSpaceAndClusterName(baseClient, virtualClusterName, cmd.Space, cmd.Cluster, cmd.log)
+	virtualClusterName, spaceName, clusterName, err := helper.SelectVirtualClusterAndSpaceAndClusterName(baseClient, virtualClusterName, cmd.Space, cmd.Cluster, cmd.Log)
 	if err != nil {
 		return err
 	}
@@ -99,16 +103,16 @@ func (cmd *VirtualClusterCmd) Run(cobraCmd *cobra.Command, args []string) error 
 	}
 
 	// get token for virtual cluster
-	cmd.log.StartWait("Waiting for virtual cluster to become ready...")
+	cmd.Log.StartWait("Waiting for virtual cluster to become ready...")
 	token, err := virtualcluster.GetVirtualClusterToken(context.TODO(), clusterClient, virtualClusterName, spaceName)
-	cmd.log.StopWait()
+	cmd.Log.StopWait()
 	if err != nil {
 		return err
 	}
 
 	// check if we should print or update the config
 	if cmd.Print {
-		err = kubeconfig.PrintVirtualClusterKubeConfigTo(baseClient.Config(), clusterName, spaceName, virtualClusterName, token, os.Stdout)
+		err = kubeconfig.PrintVirtualClusterKubeConfigTo(baseClient.Config(), clusterName, spaceName, virtualClusterName, token, cmd.Out)
 		if err != nil {
 			return err
 		}
@@ -119,7 +123,7 @@ func (cmd *VirtualClusterCmd) Run(cobraCmd *cobra.Command, args []string) error 
 			return err
 		}
 
-		cmd.log.Donef("Successfully updated kube context to use space %s in cluster %s", ansi.Color(spaceName, "white+b"), ansi.Color(clusterName, "white+b"))
+		cmd.Log.Donef("Successfully updated kube context to use space %s in cluster %s", ansi.Color(spaceName, "white+b"), ansi.Color(clusterName, "white+b"))
 	}
 
 	return nil
