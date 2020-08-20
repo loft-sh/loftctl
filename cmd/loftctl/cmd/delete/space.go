@@ -25,14 +25,14 @@ type SpaceCmd struct {
 	DeleteContext bool
 	Wait          bool
 
-	log log.Logger
+	Log log.Logger
 }
 
 // NewSpaceCmd creates a new command
 func NewSpaceCmd(globalFlags *flags.GlobalFlags) *cobra.Command {
 	cmd := &SpaceCmd{
 		GlobalFlags: globalFlags,
-		log:         log.GetInstance(),
+		Log:         log.GetInstance(),
 	}
 	description := `
 #######################################################
@@ -88,7 +88,7 @@ func (cmd *SpaceCmd) Run(cobraCmd *cobra.Command, args []string) error {
 		spaceName = args[0]
 	}
 
-	spaceName, clusterName, err := helper.SelectSpaceAndClusterName(baseClient, spaceName, cmd.Cluster, cmd.log)
+	spaceName, clusterName, err := helper.SelectSpaceAndClusterName(baseClient, spaceName, cmd.Cluster, cmd.Log)
 	if err != nil {
 		return err
 	}
@@ -104,7 +104,7 @@ func (cmd *SpaceCmd) Run(cobraCmd *cobra.Command, args []string) error {
 		return errors.Wrap(err, "delete space")
 	}
 
-	cmd.log.Donef("Successfully deleted space %s in cluster %s", ansi.Color(spaceName, "white+b"), ansi.Color(clusterName, "white+b"))
+	cmd.Log.Donef("Successfully deleted space %s in cluster %s", ansi.Color(spaceName, "white+b"), ansi.Color(clusterName, "white+b"))
 
 	// update kube config
 	if cmd.DeleteContext {
@@ -113,17 +113,17 @@ func (cmd *SpaceCmd) Run(cobraCmd *cobra.Command, args []string) error {
 			return err
 		}
 
-		cmd.log.Donef("Successfully deleted kube context for space %s", ansi.Color(spaceName, "white+b"))
+		cmd.Log.Donef("Successfully deleted kube context for space %s", ansi.Color(spaceName, "white+b"))
 	}
 
 	// update kube config
 	if cmd.Wait {
-		cmd.log.StartWait("Waiting for space to be deleted")
+		cmd.Log.StartWait("Waiting for space to be deleted")
 		for isSpaceStillThere(clusterClient, spaceName) {
 			time.Sleep(time.Second)
 		}
-		cmd.log.StopWait()
-		cmd.log.Done("Space is deleted")
+		cmd.Log.StopWait()
+		cmd.Log.Done("Space is deleted")
 	}
 
 	return nil

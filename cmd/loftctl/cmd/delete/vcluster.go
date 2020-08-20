@@ -26,14 +26,14 @@ type VirtualClusterCmd struct {
 	DeleteSpace   bool
 	Wait          bool
 
-	log log.Logger
+	Log log.Logger
 }
 
 // NewVirtualClusterCmd creates a new command
 func NewVirtualClusterCmd(globalFlags *flags.GlobalFlags) *cobra.Command {
 	cmd := &VirtualClusterCmd{
 		GlobalFlags: globalFlags,
-		log:         log.GetInstance(),
+		Log:         log.GetInstance(),
 	}
 	description := `
 #######################################################
@@ -91,7 +91,7 @@ func (cmd *VirtualClusterCmd) Run(cobraCmd *cobra.Command, args []string) error 
 		virtualClusterName = args[0]
 	}
 
-	virtualClusterName, spaceName, clusterName, err := helper.SelectVirtualClusterAndSpaceAndClusterName(baseClient, virtualClusterName, cmd.Space, cmd.Cluster, cmd.log)
+	virtualClusterName, spaceName, clusterName, err := helper.SelectVirtualClusterAndSpaceAndClusterName(baseClient, virtualClusterName, cmd.Space, cmd.Cluster, cmd.Log)
 	if err != nil {
 		return err
 	}
@@ -107,7 +107,7 @@ func (cmd *VirtualClusterCmd) Run(cobraCmd *cobra.Command, args []string) error 
 		return errors.Wrap(err, "delete virtual cluster")
 	}
 
-	cmd.log.Donef("Successfully deleted virtual cluster %s in space %s in cluster %s", ansi.Color(virtualClusterName, "white+b"), ansi.Color(spaceName, "white+b"), ansi.Color(clusterName, "white+b"))
+	cmd.Log.Donef("Successfully deleted virtual cluster %s in space %s in cluster %s", ansi.Color(virtualClusterName, "white+b"), ansi.Color(spaceName, "white+b"), ansi.Color(clusterName, "white+b"))
 
 	// update kube config
 	if cmd.DeleteContext {
@@ -116,7 +116,7 @@ func (cmd *VirtualClusterCmd) Run(cobraCmd *cobra.Command, args []string) error 
 			return err
 		}
 
-		cmd.log.Donef("Successfully deleted kube context for virtual cluster %s", ansi.Color(virtualClusterName, "white+b"))
+		cmd.Log.Donef("Successfully deleted kube context for virtual cluster %s", ansi.Color(virtualClusterName, "white+b"))
 	}
 
 	// delete space
@@ -128,14 +128,14 @@ func (cmd *VirtualClusterCmd) Run(cobraCmd *cobra.Command, args []string) error 
 
 		// wait for termination
 		if cmd.Wait {
-			cmd.log.StartWait("Waiting for space to be deleted")
+			cmd.Log.StartWait("Waiting for space to be deleted")
 			for isSpaceStillThere(clusterClient, spaceName) {
 				time.Sleep(time.Second)
 			}
-			cmd.log.StopWait()
+			cmd.Log.StopWait()
 		}
 
-		cmd.log.Donef("Successfully deleted space %s", spaceName)
+		cmd.Log.Donef("Successfully deleted space %s", spaceName)
 	}
 
 	return nil

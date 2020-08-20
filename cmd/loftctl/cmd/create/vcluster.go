@@ -31,14 +31,14 @@ type VirtualClusterCmd struct {
 	CreateContext bool
 	SwitchContext bool
 
-	log log.Logger
+	Log log.Logger
 }
 
 // NewVirtualClusterCmd creates a new command
 func NewVirtualClusterCmd(globalFlags *flags.GlobalFlags) *cobra.Command {
 	cmd := &VirtualClusterCmd{
 		GlobalFlags: globalFlags,
-		log:         log.GetInstance(),
+		Log:         log.GetInstance(),
 	}
 	description := `
 #######################################################
@@ -99,7 +99,7 @@ func (cmd *VirtualClusterCmd) Run(cobraCmd *cobra.Command, args []string) error 
 
 	// determine cluster name
 	if cmd.Cluster == "" {
-		cmd.Cluster, err = helper.SelectCluster(baseClient, cmd.log)
+		cmd.Cluster, err = helper.SelectCluster(baseClient, cmd.Log)
 		if err != nil {
 			return err
 		}
@@ -128,7 +128,7 @@ func (cmd *VirtualClusterCmd) Run(cobraCmd *cobra.Command, args []string) error 
 	if defaults.Warning != "" {
 		warningLines := strings.Split(defaults.Warning, "\n")
 		for _, w := range warningLines {
-			cmd.log.Warn(w)
+			cmd.Log.Warn(w)
 		}
 	}
 
@@ -142,7 +142,7 @@ func (cmd *VirtualClusterCmd) Run(cobraCmd *cobra.Command, args []string) error 
 		// determine account name
 		accountName := cmd.Account
 		if accountName == "" {
-			accountName, err = helper.SelectAccount(baseClient, cmd.Cluster, cmd.log)
+			accountName, err = helper.SelectAccount(baseClient, cmd.Cluster, cmd.Log)
 			if err != nil {
 				return err
 			}
@@ -202,14 +202,14 @@ func (cmd *VirtualClusterCmd) Run(cobraCmd *cobra.Command, args []string) error 
 		return errors.Wrap(err, "create vcluster")
 	}
 
-	cmd.log.Donef("Successfully created the virtual cluster %s in cluster %s and space %s", ansi.Color(virtualClusterName, "white+b"), ansi.Color(cmd.Cluster, "white+b"), ansi.Color(cmd.Space, "white+b"))
+	cmd.Log.Donef("Successfully created the virtual cluster %s in cluster %s and space %s", ansi.Color(virtualClusterName, "white+b"), ansi.Color(cmd.Cluster, "white+b"), ansi.Color(cmd.Space, "white+b"))
 
 	// should we create a kube context for the virtual context
 	if cmd.CreateContext {
 		// get token for virtual cluster
-		cmd.log.StartWait("Waiting for virtual cluster to become ready...")
+		cmd.Log.StartWait("Waiting for virtual cluster to become ready...")
 		token, err := virtualcluster.GetVirtualClusterToken(ctx, clusterClient, virtualClusterName, cmd.Space)
-		cmd.log.StopWait()
+		cmd.Log.StopWait()
 		if err != nil {
 			return err
 		}
@@ -220,7 +220,7 @@ func (cmd *VirtualClusterCmd) Run(cobraCmd *cobra.Command, args []string) error 
 			return err
 		}
 
-		cmd.log.Donef("Successfully updated kube context to use virtual cluster %s in space %s and cluster %s", ansi.Color(virtualClusterName, "white+b"), ansi.Color(cmd.Space, "white+b"), ansi.Color(cmd.Cluster, "white+b"))
+		cmd.Log.Donef("Successfully updated kube context to use virtual cluster %s in space %s and cluster %s", ansi.Color(virtualClusterName, "white+b"), ansi.Color(cmd.Space, "white+b"), ansi.Color(cmd.Cluster, "white+b"))
 	}
 
 	return nil
