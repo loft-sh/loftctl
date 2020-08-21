@@ -59,6 +59,7 @@ type Client interface {
 
 	AuthInfo() (*token.Loft, error)
 	Config() *Config
+	Save() error
 }
 
 func NewClientFromPath(path string) (Client, error) {
@@ -114,7 +115,7 @@ func (c *client) initConfig() error {
 	return retErr
 }
 
-func (c *client) save() error {
+func (c *client) Save() error {
 	if c.config == nil {
 		return errors.New("no config to write")
 	}
@@ -372,7 +373,7 @@ func (c *client) refreshToken() error {
 
 	c.config.Token = tok.Token
 	c.config.TokenExp = now + (public.Expiry.Time().Unix() - public.IssuedAt.Time().Unix())
-	return c.save()
+	return c.Save()
 }
 
 func (c *client) getTokenByOIDC(client *http.Client) ([]byte, error) {
@@ -417,7 +418,7 @@ func (c *client) getTokenByOIDC(client *http.Client) ([]byte, error) {
 		c.config.OIDCToken = oidcToken.IDToken
 		c.config.OIDCAccessToken = oidcToken.AccessToken
 		c.config.OIDCRefreshToken = oidcToken.RefreshToken
-		err = c.save()
+		err = c.Save()
 		if err != nil {
 			return nil, err
 		}

@@ -10,6 +10,10 @@ type Config struct {
 	// +optional
 	Host string `json:"host,omitempty"`
 
+	// LastInstallContext is the last install context
+	// +optional
+	LastInstallContext string `json:"lastInstallContext,omitempty"`
+
 	// insecure specifies if the loft instance is insecure
 	// +optional
 	Insecure bool `json:"insecure,omitempty"`
