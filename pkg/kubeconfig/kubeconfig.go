@@ -1,27 +1,30 @@
 package kubeconfig
 
 import (
-	"github.com/loft-sh/loftctl/pkg/client"
 	"io"
+	"os"
+	"path/filepath"
+
+	"github.com/loft-sh/loftctl/pkg/client"
 	"k8s.io/client-go/pkg/apis/clientauthentication/v1alpha1"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/client-go/tools/clientcmd/api"
-	"os"
-	"path/filepath"
 )
 
 func ContextName(clusterName, namespaceName string) string {
-	contextName := "loft-" + clusterName
+	contextName := "loft_"
 	if namespaceName != "" {
-		contextName += "-" + namespaceName
+		contextName += namespaceName + "_"
 	}
+
+	contextName += clusterName
 
 	return contextName
 }
 
 func VirtualClusterContextName(clusterName, namespaceName, virtualClusterName string) string {
-	return "loft-vcluster-" + virtualClusterName + "-" + namespaceName + "-" + clusterName
+	return "loft-vcluster_" + virtualClusterName + "_" + clusterName
 }
 
 // DeleteContext deletes the context with the given name from the kube config

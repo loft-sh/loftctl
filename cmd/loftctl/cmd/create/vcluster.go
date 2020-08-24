@@ -88,7 +88,7 @@ devspace create vcluster test --cluster mycluster --space myspace
 	c.Flags().StringVar(&cmd.Cluster, "cluster", "", "The cluster to create the virtual cluster in")
 	c.Flags().StringVar(&cmd.Space, "space", "", "The space to create the virtual cluster in")
 	c.Flags().StringVar(&cmd.Account, "account", "", "The cluster account to create the space with if it doesn't exist")
-	c.Flags().BoolVar(&cmd.Print, "print", true, "If enabled, prints the context to the console")
+	c.Flags().BoolVar(&cmd.Print, "print", false, "If enabled, prints the context to the console")
 	c.Flags().BoolVar(&cmd.CreateContext, "create-context", true, "If loft should create a kube context for the space")
 	c.Flags().BoolVar(&cmd.SwitchContext, "switch-context", true, "If loft should switch the current context to the new context")
 	return c
@@ -220,13 +220,16 @@ func (cmd *VirtualClusterCmd) Run(cobraCmd *cobra.Command, args []string) error 
 			return err
 		}
 
-		// check if we should print or update the config
+		// check if we should print the config
 		if cmd.Print {
 			err = kubeconfig.PrintVirtualClusterKubeConfigTo(baseClient.Config(), cmd.Cluster, cmd.Space, virtualClusterName, token, cmd.Out)
 			if err != nil {
 				return err
 			}
-		} else {
+		}
+
+		// check if we should update the config
+		if cmd.CreateContext {
 			// update kube config
 			err = kubeconfig.UpdateKubeConfigVirtualCluster(baseClient.Config(), cmd.Cluster, cmd.Space, virtualClusterName, token, cmd.SwitchContext)
 			if err != nil {

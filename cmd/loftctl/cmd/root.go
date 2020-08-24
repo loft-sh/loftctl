@@ -38,7 +38,7 @@ func NewRootCmd(log log.Logger) *cobra.Command {
 				}
 			}
 		},
-		Long: `Loft root command`,
+		Long: `Loft CLI - www.loft.sh`,
 	}
 }
 
@@ -71,7 +71,7 @@ func BuildRoot(log log.Logger) *cobra.Command {
 	globalFlags = flags.SetGlobalFlags(persistentFlags)
 
 	// add top level commands
-	rootCmd.AddCommand(NewInstallCmd(globalFlags))
+	rootCmd.AddCommand(NewStartCmd(globalFlags))
 	rootCmd.AddCommand(NewLoginCmd(globalFlags))
 	rootCmd.AddCommand(NewTokenCmd(globalFlags))
 	rootCmd.AddCommand(NewSleepCmd(globalFlags))
