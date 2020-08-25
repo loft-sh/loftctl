@@ -24,7 +24,7 @@ func ContextName(clusterName, namespaceName string) string {
 }
 
 func VirtualClusterContextName(clusterName, namespaceName, virtualClusterName string) string {
-	return "loft-vcluster_" + virtualClusterName + "_" + clusterName
+	return "loft-vcluster_" + virtualClusterName + "_" + namespaceName + "_" + clusterName
 }
 
 // DeleteContext deletes the context with the given name from the kube config
