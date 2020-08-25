@@ -560,7 +560,7 @@ To find this EXTERNAL-IP, run the following command and look at the output:
                                                      |---------------|
 NAME                       TYPE           CLUSTER-IP | EXTERNAL-IP   |  PORT(S)                      AGE
 ingress-nginx-controller   LoadBalancer   10.0.0.244 | XX.XXX.XXX.XX |  80:30984/TCP,443:31758/TCP   19m
-																										 |^^^^^^^^^^^^^^^|
+                                                     |^^^^^^^^^^^^^^^|
 
 EXTERNAL-IP may be 'pending' for a while until your cloud provider has created a new load balancer.
 
@@ -609,8 +609,7 @@ Follow this guide to add a valid certificate: https://loft.sh/docs/administratio
 
 #################################################################
 
-Loft was successfully installed and port-forwarding has been started.
-If you stop this command, run 'loft start' again to restart port-forwarding.
+Loft was successfully installed and can now be reached at: `+url+`
 
 Thanks for using loft!
 `)
