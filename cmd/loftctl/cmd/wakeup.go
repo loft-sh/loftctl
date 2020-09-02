@@ -2,6 +2,8 @@ package cmd
 
 import (
 	"context"
+	"time"
+
 	"github.com/loft-sh/loftctl/cmd/loftctl/flags"
 	"github.com/loft-sh/loftctl/pkg/client"
 	"github.com/loft-sh/loftctl/pkg/client/helper"
@@ -9,7 +11,6 @@ import (
 	"github.com/loft-sh/loftctl/pkg/upgrade"
 	"github.com/spf13/cobra"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"time"
 )
 
 // WakeUpCmd holds the cmd flags
@@ -17,14 +18,14 @@ type WakeUpCmd struct {
 	*flags.GlobalFlags
 
 	Cluster string
-	log     log.Logger
+	Log     log.Logger
 }
 
 // NewWakeUpCmd creates a new command
 func NewWakeUpCmd(globalFlags *flags.GlobalFlags) *cobra.Command {
 	cmd := &WakeUpCmd{
 		GlobalFlags: globalFlags,
-		log:         log.GetInstance(),
+		Log:         log.GetInstance(),
 	}
 
 	description := `
@@ -78,7 +79,7 @@ func (cmd *WakeUpCmd) Run(cobraCmd *cobra.Command, args []string) error {
 		spaceName = args[0]
 	}
 
-	spaceName, clusterName, err := helper.SelectSpaceAndClusterName(baseClient, spaceName, cmd.Cluster, cmd.log)
+	spaceName, clusterName, err := helper.SelectSpaceAndClusterName(baseClient, spaceName, cmd.Cluster, cmd.Log)
 	if err != nil {
 		return err
 	}
