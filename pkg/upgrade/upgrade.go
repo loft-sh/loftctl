@@ -20,12 +20,6 @@ var rawVersion string
 var githubSlug = "loft-sh/loft"
 var reVersion = regexp.MustCompile(`\d+\.\d+\.\d+`)
 
-func init() {
-	if IsPlugin == "true" {
-		githubSlug = "loft-sh/loft-devspace-plugin"
-	}
-}
-
 func eraseVersionPrefix(version string) (string, error) {
 	indices := reVersion.FindStringIndex(version)
 	if indices == nil {

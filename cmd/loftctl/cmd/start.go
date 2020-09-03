@@ -40,6 +40,7 @@ type StartCmd struct {
 	LocalPort        string
 	SmartKubeContext bool
 	Reset            bool
+	Version          string
 	Namespace        string
 	Password         string
 
@@ -82,6 +83,7 @@ before running this command:
 	startCmd.Flags().StringVar(&cmd.Namespace, "namespace", "loft", "The namespace to install loft into")
 	startCmd.Flags().StringVar(&cmd.LocalPort, "local-port", "9898", "The local port to bind to if using port-forwarding")
 	startCmd.Flags().StringVar(&cmd.Password, "password", "", "The password to use for the admin account. (If empty this will be the namespace UID)")
+	startCmd.Flags().StringVar(&cmd.Version, "version", "", "The loft version to install")
 	startCmd.Flags().BoolVar(&cmd.Reset, "reset", false, "If true, an existing loft instance will be deleted before installing loft")
 	return startCmd
 }
@@ -549,6 +551,9 @@ func (cmd *StartCmd) installRemote(kubeClient kubernetes.Interface, kubeContext,
 		"admin.email=" + email,
 		"--wait",
 	}
+	if cmd.Version != "" {
+		args = append(args, "--version", cmd.Version)
+	}
 
 	cmd.Log.WriteString("\n")
 	cmd.Log.Infof("Executing command: helm %s\n", strings.Join(args, " "))
@@ -616,6 +621,9 @@ func (cmd *StartCmd) installLocal(kubeClient kubernetes.Interface, kubeContext, 
 		// "--set",
 		// "useSelfSignedCertificate=true",
 		"--wait",
+	}
+	if cmd.Version != "" {
+		args = append(args, "--version", cmd.Version)
 	}
 
 	cmd.Log.Infof("Executing command: helm %s\n", strings.Join(args, " "))
@@ -800,6 +808,12 @@ func (cmd *StartCmd) startPortforwarding(kubeContext string) error {
 	if err != nil {
 		return fmt.Errorf("Error starting kubectl command: %v", err)
 	}
+	go func() {
+		err := c.Wait()
+		if err != nil {
+			cmd.Log.Fatal("Port-Forwarding has unexpectedly ended. Please restart the command via 'loft start'")
+		}
+	}()
 
 	// wait until loft is reachable at the given url
 	client := &http.Client{
