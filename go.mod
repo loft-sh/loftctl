@@ -5,6 +5,7 @@ go 1.13
 require (
 	github.com/blang/semver v3.5.1+incompatible
 	github.com/docker/docker v0.7.3-0.20190327010347-be7ac8be2ae0
+	github.com/evanphx/json-patch v4.5.0+incompatible
 	github.com/k0kubun/go-ansi v0.0.0-20180517002512-3bf9e2903213
 	github.com/kiosk-sh/kiosk v0.1.17
 	github.com/loft-sh/api v0.6.4
@@ -14,7 +15,7 @@ require (
 	github.com/rhysd/go-github-selfupdate v1.2.2
 	github.com/sirupsen/logrus v1.4.2
 	github.com/skratchdot/open-golang v0.0.0-20200116055534-eef842397966
-	github.com/spf13/cobra v0.0.5
+	github.com/spf13/cobra v1.0.0
 	github.com/spf13/pflag v1.0.5
 	gopkg.in/AlecAivazis/survey.v1 v1.8.8
 	gopkg.in/square/go-jose.v2 v2.2.2
@@ -23,11 +24,10 @@ require (
 	k8s.io/apimachinery v0.18.4
 	k8s.io/client-go v0.18.4
 	k8s.io/klog v1.0.0
+	k8s.io/kube-aggregator v0.18.4
 	k8s.io/kubectl v0.18.4
 	sigs.k8s.io/controller-runtime v0.6.1
 )
-
-
 
 replace github.com/kubernetes-incubator/reference-docs => github.com/kubernetes-sigs/reference-docs v0.0.0-20170929004150-fcf65347b256
 

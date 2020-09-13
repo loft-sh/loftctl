@@ -14,8 +14,21 @@ import (
 	"github.com/loft-sh/loftctl/pkg/upgrade"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
+	"net"
 )
 
+var privateIPBlocks []*net.IPNet
+
+// IsPrivateIP checks if a given ip is private
+func IsPrivateIP(ip net.IP) bool {
+	for _, block := range privateIPBlocks {
+		if block.Contains(ip) {
+			return true
+		}
+	}
+
+	return false
+}
 // NewRootCmd returns a new root command
 func NewRootCmd(log log.Logger) *cobra.Command {
 	return &cobra.Command{
@@ -77,6 +90,7 @@ func BuildRoot(log log.Logger) *cobra.Command {
 	rootCmd.AddCommand(NewSleepCmd(globalFlags))
 	rootCmd.AddCommand(NewWakeUpCmd(globalFlags))
 	rootCmd.AddCommand(NewUpgradeCmd())
+	rootCmd.AddCommand(NewCompletionCmd(globalFlags))
 
 	// add subcommands
 	rootCmd.AddCommand(connect.NewConnectCmd(globalFlags))

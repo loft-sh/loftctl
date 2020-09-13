@@ -1,0 +1,22 @@
+# pkg and bin directories currently contain build artifacts
+# only so we exclude them.
+bin/
+
+.vscode/
+
+# Emacs temporary files
+*~
+
+# Other temporary files
+.DS_Store
+
+# temporary files from emacs flymd-mode
+flymd.*
+
+# vim .swp files
+*~
+*.swp
+*.swo
+
+# Files created by Goland IDE
+.idea/

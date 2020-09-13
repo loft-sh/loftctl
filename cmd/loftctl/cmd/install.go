@@ -269,8 +269,6 @@ func (cmd *InstallCmd) askForHost() (string, error) {
 	return "", fmt.Errorf("unreachable")
 }
 
-var privateIPBlocks []*net.IPNet
-
 func init() {
 	for _, cidr := range []string{
 		"127.0.0.0/8",    // IPv4 loopback
@@ -284,17 +282,6 @@ func init() {
 		_, block, _ := net.ParseCIDR(cidr)
 		privateIPBlocks = append(privateIPBlocks, block)
 	}
-}
-
-// IsPrivateIP checks if a given ip is private
-func IsPrivateIP(ip net.IP) bool {
-	for _, block := range privateIPBlocks {
-		if block.Contains(ip) {
-			return true
-		}
-	}
-
-	return false
 }
 
 func (cmd *InstallCmd) isLocalCluster(host string) bool {
