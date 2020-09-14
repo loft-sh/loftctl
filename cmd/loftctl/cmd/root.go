@@ -90,7 +90,7 @@ func BuildRoot(log log.Logger) *cobra.Command {
 	rootCmd.AddCommand(NewSleepCmd(globalFlags))
 	rootCmd.AddCommand(NewWakeUpCmd(globalFlags))
 	rootCmd.AddCommand(NewUpgradeCmd())
-	rootCmd.AddCommand(NewCompletionCmd(globalFlags))
+	rootCmd.AddCommand(NewCompletionCmd(rootCmd, globalFlags))
 
 	// add subcommands
 	rootCmd.AddCommand(connect.NewConnectCmd(globalFlags))

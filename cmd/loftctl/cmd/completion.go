@@ -1,11 +1,12 @@
 package cmd
 
 import (
+	"bytes"
 	"github.com/loft-sh/loftctl/cmd/loftctl/flags"
 	"github.com/loft-sh/loftctl/pkg/log"
-	"os"
-
 	"github.com/spf13/cobra"
+	"os"
+	"text/template"
 )
 
 // CompletionCmd holds the cmd flags
@@ -15,7 +16,7 @@ type CompletionCmd struct {
 	log log.Logger
 }
 
-func NewCompletionCmd(globalFlags *flags.GlobalFlags) *cobra.Command {
+func NewCompletionCmd(command *cobra.Command, globalFlags *flags.GlobalFlags) *cobra.Command {
 	cmd := &CompletionCmd{
 		GlobalFlags: globalFlags,
 		log:         log.GetInstance(),
@@ -24,13 +25,13 @@ func NewCompletionCmd(globalFlags *flags.GlobalFlags) *cobra.Command {
 
 Bash:
 
-$ source <(yourprogram completion bash)
+$ source <({{.Use}} completion bash)
 
 # To load completions for each session, execute once:
 Linux:
-  $ yourprogram completion bash > /etc/bash_completion.d/yourprogram
+  $ {{.Use}} completion bash > /etc/bash_completion.d/{{.Use}}
 MacOS:
-  $ yourprogram completion bash > /usr/local/etc/bash_completion.d/yourprogram
+  $ {{.Use}} completion bash > /usr/local/etc/bash_completion.d/{{.Use}}
 
 Zsh:
 
@@ -40,23 +41,33 @@ Zsh:
 $ echo "autoload -U compinit; compinit" >> ~/.zshrc
 
 # To load completions for each session, execute once:
-$ yourprogram completion zsh > "${fpath[1]}/_yourprogram"
+$ {{.Use}} completion zsh > "${fpath[1]}/_{{.Use}}"
 
 # You will need to start a new shell for this setup to take effect.
 
 Fish:
 
-$ yourprogram completion fish | source
+$ {{.Use}} completion fish | source
 
 # To load completions for each session, execute once:
-$ yourprogram completion fish > ~/.config/fish/completions/yourprogram.fish
+$ {{.Use}} completion fish > ~/.config/fish/completions/{{.Use}}.fish
 	`
+	tmpl, err := template.New("completion").Parse(description)
+	if err != nil {
+		panic(err)
+	}
+	var tpl bytes.Buffer
+	err = tmpl.Execute(&tpl, command)
+	if err != nil {
+		panic(err)
+	}
+	completionDescription := tpl.String()
 
 	// completionCmd represents the completion command
 	var completionCmd = &cobra.Command{
 		Use:                   "completion [bash|zsh|fish|powershell]",
 		Short:                 "Generate completion script",
-		Long:                  description,
+		Long:                  completionDescription,
 		DisableFlagsInUseLine: true,
 		ValidArgs:             []string{"bash", "zsh", "fish", "powershell"},
 		Args:                  cobra.ExactValidArgs(1),
