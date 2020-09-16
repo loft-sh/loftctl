@@ -74,7 +74,7 @@ devspace connect vcluster test --namespace test
 		},
 	}
 
-	c.Flags().StringVar(&cmd.KubeConfig, "out-kube-config", "kubeconfig.yaml", "The path to write the resulting kube config to")
+	c.Flags().StringVar(&cmd.KubeConfig, "out-kube-config", "./kubeconfig.yaml", "The path to write the resulting kube config to")
 	c.Flags().StringVarP(&cmd.Namespace, "namespace", "n", "default", "The namespace to use")
 	c.Flags().BoolVar(&cmd.Print, "print", false, "When enabled prints the context to stdout")
 	c.Flags().IntVar(&cmd.LocalPort, "local-port", 8443, "The local port to forward the virtual cluster to")
