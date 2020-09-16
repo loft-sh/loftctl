@@ -13,7 +13,6 @@ import (
 	"k8s.io/client-go/tools/clientcmd"
 	"os"
 	"os/exec"
-	ctrl "sigs.k8s.io/controller-runtime"
 	"strconv"
 	"strings"
 )
@@ -75,7 +74,7 @@ devspace connect vcluster test --namespace test
 	}
 
 	c.Flags().StringVar(&cmd.KubeConfig, "out-kube-config", "./kubeconfig.yaml", "The path to write the resulting kube config to")
-	c.Flags().StringVarP(&cmd.Namespace, "namespace", "n", "default", "The namespace to use")
+	c.Flags().StringVarP(&cmd.Namespace, "namespace", "n", "", "The namespace to use")
 	c.Flags().BoolVar(&cmd.Print, "print", false, "When enabled prints the context to stdout")
 	c.Flags().IntVar(&cmd.LocalPort, "local-port", 8443, "The local port to forward the virtual cluster to")
 	return c
@@ -83,7 +82,8 @@ devspace connect vcluster test --namespace test
 
 // Run executes the command
 func (cmd *VirtualClusterCmd) Run(cobraCmd *cobra.Command, args []string) error {
-	config, err := ctrl.GetConfig()
+	kubeConfigLoader := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(clientcmd.NewDefaultClientConfigLoadingRules(), &clientcmd.ConfigOverrides{})
+	config, err := kubeConfigLoader.ClientConfig()
 	if err != nil {
 		return err
 	}
@@ -91,6 +91,14 @@ func (cmd *VirtualClusterCmd) Run(cobraCmd *cobra.Command, args []string) error 
 	kubeClient, err := kubernetes.NewForConfig(config)
 	if err != nil {
 		return err
+	}
+
+	// set the namespace correctly
+	if cmd.Namespace == "" {
+		cmd.Namespace, _, err = kubeConfigLoader.Namespace()
+		if err != nil {
+			return err
+		}
 	}
 
 	podName := ""
@@ -103,6 +111,8 @@ func (cmd *VirtualClusterCmd) Run(cobraCmd *cobra.Command, args []string) error 
 		if err != nil {
 			return err
 		}
+
+		cmd.log.Infof("Found vCluster pod %s in namespace %s", podName, cmd.Namespace)
 	}
 
 	// get the kube config from the container
