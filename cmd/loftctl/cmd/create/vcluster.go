@@ -4,6 +4,7 @@ import (
 	"context"
 	"io"
 	"os"
+	"strconv"
 	"strings"
 
 	tenancyv1alpha1 "github.com/kiosk-sh/kiosk/pkg/apis/tenancy/v1alpha1"
@@ -26,6 +27,8 @@ import (
 type VirtualClusterCmd struct {
 	*flags.GlobalFlags
 
+	SleepAfter    int64
+	DeleteAfter   int64
 	Image         string
 	Cluster       string
 	Space         string
@@ -89,6 +92,8 @@ devspace create vcluster test --cluster mycluster --space myspace
 	c.Flags().StringVar(&cmd.Space, "space", "", "The space to create the virtual cluster in")
 	c.Flags().StringVar(&cmd.Account, "account", "", "The cluster account to create the space with if it doesn't exist")
 	c.Flags().BoolVar(&cmd.Print, "print", false, "If enabled, prints the context to the console")
+	c.Flags().Int64Var(&cmd.SleepAfter, "sleep-after", 0, "If set to non zero, will tell the space to sleep after specified seconds of inactivity")
+	c.Flags().Int64Var(&cmd.DeleteAfter, "delete-after", 0, "If set to non zero, will tell loft to delete the space after specified seconds of inactivity")
 	c.Flags().BoolVar(&cmd.CreateContext, "create-context", true, "If loft should create a kube context for the space")
 	c.Flags().BoolVar(&cmd.SwitchContext, "switch-context", true, "If loft should switch the current context to the new context")
 	return c
@@ -160,16 +165,26 @@ func (cmd *VirtualClusterCmd) Run(cobraCmd *cobra.Command, args []string) error 
 			return err
 		}
 
-		// create the space
-		_, err = clusterClient.Kiosk().TenancyV1alpha1().Spaces().Create(ctx, &tenancyv1alpha1.Space{
+		// space object
+		space := &tenancyv1alpha1.Space{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:            cmd.Space,
+				Annotations:     map[string]string{},
 				OwnerReferences: ownerReferences,
 			},
 			Spec: tenancyv1alpha1.SpaceSpec{
 				Account: accountName,
 			},
-		}, metav1.CreateOptions{})
+		}
+		if cmd.SleepAfter > 0 {
+			space.Annotations["sleepmode.loft.sh/sleep-after"] = strconv.FormatInt(cmd.SleepAfter, 10)
+		}
+		if cmd.DeleteAfter > 0 {
+			space.Annotations["sleepmode.loft.sh/delete-after"] = strconv.FormatInt(cmd.DeleteAfter, 10)
+		}
+
+		// create the space
+		_, err = clusterClient.Kiosk().TenancyV1alpha1().Spaces().Create(ctx, space, metav1.CreateOptions{})
 		if err != nil {
 			return errors.Wrap(err, "create space")
 		}

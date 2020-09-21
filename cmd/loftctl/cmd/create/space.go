@@ -3,6 +3,7 @@ package create
 import (
 	"context"
 	"github.com/loft-sh/loftctl/pkg/kube"
+	"strconv"
 
 	"github.com/kiosk-sh/kiosk/pkg/apis/config/v1alpha1"
 	tenancyv1alpha1 "github.com/kiosk-sh/kiosk/pkg/apis/tenancy/v1alpha1"
@@ -23,6 +24,8 @@ import (
 type SpaceCmd struct {
 	*flags.GlobalFlags
 
+	SleepAfter    int64
+	DeleteAfter   int64
 	Cluster       string
 	Account       string
 	CreateContext bool
@@ -77,6 +80,8 @@ devspace create space myspace --cluster mycluster --account myaccount
 
 	c.Flags().StringVar(&cmd.Cluster, "cluster", "", "The cluster to use")
 	c.Flags().StringVar(&cmd.Account, "account", "", "The cluster account to use")
+	c.Flags().Int64Var(&cmd.SleepAfter, "sleep-after", 0, "If set to non zero, will tell the space to sleep after specified seconds of inactivity")
+	c.Flags().Int64Var(&cmd.DeleteAfter, "delete-after", 0, "If set to non zero, will tell loft to delete the space after specified seconds of inactivity")
 	c.Flags().BoolVar(&cmd.CreateContext, "create-context", true, "If loft should create a kube context for the space")
 	c.Flags().BoolVar(&cmd.SwitchContext, "switch-context", true, "If loft should switch the current context to the new context")
 	return c
@@ -125,16 +130,26 @@ func (cmd *SpaceCmd) Run(cobraCmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	// create the space
-	_, err = clusterClient.Kiosk().TenancyV1alpha1().Spaces().Create(context.TODO(), &tenancyv1alpha1.Space{
+	// create space object
+	space := &tenancyv1alpha1.Space{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:            spaceName,
+			Annotations:     map[string]string{},
 			OwnerReferences: ownerReferences,
 		},
 		Spec: tenancyv1alpha1.SpaceSpec{
 			Account: accountName,
 		},
-	}, metav1.CreateOptions{})
+	}
+	if cmd.SleepAfter > 0 {
+		space.Annotations["sleepmode.loft.sh/sleep-after"] = strconv.FormatInt(cmd.SleepAfter, 10)
+	}
+	if cmd.DeleteAfter > 0 {
+		space.Annotations["sleepmode.loft.sh/delete-after"] = strconv.FormatInt(cmd.DeleteAfter, 10)
+	}
+
+	// create the space
+	_, err = clusterClient.Kiosk().TenancyV1alpha1().Spaces().Create(context.TODO(), space, metav1.CreateOptions{})
 	if err != nil {
 		return errors.Wrap(err, "create space")
 	}
