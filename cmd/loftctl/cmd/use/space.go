@@ -60,6 +60,11 @@ devspace use space myspace --cluster mycluster
 		Long:  description,
 		Args:  cobra.MaximumNArgs(1),
 		RunE: func(cobraCmd *cobra.Command, args []string) error {
+			// Check for newer version
+			if cmd.Print == false {
+				upgrade.PrintNewerVersionWarning()
+			}
+
 			return cmd.Run(cobraCmd, args)
 		},
 	}

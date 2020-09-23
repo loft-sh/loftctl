@@ -84,6 +84,9 @@ devspace create vcluster test --cluster mycluster --space myspace
 		Long:  description,
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cobraCmd *cobra.Command, args []string) error {
+			// Check for newer version
+			upgrade.PrintNewerVersionWarning()
+
 			return cmd.Run(cobraCmd, args)
 		},
 	}

@@ -74,6 +74,9 @@ devspace create space myspace --cluster mycluster --account myaccount
 		Long:  description,
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cobraCmd *cobra.Command, args []string) error {
+			// Check for newer version
+			upgrade.PrintNewerVersionWarning()
+
 			return cmd.Run(cobraCmd, args)
 		},
 	}

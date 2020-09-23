@@ -32,14 +32,21 @@ func eraseVersionPrefix(version string) (string, error) {
 	return version, nil
 }
 
+func PrintNewerVersionWarning() {
+	// Get version of current binary
+	latestVersion := NewerVersionAvailable()
+	if latestVersion != "" {
+		if IsPlugin == "true" {
+			log.GetInstance().Warnf("There is a newer version of the loft devspace plugin: v%s. Run `devspace update plugin loft` to upgrade to the newest version.\n", latestVersion)
+		} else {
+			log.GetInstance().Warnf("There is a newer version of loft: v%s. Run `loft upgrade` to upgrade to the newest version.\n", latestVersion)
+		}
+	}
+}
+
 // GetVersion returns the application version
 func GetVersion() string {
 	return version
-}
-
-// GetRawVersion returns the applications raw version
-func GetRawVersion() string {
-	return rawVersion
 }
 
 // SetVersion sets the application version

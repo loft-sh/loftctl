@@ -27,16 +27,6 @@ func NewRootCmd(log log.Logger) *cobra.Command {
 			if globalFlags.Silent {
 				log.SetLevel(logrus.FatalLevel)
 			}
-
-			// Get version of current binary
-			latestVersion := upgrade.NewerVersionAvailable()
-			if latestVersion != "" {
-				if upgrade.IsPlugin == "true" {
-					log.Warnf("There is a newer version of the loft devspace plugin: v%s. Run `devspace update plugin loft` to upgrade to the newest version.\n", latestVersion)
-				} else {
-					log.Warnf("There is a newer version of loft: v%s. Run `loft upgrade` to upgrade to the newest version.\n", latestVersion)
-				}
-			}
 		},
 		Long: `Loft CLI - www.loft.sh`,
 	}

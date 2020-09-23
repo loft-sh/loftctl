@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	jsonpatch "github.com/evanphx/json-patch"
+	"github.com/loft-sh/loftctl/pkg/upgrade"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/rest"
 	"net"
@@ -75,6 +76,9 @@ before running this command:
 	`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cobraCmd *cobra.Command, args []string) error {
+			// Check for newer version
+			upgrade.PrintNewerVersionWarning()
+
 			return cmd.Run(cobraCmd, args)
 		},
 	}
