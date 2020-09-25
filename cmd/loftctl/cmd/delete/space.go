@@ -111,7 +111,7 @@ func (cmd *SpaceCmd) Run(cobraCmd *cobra.Command, args []string) error {
 
 	// update kube config
 	if cmd.DeleteContext {
-		err = kubeconfig.DeleteContext(kubeconfig.ContextName(clusterName, spaceName))
+		err = kubeconfig.DeleteContext(kubeconfig.SpaceContextName(clusterName, spaceName))
 		if err != nil {
 			return err
 		}

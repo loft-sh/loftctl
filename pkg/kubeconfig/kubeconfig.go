@@ -4,6 +4,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/loft-sh/loftctl/pkg/client"
 	"k8s.io/client-go/pkg/apis/clientauthentication/v1alpha1"
@@ -12,19 +13,52 @@ import (
 	"k8s.io/client-go/tools/clientcmd/api"
 )
 
-func ContextName(clusterName, namespaceName string) string {
+func SpaceContextName(clusterName, namespaceName string) string {
 	contextName := "loft_"
 	if namespaceName != "" {
 		contextName += namespaceName + "_"
 	}
 
 	contextName += clusterName
-
 	return contextName
 }
 
 func VirtualClusterContextName(clusterName, namespaceName, virtualClusterName string) string {
 	return "loft-vcluster_" + virtualClusterName + "_" + namespaceName + "_" + clusterName
+}
+
+func ParseContext(contextName string) (isLoftContext bool, cluster string, namespace string, vCluster string) {
+	splitted := strings.Split(contextName, "_")
+	if len(splitted) == 0 || (splitted[0] != "loft" && splitted[0] != "loft-vcluster") {
+		return false, "", "", ""
+	}
+
+	// cluster or space context
+	if splitted[0] == "loft" {
+		if len(splitted) > 3 || len(splitted) == 1 {
+			return false, "", "", ""
+		} else if len(splitted) == 2 {
+			return true, splitted[1], "", ""
+		}
+
+		return true, splitted[2], splitted[1], ""
+	}
+
+	// vCluster context
+	if len(splitted) != 4 {
+		return false, "", "", ""
+	}
+
+	return true, splitted[3], splitted[2], splitted[1]
+}
+
+func CurrentContext() (string, error) {
+	config, err := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(clientcmd.NewDefaultClientConfigLoadingRules(), &clientcmd.ConfigOverrides{}).RawConfig()
+	if err != nil {
+		return "", err
+	}
+
+	return config.CurrentContext, nil
 }
 
 // DeleteContext deletes the context with the given name from the kube config
@@ -72,7 +106,7 @@ func UpdateKubeConfig(clientConfig *client.Config, configPath, clusterName, name
 }
 
 func createSpaceContextInfo(clientConfig *client.Config, configPath, clusterName, namespaceName string) (string, *api.Cluster, *api.AuthInfo, error) {
-	contextName := ContextName(clusterName, namespaceName)
+	contextName := SpaceContextName(clusterName, namespaceName)
 	cluster := api.NewCluster()
 	cluster.Server = clientConfig.Host + "/kubernetes/cluster/" + clusterName
 	cluster.InsecureSkipTLSVerify = clientConfig.Insecure

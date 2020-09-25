@@ -5,12 +5,14 @@ import (
 	"fmt"
 	managementv1 "github.com/loft-sh/api/pkg/apis/management/v1"
 	"github.com/loft-sh/loftctl/pkg/client"
+	"github.com/loft-sh/loftctl/pkg/kubeconfig"
 	"github.com/loft-sh/loftctl/pkg/log"
 	"github.com/loft-sh/loftctl/pkg/survey"
 	"github.com/mgutz/ansi"
 	"github.com/pkg/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
+	"strings"
 )
 
 // ListClusterAccounts lists all the clusters and the corresponding accounts for the current user
@@ -118,6 +120,99 @@ func SelectPod(client kubernetes.Interface, namespace string, log log.Logger) (s
 	return selectedPod, nil
 }
 
+type ClusterUserOrTeam struct {
+	Team          bool
+	ClusterMember managementv1.ClusterMember
+}
+
+func SelectClusterUserOrTeam(baseClient client.Client, clusterName, userName, teamName string, log log.Logger) (*ClusterUserOrTeam, error) {
+	if userName != "" && teamName != "" {
+		return nil, fmt.Errorf("team and user specified, please only choose one")
+	}
+
+	managementClient, err := baseClient.Management()
+	if err != nil {
+		return nil, err
+	}
+
+	members, err := managementClient.Loft().ManagementV1().Clusters().ListMembers(context.TODO(), clusterName, metav1.GetOptions{})
+	if err != nil {
+		return nil, errors.Wrap(err, "retrieve cluster members")
+	}
+
+	matchedMembers := []ClusterUserOrTeam{}
+	optionsUnformatted := [][]string{}
+	for _, user := range members.Users {
+		if teamName != "" {
+			continue
+		} else if userName != "" && user.Info.Name != userName {
+			continue
+		} else if user.Account == nil {
+			continue
+		}
+
+		matchedMembers = append(matchedMembers, ClusterUserOrTeam{
+			ClusterMember: user,
+		})
+		displayName := user.Info.DisplayName
+		if displayName == "" {
+			displayName = user.Info.Name
+		}
+
+		optionsUnformatted = append(optionsUnformatted, []string{"User: " + displayName, user.Account.Name, "Kube User: " + user.Info.Name})
+	}
+	for _, team := range members.Teams {
+		if userName != "" {
+			continue
+		} else if teamName != "" && team.Info.Name != teamName {
+			continue
+		} else if team.Account == nil {
+			continue
+		}
+
+		matchedMembers = append(matchedMembers, ClusterUserOrTeam{
+			Team:          true,
+			ClusterMember: team,
+		})
+		displayName := team.Info.DisplayName
+		if displayName == "" {
+			displayName = team.Info.Name
+		}
+
+		optionsUnformatted = append(optionsUnformatted, []string{"Team: " + displayName, team.Account.Name, "Kube Team: " + team.Info.Name})
+	}
+
+	questionOptions := formatOptions("%s | Account: %s | %s", optionsUnformatted)
+	if len(questionOptions) == 0 {
+		if userName == "" && teamName == "" {
+			return nil, fmt.Errorf("couldn't find any space")
+		} else if userName != "" {
+			return nil, fmt.Errorf("couldn't find user %s in cluster %s", ansi.Color(userName, "white+b"), ansi.Color(clusterName, "white+b"))
+		}
+
+		return nil, fmt.Errorf("couldn't find team %s in cluster %s", ansi.Color(teamName, "white+b"), ansi.Color(clusterName, "white+b"))
+	} else if len(questionOptions) == 1 {
+		return &matchedMembers[0], nil
+	}
+
+	selectedMember, err := log.Question(&survey.QuestionOptions{
+		Question:     "Please choose an user or team",
+		DefaultValue: questionOptions[0],
+		Options:      questionOptions,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	for idx, s := range questionOptions {
+		if s == selectedMember {
+			return &matchedMembers[idx], nil
+		}
+	}
+
+	return nil, fmt.Errorf("selected question option not found")
+}
+
 // SelectSpaceAndClusterName selects a space and cluster name
 func SelectSpaceAndClusterName(baseClient client.Client, spaceName, clusterName string, log log.Logger) (string, string, error) {
 	client, err := baseClient.Management()
@@ -135,8 +230,15 @@ func SelectSpaceAndClusterName(baseClient client.Client, spaceName, clusterName 
 		return "", "", err
 	}
 
+	currentContext, err := kubeconfig.CurrentContext()
+	if err != nil {
+		return "", "", errors.Wrap(err, "loading kubernetes config")
+	}
+
+	isLoftContext, cluster, namespace, vCluster := kubeconfig.ParseContext(currentContext)
 	matchedSpaces := []managementv1.ClusterSpace{}
-	questionOptions := []string{}
+	questionOptionsUnformatted := [][]string{}
+	defaultIndex := 0
 	for _, space := range spaces.Spaces {
 		if spaceName != "" && space.Space.Name != spaceName {
 			continue
@@ -144,10 +246,15 @@ func SelectSpaceAndClusterName(baseClient client.Client, spaceName, clusterName 
 			continue
 		}
 
+		if isLoftContext == true && vCluster == "" && cluster == space.Cluster && namespace == space.Space.Name {
+			defaultIndex = len(questionOptionsUnformatted)
+		}
+
 		matchedSpaces = append(matchedSpaces, space)
-		questionOptions = append(questionOptions, "Space: "+space.Space.Name+" - Cluster: "+space.Cluster)
+		questionOptionsUnformatted = append(questionOptionsUnformatted, []string{space.Space.Name, space.Cluster})
 	}
 
+	questionOptions := formatOptions("Space: %s | Cluster: %s", questionOptionsUnformatted)
 	if len(questionOptions) == 0 {
 		if spaceName == "" {
 			return "", "", fmt.Errorf("couldn't find any space")
@@ -162,7 +269,7 @@ func SelectSpaceAndClusterName(baseClient client.Client, spaceName, clusterName 
 
 	selectedSpace, err := log.Question(&survey.QuestionOptions{
 		Question:     "Please choose a space to use",
-		DefaultValue: questionOptions[0],
+		DefaultValue: questionOptions[defaultIndex],
 		Options:      questionOptions,
 	})
 	if err != nil {
@@ -196,8 +303,15 @@ func SelectVirtualClusterAndSpaceAndClusterName(baseClient client.Client, virtua
 		return "", "", "", err
 	}
 
+	currentContext, err := kubeconfig.CurrentContext()
+	if err != nil {
+		return "", "", "", errors.Wrap(err, "loading kubernetes config")
+	}
+
+	isLoftContext, cluster, namespace, vCluster := kubeconfig.ParseContext(currentContext)
 	matchedVClusters := []managementv1.ClusterVirtualCluster{}
-	questionOptions := []string{}
+	questionOptionsUnformatted := [][]string{}
+	defaultIndex := 0
 	for _, virtualCluster := range virtualClusters.VirtualClusters {
 		if virtualClusterName != "" && virtualCluster.VirtualCluster.Name != virtualClusterName {
 			continue
@@ -207,10 +321,15 @@ func SelectVirtualClusterAndSpaceAndClusterName(baseClient client.Client, virtua
 			continue
 		}
 
+		if isLoftContext == true && vCluster == virtualCluster.VirtualCluster.Name && cluster == virtualCluster.Cluster && namespace == virtualCluster.VirtualCluster.Namespace {
+			defaultIndex = len(questionOptionsUnformatted)
+		}
+
 		matchedVClusters = append(matchedVClusters, virtualCluster)
-		questionOptions = append(questionOptions, "VirtualCluster: "+virtualCluster.VirtualCluster.Name+" - Space: "+virtualCluster.VirtualCluster.Namespace+" - Cluster: "+virtualCluster.Cluster)
+		questionOptionsUnformatted = append(questionOptionsUnformatted, []string{virtualCluster.VirtualCluster.Name, virtualCluster.VirtualCluster.Namespace, virtualCluster.Cluster})
 	}
 
+	questionOptions := formatOptions("vCluster: %s | Space: %s | Cluster: %s", questionOptionsUnformatted)
 	if len(questionOptions) == 0 {
 		if virtualClusterName == "" {
 			return "", "", "", fmt.Errorf("couldn't find any virtual cluster")
@@ -227,7 +346,7 @@ func SelectVirtualClusterAndSpaceAndClusterName(baseClient client.Client, virtua
 
 	selectedSpace, err := log.Question(&survey.QuestionOptions{
 		Question:     "Please choose a virtual cluster to use",
-		DefaultValue: questionOptions[0],
+		DefaultValue: questionOptions[defaultIndex],
 		Options:      questionOptions,
 	})
 	if err != nil {
@@ -244,4 +363,36 @@ func SelectVirtualClusterAndSpaceAndClusterName(baseClient client.Client, virtua
 	}
 
 	return virtualClusterName, spaceName, clusterName, nil
+}
+
+func formatOptions(format string, options [][]string) []string {
+	if len(options) == 0 {
+		return []string{}
+	}
+
+	columnLengths := make([]int, len(options[0]))
+	for _, row := range options {
+		for i, column := range row {
+			if len(column) > columnLengths[i] {
+				columnLengths[i] = len(column)
+			}
+		}
+	}
+
+	retOptions := []string{}
+	for _, row := range options {
+		columns := []interface{}{}
+		for i := range row {
+			value := row[i]
+			if columnLengths[i] > len(value) {
+				value = value + strings.Repeat(" ", columnLengths[i]-len(value))
+			}
+
+			columns = append(columns, value)
+		}
+
+		retOptions = append(retOptions, fmt.Sprintf(format, columns...))
+	}
+
+	return retOptions
 }
