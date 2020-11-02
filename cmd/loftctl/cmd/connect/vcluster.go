@@ -103,7 +103,7 @@ func (cmd *VirtualClusterCmd) Run(cobraCmd *cobra.Command, args []string) error 
 
 	podName := ""
 	if len(args) > 0 {
-		podName = args[0]
+		podName = args[0] + "-0"
 	}
 
 	if podName == "" {
