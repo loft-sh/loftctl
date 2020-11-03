@@ -17,6 +17,7 @@ import (
 	"strings"
 	"time"
 
+	loftclientset "github.com/loft-sh/api/pkg/client/clientset_generated/clientset"
 	"github.com/loft-sh/loftctl/cmd/loftctl/flags"
 	"github.com/loft-sh/loftctl/pkg/client"
 	"github.com/loft-sh/loftctl/pkg/log"
@@ -342,6 +343,16 @@ func (cmd *StartCmd) reset(kubeClient kubernetes.Interface, restConfig *rest.Con
 	}
 
 	err = apiRegistrationClient.ApiregistrationV1().APIServices().Delete(context.TODO(), "v1.management.loft.sh", metav1.DeleteOptions{})
+	if err != nil && kerrors.IsNotFound(err) == false {
+		return err
+	}
+
+	loftClient, err := loftclientset.NewForConfig(restConfig)
+	if err != nil {
+		return err
+	}
+
+	err = loftClient.StorageV1().Users().Delete(context.TODO(), "admin", metav1.DeleteOptions{})
 	if err != nil && kerrors.IsNotFound(err) == false {
 		return err
 	}
