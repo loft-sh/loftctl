@@ -621,20 +621,10 @@ func (cmd *StartCmd) installLocal(kubeClient kubernetes.Interface, kubeContext, 
 		"ingress.enabled=false",
 		"--set",
 		"cluster.connect.local=true",
-		// "--set",
-		// "service.type=LoadBalancer",
 		"--set",
 		"admin.password=" + password,
 		"--set",
 		"admin.email=" + email,
-		// "--set",
-		// "env.PROXY_TLS_SELF_SIGNED=true",
-		// "--set",
-		// "livenessProbe.enabled=false",
-		// "--set",
-		// "readinessProbe.enabled=false",
-		"--set",
-		"useSelfSignedCertificate=true",
 		"--wait",
 	}
 	if cmd.Version != "" {
@@ -811,7 +801,7 @@ func (cmd *StartCmd) startPortforwarding(kubeContext string) error {
 		kubeContext,
 		"--namespace",
 		cmd.Namespace,
-		cmd.LocalPort + ":8080",
+		cmd.LocalPort + ":443",
 	}
 	cmd.Log.Infof("Starting command: kubectl %s", strings.Join(args, " "))
 
@@ -821,7 +811,7 @@ func (cmd *StartCmd) startPortforwarding(kubeContext string) error {
 
 	err := c.Start()
 	if err != nil {
-		return fmt.Errorf("Error starting kubectl command: %v", err)
+		return fmt.Errorf("error starting kubectl command: %v", err)
 	}
 	go func() {
 		err := c.Wait()
