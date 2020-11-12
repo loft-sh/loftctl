@@ -96,6 +96,7 @@ func (cmd *LoginCmd) RunLogin(cobraCmd *cobra.Command, args []string) error {
 	}
 
 	// log into loft
+	url = strings.TrimSuffix(url, "/")
 	if cmd.Username != "" && cmd.AccessKey != "" {
 		err = loader.LoginWithAccessKey(url, cmd.Username, cmd.AccessKey, cmd.Insecure)
 	} else {
