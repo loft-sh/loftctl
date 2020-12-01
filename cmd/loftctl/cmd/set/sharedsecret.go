@@ -2,6 +2,8 @@ package set
 
 import (
 	"context"
+	managementv1 "github.com/loft-sh/api/pkg/apis/management/v1"
+	storagev1 "github.com/loft-sh/api/pkg/apis/storage/v1"
 	"github.com/loft-sh/loftctl/cmd/loftctl/flags"
 	"github.com/loft-sh/loftctl/pkg/client"
 	"github.com/loft-sh/loftctl/pkg/log"
@@ -9,6 +11,7 @@ import (
 	"github.com/loft-sh/loftctl/pkg/upgrade"
 	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
+	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"strings"
 )
@@ -87,10 +90,15 @@ func (cmd *SharedSecretCmd) Run(cobraCmd *cobra.Command, args []string) error {
 
 	secret, err := managementClient.Loft().ManagementV1().SharedSecrets().Get(context.TODO(), secretName, metav1.GetOptions{})
 	if err != nil {
-		return errors.Wrap(err, "get secret")
+		if kerrors.IsNotFound(err) == false {
+			return errors.Wrap(err, "get secret")
+		}
 	}
 
 	if keyName == "" {
+		if secret == nil {
+			return errors.Errorf("please specify a secret key to set. For example 'set secret my-secret.key value'")
+		}
 		if len(secret.Spec.Data) == 0 {
 			return errors.Errorf("secret %s has no keys. Please specify a key like `loft set secret name.key value`", secretName)
 		}
@@ -108,6 +116,28 @@ func (cmd *SharedSecretCmd) Run(cobraCmd *cobra.Command, args []string) error {
 		if err != nil {
 			return errors.Wrap(err, "ask question")
 		}
+	}
+
+	// create the secret
+	if secret == nil {
+		_, err = managementClient.Loft().ManagementV1().SharedSecrets().Create(context.TODO(), &managementv1.SharedSecret{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: secretName,
+			},
+			Spec: managementv1.SharedSecretSpec{
+				SharedSecretSpec: storagev1.SharedSecretSpec{
+					Data: map[string][]byte{
+						keyName: []byte(args[1]),
+					},
+				},
+			},
+		}, metav1.CreateOptions{})
+		if err != nil {
+			return err
+		}
+
+		cmd.log.Donef("Successfully created secret %s with key %s", secretName, keyName)
+		return nil
 	}
 
 	// Update the secret
