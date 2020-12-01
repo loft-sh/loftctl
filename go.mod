@@ -7,7 +7,7 @@ require (
 	github.com/docker/docker v0.7.3-0.20190327010347-be7ac8be2ae0
 	github.com/k0kubun/go-ansi v0.0.0-20180517002512-3bf9e2903213
 	github.com/kiosk-sh/kiosk v0.1.17
-	github.com/loft-sh/api v1.4.0-beta.0
+	github.com/loft-sh/api v1.4.0-beta.1
 	github.com/mgutz/ansi v0.0.0-20200706080929-d51e80ef957d
 	github.com/mitchellh/go-homedir v1.1.0
 	github.com/pkg/errors v0.8.1
