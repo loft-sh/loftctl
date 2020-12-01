@@ -1,4 +1,4 @@
-package get
+package set
 
 import (
 	"github.com/loft-sh/loftctl/cmd/loftctl/flags"
@@ -6,28 +6,27 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// NewGetCmd creates a new cobra command
-func NewGetCmd(globalFlags *flags.GlobalFlags) *cobra.Command {
+// NewSetCmd creates a new cobra command
+func NewSetCmd(globalFlags *flags.GlobalFlags) *cobra.Command {
 	description := `
 #######################################################
-###################### loft get #######################
+###################### loft set #######################
 #######################################################
 	`
 	if upgrade.IsPlugin == "true" {
 		description = `
 #######################################################
-#################### devspace get #####################
+#################### devspace set #####################
 #######################################################
 	`
 	}
 	c := &cobra.Command{
-		Use:   "get",
-		Short: "Get configuration",
+		Use:   "set",
+		Short: "Set configuration",
 		Long:  description,
 		Args:  cobra.NoArgs,
 	}
 
-	c.AddCommand(NewUserCmd(globalFlags))
 	c.AddCommand(NewSharedSecretCmd(globalFlags))
 	return c
 }

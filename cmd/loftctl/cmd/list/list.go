@@ -31,6 +31,6 @@ func NewListCmd(globalFlags *flags.GlobalFlags) *cobra.Command {
 	listCmd.AddCommand(NewSpacesCmd(globalFlags))
 	listCmd.AddCommand(NewClustersCmd(globalFlags))
 	listCmd.AddCommand(NewVirtualClustersCmd(globalFlags))
-
+	listCmd.AddCommand(NewSharedSecretsCmd(globalFlags))
 	return listCmd
 }

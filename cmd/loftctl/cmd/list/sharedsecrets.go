@@ -9,48 +9,48 @@ import (
 	"github.com/spf13/cobra"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/duration"
-	"strconv"
+	"strings"
 	"time"
 )
 
-// TeamsCmd holds the cmd flags
-type TeamsCmd struct {
+// SharedSecretsCmd holds the cmd flags
+type SharedSecretsCmd struct {
 	*flags.GlobalFlags
 
 	log log.Logger
 }
 
-// NewTeamsCmd creates a new command
-func NewTeamsCmd(globalFlags *flags.GlobalFlags) *cobra.Command {
-	cmd := &TeamsCmd{
+// NewSharedSecretsCmd creates a new command
+func NewSharedSecretsCmd(globalFlags *flags.GlobalFlags) *cobra.Command {
+	cmd := &SharedSecretsCmd{
 		GlobalFlags: globalFlags,
 		log:         log.GetInstance(),
 	}
 	description := `
 #######################################################
-#################### loft list teams ##################
+################## loft list secrets ##################
 #######################################################
-List the loft teams you are member of
+List the shared secrets you have access to
 
 Example:
-loft list teams
+loft list secrets
 #######################################################
 	`
 	if upgrade.IsPlugin == "true" {
 		description = `
 #######################################################
-################## devspace list teams ################
+################ devspace list secrets ################
 #######################################################
-List the loft teams you are member of
+List the shared secrets you have access to
 
 Example:
-devspace list teams
+devspace list secrets
 #######################################################
 	`
 	}
 	clustersCmd := &cobra.Command{
-		Use:   "teams",
-		Short: "Lists the loft teams you are member of",
+		Use:   "secrets",
+		Short: "List the shared secrets you have access to",
 		Long:  description,
 		Args:  cobra.NoArgs,
 		RunE: func(cobraCmd *cobra.Command, args []string) error {
@@ -61,14 +61,9 @@ devspace list teams
 	return clustersCmd
 }
 
-// RunUsers executes the functionality "loft list users"
-func (cmd *TeamsCmd) Run(cobraCmd *cobra.Command, args []string) error {
+// Run executes the functionality
+func (cmd *SharedSecretsCmd) Run(cobraCmd *cobra.Command, args []string) error {
 	baseClient, err := client.NewClientFromPath(cmd.Config)
-	if err != nil {
-		return err
-	}
-
-	authInfo, err := baseClient.AuthInfo()
 	if err != nil {
 		return err
 	}
@@ -78,24 +73,27 @@ func (cmd *TeamsCmd) Run(cobraCmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	teams, err := client.Loft().ManagementV1().Users().ListTeams(context.TODO(), authInfo.Name, metav1.GetOptions{})
+	secrets, err := client.Loft().ManagementV1().SharedSecrets().List(context.TODO(), metav1.ListOptions{})
 	if err != nil {
 		return err
 	}
 
 	header := []string{
 		"Name",
-		"Users",
-		"Groups",
+		"Keys",
 		"Age",
 	}
 	values := [][]string{}
-	for _, team := range teams.Teams {
+	for _, secret := range secrets.Items {
+		keyNames := []string{}
+		for k := range secret.Spec.Data {
+			keyNames = append(keyNames, k)
+		}
+
 		values = append(values, []string{
-			team.Name,
-			strconv.Itoa(len(team.Spec.Users)),
-			strconv.Itoa(len(team.Spec.Groups)),
-			duration.HumanDuration(time.Now().Sub(team.CreationTimestamp.Time)),
+			secret.Name,
+			strings.Join(keyNames, ","),
+			duration.HumanDuration(time.Now().Sub(secret.CreationTimestamp.Time)),
 		})
 	}
 
