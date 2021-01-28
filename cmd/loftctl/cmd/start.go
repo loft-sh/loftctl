@@ -152,6 +152,12 @@ func (cmd *StartCmd) Run(cobraCmd *cobra.Command, args []string) error {
 		return fmt.Errorf("There is an error loading your current kube config (%v), please make sure you have access to a kubernetes cluster and the command `kubectl get namespaces` is working.", err)
 	}
 
+	// Check if cluster has RBAC correctly configured
+	_, err = kubeClient.RbacV1().ClusterRoles().Get(context.Background(), "cluster-admin", metav1.GetOptions{})
+	if err != nil {
+		return fmt.Errorf("Error retrieving cluster role 'cluster-admin': %v. Please make sure RBAC is correctly configured in your cluster", err)
+	}
+
 	// Is already installed?
 	isInstalled, err := cmd.isLoftAlreadyInstalled(kubeClient)
 	if err != nil {
