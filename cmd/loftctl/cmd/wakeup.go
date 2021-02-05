@@ -2,6 +2,8 @@ package cmd
 
 import (
 	"context"
+	"fmt"
+	"k8s.io/apimachinery/pkg/util/wait"
 	"time"
 
 	"github.com/loft-sh/loftctl/cmd/loftctl/flags"
@@ -96,6 +98,7 @@ func (cmd *WakeUpCmd) Run(cobraCmd *cobra.Command, args []string) error {
 
 	sleepModeConfig := &configs.Items[0]
 	sleepModeConfig.Spec.ForceSleep = false
+	sleepModeConfig.Spec.ForceSleepDuration = nil
 	sleepModeConfig.Status.LastActivity = time.Now().Unix()
 
 	sleepModeConfig, err = clusterClient.Loft().ClusterV1().SleepModeConfigs(spaceName).Create(context.TODO(), sleepModeConfig, metav1.CreateOptions{})
@@ -103,5 +106,21 @@ func (cmd *WakeUpCmd) Run(cobraCmd *cobra.Command, args []string) error {
 		return err
 	}
 
+	// wait for sleeping
+	cmd.Log.StartWait("Wait until space wakes up")
+	defer cmd.Log.StopWait()
+	err = wait.Poll(time.Second, time.Minute, func() (bool, error) {
+		configs, err := clusterClient.Loft().ClusterV1().SleepModeConfigs(spaceName).List(context.TODO(), metav1.ListOptions{})
+		if err != nil {
+			return false, err
+		}
+
+		return configs.Items[0].Status.SleepingSince == 0, nil
+	})
+	if err != nil {
+		return fmt.Errorf("error waiting for space to wake up: %v", err)
+	}
+
+	cmd.Log.Donef("Successfully woken up space %s", spaceName)
 	return nil
 }
