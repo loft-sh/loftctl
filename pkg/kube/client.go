@@ -1,7 +1,7 @@
 package kube
 
 import (
-	kioskclient "github.com/kiosk-sh/kiosk/pkg/client/clientset_generated/clientset"
+	kioskclient "github.com/loft-sh/kiosk/pkg/client/clientset_generated/clientset"
 	loftclient "github.com/loft-sh/api/pkg/client/clientset_generated/clientset"
 
 	"github.com/pkg/errors"

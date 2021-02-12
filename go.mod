@@ -6,7 +6,7 @@ require (
 	github.com/blang/semver v3.5.1+incompatible
 	github.com/docker/docker v0.7.3-0.20190327010347-be7ac8be2ae0
 	github.com/k0kubun/go-ansi v0.0.0-20180517002512-3bf9e2903213
-	github.com/kiosk-sh/kiosk v0.1.17
+	github.com/loft-sh/kiosk v0.1.25
 	github.com/loft-sh/api v1.7.0
 	github.com/mgutz/ansi v0.0.0-20200706080929-d51e80ef957d
 	github.com/mitchellh/go-homedir v1.1.0
@@ -19,12 +19,12 @@ require (
 	gopkg.in/AlecAivazis/survey.v1 v1.8.8
 	gopkg.in/square/go-jose.v2 v2.2.2
 	gotest.tools v2.2.0+incompatible
-	k8s.io/api v0.18.4
-	k8s.io/apimachinery v0.18.4
-	k8s.io/client-go v0.18.4
+	k8s.io/api v0.20.2
+	k8s.io/apimachinery v0.20.2
+	k8s.io/client-go v0.20.2
 	k8s.io/klog v1.0.0
-	k8s.io/kubectl v0.18.4
-	sigs.k8s.io/controller-runtime v0.6.1
+	k8s.io/kubectl v0.20.2
+	sigs.k8s.io/controller-runtime v0.8.2
 )
 
 
