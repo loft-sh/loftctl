@@ -199,6 +199,36 @@ func (cmd *StartCmd) Run(cobraCmd *cobra.Command, args []string) error {
 			if err != nil {
 				return err
 			}
+			
+			// check if loft is reachable
+			if isLoftReachable(host) == false {
+				const (
+					YesOption = "Yes"
+					NoOption  = "No, I want to see the DNS message again"
+				)
+
+				answer, err := cmd.Log.Question(&survey.QuestionOptions{
+					Question:     "Loft seems to be not reachable at https://" + host + ". Do you want to use port-forwarding instead?",
+					DefaultValue: YesOption,
+					Options: []string{
+						YesOption,
+						NoOption,
+					},
+				})
+				if err != nil {
+					return err
+				}
+
+				if answer == YesOption {
+					err := cmd.startPortforwarding(contextToLoad)
+					if err != nil {
+						return err
+					}
+
+					cmd.successLocal(password)
+					return nil
+				}
+			}
 
 			return cmd.successRemote(host, password)
 		}
@@ -382,12 +412,12 @@ func (cmd *StartCmd) isLoftAlreadyInstalled(kubeClient kubernetes.Interface) (bo
 }
 
 func (cmd *StartCmd) askForHost() (string, error) {
-	ingressAccess := "via ingress (multiple users can access loft via domain)"
+	ingressAccess := "via ingress (you will need to configure DNS)"
 	answer, err := cmd.Log.Question(&survey.QuestionOptions{
 		Question: "How do you want to access loft?",
 		Options: []string{
+			"via port-forwarding (no other configuration needed)",
 			ingressAccess,
-			"via port-forwarding (only you can access loft)",
 		},
 	})
 	if err != nil {
@@ -664,7 +694,7 @@ func (cmd *StartCmd) installLocal(kubeClient kubernetes.Interface, kubeContext, 
 	return nil
 }
 
-func (cmd *StartCmd) successRemote(host string, password string) error {
+func isLoftReachable(host string) bool {
 	// wait until loft is reachable at the given url
 	client := &http.Client{
 		Transport: &http.Transport{
@@ -675,6 +705,14 @@ func (cmd *StartCmd) successRemote(host string, password string) error {
 	}
 	resp, err := client.Get("https://" + host + "/version")
 	if err == nil && resp.StatusCode == http.StatusOK {
+		return true
+	}
+	
+	return false
+}
+
+func (cmd *StartCmd) successRemote(host string, password string) error {
+	if isLoftReachable(host) {
 		cmd.successMessageRemote(host, password)
 		return nil
 	}
@@ -696,19 +734,14 @@ EXTERNAL-IP may be 'pending' for a while until your cloud provider has created a
 
 #########################################################################################################
 
-The command will wait until loft is reachable under the host. You can also abort and get back later by
-running 'loft start' again and the installation will continue at this point.
+The command will wait until loft is reachable under the host. You can also abort and use port-forwarding instead
+by running 'loft start' again.
 
 `)
 
 	cmd.Log.StartWait("Waiting for you to configure DNS, so loft can be reached on https://" + host)
-	err = wait.PollImmediate(time.Second*5, time.Hour*24, func() (bool, error) {
-		resp, err := client.Get("https://" + host + "/version")
-		if err != nil {
-			return false, nil
-		}
-
-		return resp.StatusCode == http.StatusOK, nil
+	err := wait.PollImmediate(time.Second*5, time.Hour*24, func() (bool, error) {
+		return isLoftReachable(host), nil
 	})
 	cmd.Log.StopWait()
 	if err != nil {
