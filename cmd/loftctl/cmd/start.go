@@ -7,6 +7,8 @@ import (
 	"fmt"
 	jsonpatch "github.com/evanphx/json-patch"
 	"github.com/loft-sh/loftctl/pkg/upgrade"
+	"github.com/pkg/errors"
+	"io/ioutil"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/rest"
 	"net"
@@ -183,7 +185,32 @@ func (cmd *StartCmd) Run(cobraCmd *cobra.Command, args []string) error {
 			_, err = kubeClient.NetworkingV1beta1().Ingresses(cmd.Namespace).Get(context.TODO(), "loft-ingress", metav1.GetOptions{})
 			isLocal := kerrors.IsNotFound(err)
 			if isLocal {
-				err := cmd.startPortforwarding(contextToLoad)
+				// ask if we should deploy an ingress now
+				const (
+					NoOption  = "No"
+					YesOption = "Yes, I want to deploy an ingress to let other people access loft."
+				)
+
+				answer, err := cmd.Log.Question(&survey.QuestionOptions{
+					Question:     "Loft was installed without an ingress. Do you want to upgrade loft and install an ingress now?",
+					DefaultValue: NoOption,
+					Options: []string{
+						NoOption,
+						YesOption,
+					},
+				})
+				if err != nil {
+					return err
+				} else if answer == YesOption {
+					host, err := enterHostNameQuestion(cmd.Log)
+					if err != nil {
+						return err
+					}
+
+					return cmd.upgradeWithIngress(kubeClient, contextToLoad, host, password)
+				}
+				
+				err = cmd.startPortforwarding(contextToLoad)
 				if err != nil {
 					return err
 				}
@@ -201,7 +228,8 @@ func (cmd *StartCmd) Run(cobraCmd *cobra.Command, args []string) error {
 			}
 			
 			// check if loft is reachable
-			if isLoftReachable(host) == false {
+			reachable, err := isLoftReachable(host)
+			if reachable == false || err != nil {
 				const (
 					YesOption = "Yes"
 					NoOption  = "No, I want to see the DNS message again"
@@ -425,19 +453,23 @@ func (cmd *StartCmd) askForHost() (string, error) {
 	}
 
 	if answer == ingressAccess {
-		return cmd.Log.Question(&survey.QuestionOptions{
-			Question: "Enter a hostname for your loft instance (e.g. loft.my-domain.tld): \n",
-			ValidationFunc: func(answer string) error {
-				u, err := url.Parse("https://" + answer)
-				if err != nil || u.Path != "" || u.Port() != "" || len(strings.Split(answer, ".")) < 2 {
-					return fmt.Errorf("Please enter a valid hostname without protocol (https://), without path and without port, e.g. loft.my-domain.tld")
-				}
-				return nil
-			},
-		})
+		return enterHostNameQuestion(cmd.Log)
 	}
 
 	return "", nil
+}
+
+func enterHostNameQuestion(log log.Logger) (string, error) {
+	return log.Question(&survey.QuestionOptions{
+		Question: "Enter a hostname for your loft instance (e.g. loft.my-domain.tld): \n",
+		ValidationFunc: func(answer string) error {
+			u, err := url.Parse("https://" + answer)
+			if err != nil || u.Path != "" || u.Port() != "" || len(strings.Split(answer, ".")) < 2 {
+				return fmt.Errorf("Please enter a valid hostname without protocol (https://), without path and without port, e.g. loft.my-domain.tld")
+			}
+			return nil
+		},
+	})
 }
 
 var privateIPBlocks []*net.IPNet
@@ -490,7 +522,7 @@ func (cmd *StartCmd) isLocalCluster(host string) bool {
 	return false
 }
 
-func (cmd *StartCmd) installRemote(kubeClient kubernetes.Interface, kubeContext, email, host string) error {
+func (cmd *StartCmd) installIngressController(kubeClient kubernetes.Interface, kubeContext string) error {
 	// first create an ingress controller
 	const (
 		YesOption = "Yes"
@@ -571,6 +603,15 @@ func (cmd *StartCmd) installRemote(kubeClient kubernetes.Interface, kubeContext,
 
 		cmd.Log.Done("Successfully installed ingress-nginx to your kubernetes cluster!")
 	}
+	
+	return nil
+}
+
+func (cmd *StartCmd) installRemote(kubeClient kubernetes.Interface, kubeContext, email, host string) error {
+	err := cmd.installIngressController(kubeClient, kubeContext)
+	if err != nil {
+		return errors.Wrap(err, "install ingress controller")
+	}
 
 	password, err := cmd.getDefaultPassword(kubeClient)
 	if err != nil {
@@ -612,7 +653,7 @@ func (cmd *StartCmd) installRemote(kubeClient kubernetes.Interface, kubeContext,
 	output, err := exec.Command("helm", args...).CombinedOutput()
 	cmd.Log.StopWait()
 	if err != nil {
-		return fmt.Errorf("Error during helm command: %s (%v)", string(output), err)
+		return fmt.Errorf("error during helm command: %s (%v)", string(output), err)
 	}
 
 	cmd.Log.Done("Successfully deployed loft to your kubernetes cluster!")
@@ -625,6 +666,51 @@ func (cmd *StartCmd) installRemote(kubeClient kubernetes.Interface, kubeContext,
 	}
 	cmd.Log.StopWait()
 	cmd.Log.Done("Loft pod has successfully started")
+
+	return cmd.successRemote(host, password)
+}
+
+func (cmd *StartCmd) upgradeWithIngress(kubeClient kubernetes.Interface, kubeContext, host, password string) error {
+	err := cmd.installIngressController(kubeClient, kubeContext)
+	if err != nil {
+		return errors.Wrap(err, "install ingress controller")
+	}
+	
+	// now we install loft
+	args := []string{
+		"upgrade",
+		"loft",
+		"loft",
+		"--repository-config",
+		"",
+		"--repo",
+		"https://charts.devspace.sh/",
+		"--kube-context",
+		kubeContext,
+		"--namespace",
+		cmd.Namespace,
+		"--reuse-values",
+		"--set",
+		"ingress.enabled=true",
+		"--set",
+		"ingress.host=" + host,
+		"--wait",
+	}
+	if cmd.Version != "" {
+		args = append(args, "--version", cmd.Version)
+	}
+
+	cmd.Log.WriteString("\n")
+	cmd.Log.Infof("Executing command: helm %s\n", strings.Join(args, " "))
+	cmd.Log.StartWait("Waiting for loft, this can take several minutes...")
+	output, err := exec.Command("helm", args...).CombinedOutput()
+	cmd.Log.StopWait()
+	if err != nil {
+		return fmt.Errorf("error during helm command: %s (%v)", string(output), err)
+	}
+
+	cmd.Log.Done("Successfully upgraded loft to use an ingress!")
+	cmd.Log.WriteString("\n")
 
 	return cmd.successRemote(host, password)
 }
@@ -694,7 +780,11 @@ func (cmd *StartCmd) installLocal(kubeClient kubernetes.Interface, kubeContext, 
 	return nil
 }
 
-func isLoftReachable(host string) bool {
+type version struct {
+	Version string `json:"version"`
+}
+
+func isLoftReachable(host string) (bool, error) {
 	// wait until loft is reachable at the given url
 	client := &http.Client{
 		Transport: &http.Transport{
@@ -703,16 +793,33 @@ func isLoftReachable(host string) bool {
 			},
 		},
 	}
-	resp, err := client.Get("https://" + host + "/version")
+	url := "https://" + host + "/version"
+	resp, err := client.Get(url)
 	if err == nil && resp.StatusCode == http.StatusOK {
-		return true
+		out, err := ioutil.ReadAll(resp.Body)
+		if err != nil {
+			return false, nil
+		}
+		
+		v := &version{}
+		err = json.Unmarshal(out, v)
+		if err != nil {
+			return false, fmt.Errorf("error decoding response from %s: %v. Try running 'loft start --reset'", url, err)
+		} else if v.Version == "" {
+			return false, fmt.Errorf("unexpected response from %s: %s. Try running 'loft start --reset'", url, string(out))
+		}
+		
+		return true, nil
 	}
 	
-	return false
+	return false, nil
 }
 
 func (cmd *StartCmd) successRemote(host string, password string) error {
-	if isLoftReachable(host) {
+	ready, err := isLoftReachable(host)
+	if err != nil {
+		return err
+	} else if ready {
 		cmd.successMessageRemote(host, password)
 		return nil
 	}
@@ -740,8 +847,8 @@ by running 'loft start' again.
 `)
 
 	cmd.Log.StartWait("Waiting for you to configure DNS, so loft can be reached on https://" + host)
-	err := wait.PollImmediate(time.Second*5, time.Hour*24, func() (bool, error) {
-		return isLoftReachable(host), nil
+	err = wait.PollImmediate(time.Second*5, time.Hour*24, func() (bool, error) {
+		return isLoftReachable(host)
 	})
 	cmd.Log.StopWait()
 	if err != nil {
