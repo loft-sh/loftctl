@@ -12,12 +12,16 @@ func NewUseCmd(globalFlags *flags.GlobalFlags) *cobra.Command {
 #######################################################
 ###################### loft use #######################
 #######################################################
+
+Activates a kube context for the given cluster / space / vcluster.
 	`
 	if upgrade.IsPlugin == "true" {
 		description = `
 #######################################################
 #################### devspace use #####################
 #######################################################
+
+Activates a kube context for the given cluster / space / vcluster.
 	`
 	}
 	useCmd := &cobra.Command{
