@@ -3,6 +3,7 @@ package get
 import (
 	"context"
 	"fmt"
+	"github.com/loft-sh/loftctl/cmd/loftctl/cmd/set"
 	"github.com/loft-sh/loftctl/cmd/loftctl/flags"
 	"github.com/loft-sh/loftctl/pkg/client"
 	"github.com/loft-sh/loftctl/pkg/log"
@@ -18,6 +19,7 @@ import (
 // SharedSecretCmd holds the lags
 type SharedSecretCmd struct {
 	*flags.GlobalFlags
+	Namespace string
 
 	log log.Logger
 }
@@ -60,6 +62,7 @@ devspace get secret test-secret.key
 		},
 	}
 
+	c.Flags().StringVarP(&cmd.Namespace, "namespace", "n", "", "The namespace in the loft cluster to read the secret from. If omitted will use the namespace were loft is installed in")
 	return c
 }
 
@@ -75,6 +78,12 @@ func (cmd *SharedSecretCmd) Run(cobraCmd *cobra.Command, args []string) error {
 		return err
 	}
 
+	// get target namespace
+	namespace, err := set.GetSharedSecretNamespace(context.TODO(), cmd.Namespace, baseClient, managementClient)
+	if err != nil {
+		return errors.Wrap(err, "get shared secrets namespace")
+	}
+
 	// get secret
 	secretName := ""
 	keyName := ""
@@ -88,7 +97,7 @@ func (cmd *SharedSecretCmd) Run(cobraCmd *cobra.Command, args []string) error {
 			keyName = secret[idx+1:]
 		}
 	} else {
-		secrets, err := managementClient.Loft().ManagementV1().SharedSecrets().List(context.TODO(), metav1.ListOptions{})
+		secrets, err := managementClient.Loft().ManagementV1().SharedSecrets(namespace).List(context.TODO(), metav1.ListOptions{})
 		if err != nil {
 			return errors.Wrap(err, "list shared secrets")
 		}
@@ -112,7 +121,7 @@ func (cmd *SharedSecretCmd) Run(cobraCmd *cobra.Command, args []string) error {
 		}
 	}
 
-	secret, err := managementClient.Loft().ManagementV1().SharedSecrets().Get(context.TODO(), secretName, metav1.GetOptions{})
+	secret, err := managementClient.Loft().ManagementV1().SharedSecrets(namespace).Get(context.TODO(), secretName, metav1.GetOptions{})
 	if err != nil {
 		return errors.Wrap(err, "get secrets")
 	} else if len(secret.Spec.Data) == 0 {

@@ -16,6 +16,7 @@ import (
 // SharedSecretsCmd holds the cmd flags
 type SharedSecretsCmd struct {
 	*flags.GlobalFlags
+	Namespace string
 
 	log log.Logger
 }
@@ -48,9 +49,9 @@ devspace list secrets
 #######################################################
 	`
 	}
-	clustersCmd := &cobra.Command{
+	c := &cobra.Command{
 		Use:   "secrets",
-		Short: "List the shared secrets you have access to",
+		Short: "List all the shared secrets you have access to",
 		Long:  description,
 		Args:  cobra.NoArgs,
 		RunE: func(cobraCmd *cobra.Command, args []string) error {
@@ -58,7 +59,8 @@ devspace list secrets
 		},
 	}
 
-	return clustersCmd
+	c.Flags().StringVarP(&cmd.Namespace, "namespace", "n", "", "The namespace in the loft cluster to read the secret from. If omitted will query all accessible secrets")
+	return c
 }
 
 // Run executes the functionality
@@ -73,13 +75,14 @@ func (cmd *SharedSecretsCmd) Run(cobraCmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	secrets, err := client.Loft().ManagementV1().SharedSecrets().List(context.TODO(), metav1.ListOptions{})
+	secrets, err := client.Loft().ManagementV1().SharedSecrets(cmd.Namespace).List(context.TODO(), metav1.ListOptions{})
 	if err != nil {
 		return err
 	}
 
 	header := []string{
 		"Name",
+		"Namespace",
 		"Keys",
 		"Age",
 	}
@@ -92,6 +95,7 @@ func (cmd *SharedSecretsCmd) Run(cobraCmd *cobra.Command, args []string) error {
 
 		values = append(values, []string{
 			secret.Name,
+			secret.Namespace,
 			strings.Join(keyNames, ","),
 			duration.HumanDuration(time.Now().Sub(secret.CreationTimestamp.Time)),
 		})

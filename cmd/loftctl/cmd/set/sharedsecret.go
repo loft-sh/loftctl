@@ -6,6 +6,7 @@ import (
 	storagev1 "github.com/loft-sh/api/pkg/apis/storage/v1"
 	"github.com/loft-sh/loftctl/cmd/loftctl/flags"
 	"github.com/loft-sh/loftctl/pkg/client"
+	"github.com/loft-sh/loftctl/pkg/kube"
 	"github.com/loft-sh/loftctl/pkg/log"
 	"github.com/loft-sh/loftctl/pkg/survey"
 	"github.com/loft-sh/loftctl/pkg/upgrade"
@@ -19,7 +20,8 @@ import (
 // SharedSecretCmd holds the lags
 type SharedSecretCmd struct {
 	*flags.GlobalFlags
-
+	Namespace string
+	
 	log log.Logger
 }
 
@@ -60,7 +62,8 @@ devspace set secret test-secret.key value
 			return cmd.Run(cobraCmd, args)
 		},
 	}
-
+	
+	c.Flags().StringVarP(&cmd.Namespace, "namespace", "n", "", "The namespace in the loft cluster to create the secret in. If omitted will use the namespace were loft is installed in")
 	return c
 }
 
@@ -87,8 +90,14 @@ func (cmd *SharedSecretCmd) Run(cobraCmd *cobra.Command, args []string) error {
 		secretName = secretArg[:idx]
 		keyName = secretArg[idx+1:]
 	}
+	
+	// get target namespace
+	namespace, err := GetSharedSecretNamespace(context.TODO(), cmd.Namespace, baseClient, managementClient)
+	if err != nil {
+		return errors.Wrap(err, "get shared secrets namespace")
+	}
 
-	secret, err := managementClient.Loft().ManagementV1().SharedSecrets().Get(context.TODO(), secretName, metav1.GetOptions{})
+	secret, err := managementClient.Loft().ManagementV1().SharedSecrets(namespace).Get(context.TODO(), secretName, metav1.GetOptions{})
 	if err != nil {
 		if kerrors.IsNotFound(err) == false {
 			return errors.Wrap(err, "get secret")
@@ -120,7 +129,7 @@ func (cmd *SharedSecretCmd) Run(cobraCmd *cobra.Command, args []string) error {
 
 	// create the secret
 	if secret == nil {
-		_, err = managementClient.Loft().ManagementV1().SharedSecrets().Create(context.TODO(), &managementv1.SharedSecret{
+		_, err = managementClient.Loft().ManagementV1().SharedSecrets(namespace).Create(context.TODO(), &managementv1.SharedSecret{
 			ObjectMeta: metav1.ObjectMeta{
 				Name: secretName,
 			},
@@ -145,11 +154,32 @@ func (cmd *SharedSecretCmd) Run(cobraCmd *cobra.Command, args []string) error {
 		secret.Spec.Data = map[string][]byte{}
 	}
 	secret.Spec.Data[keyName] = []byte(args[1])
-	_, err = managementClient.Loft().ManagementV1().SharedSecrets().Update(context.TODO(), secret, metav1.UpdateOptions{})
+	_, err = managementClient.Loft().ManagementV1().SharedSecrets(namespace).Update(context.TODO(), secret, metav1.UpdateOptions{})
 	if err != nil {
 		return errors.Wrap(err, "update secret")
 	}
 
 	cmd.log.Donef("Successfully set secret key %s.%s", secretName, keyName)
 	return nil
+}
+
+func GetSharedSecretNamespace(ctx context.Context, namespace string, baseClient client.Client, managementClient kube.Interface) (string, error) {
+	if namespace == "" {
+		authInfo, err := baseClient.AuthInfo()
+		if err != nil {
+			return "", err
+		}
+
+		user, err := managementClient.Loft().ManagementV1().Users().Get(ctx, authInfo.Name, metav1.GetOptions{})
+		if err != nil {
+			return "", err
+		}
+
+		namespace = user.Spec.AccessKeysRef.SecretNamespace
+		if namespace == "" {
+			namespace = "loft"
+		}
+	}
+	
+	return namespace, nil
 }
