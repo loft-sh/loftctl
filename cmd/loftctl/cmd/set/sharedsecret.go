@@ -102,6 +102,8 @@ func (cmd *SharedSecretCmd) Run(cobraCmd *cobra.Command, args []string) error {
 		if kerrors.IsNotFound(err) == false {
 			return errors.Wrap(err, "get secret")
 		}
+		
+		secret = nil
 	}
 
 	if keyName == "" {
