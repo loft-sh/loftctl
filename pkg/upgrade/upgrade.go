@@ -1,8 +1,10 @@
 package upgrade
 
 import (
-	"errors"
+	"fmt"
+	"github.com/pkg/errors"
 	"k8s.io/klog"
+	"os"
 	"regexp"
 	"sync"
 
@@ -113,7 +115,31 @@ func NewerVersionAvailable() string {
 }
 
 // Upgrade downloads the latest release from github and replaces loft if a new version is found
-func Upgrade(log log.Logger) error {
+func Upgrade(flagVersion string, log log.Logger) error {
+	if flagVersion != "" {
+		release, found, err := selfupdate.DetectVersion(githubSlug, flagVersion)
+		if err != nil {
+			return errors.Wrap(err, "find version")
+		} else if !found {
+			return fmt.Errorf("loft version %s couldn't be found", flagVersion)
+		}
+
+		cmdPath, err := os.Executable()
+		if err != nil {
+			return err
+		}
+
+		log.StartWait(fmt.Sprintf("Downloading version %s...", flagVersion))
+		err = selfupdate.DefaultUpdater().UpdateTo(release, cmdPath)
+		log.StopWait()
+		if err != nil {
+			return err
+		}
+
+		log.Donef("Successfully updated loft to version %s", flagVersion)
+		return nil
+	}
+	
 	newerVersion, err := CheckForNewerVersion()
 	if err != nil {
 		return err

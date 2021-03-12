@@ -9,6 +9,8 @@ import (
 
 // UpgradeCmd is a struct that defines a command call for "upgrade"
 type UpgradeCmd struct{
+	Version string
+	
 	log log.Logger
 }
 
@@ -31,12 +33,13 @@ Upgrades the loft CLI to the newest version
 		RunE: cmd.Run,
 	}
 
+	upgradeCmd.Flags().StringVar(&cmd.Version, "version", "", "The version to update loft to. Defaults to the latest stable version available")
 	return upgradeCmd
 }
 
 // Run executes the command logic
 func (cmd *UpgradeCmd) Run(cobraCmd *cobra.Command, args []string) error {
-	err := upgrade.Upgrade(cmd.log)
+	err := upgrade.Upgrade(cmd.Version, cmd.log)
 	if err != nil {
 		return errors.Errorf("Couldn't upgrade: %v", err)
 	}
