@@ -5,6 +5,7 @@ go 1.13
 require (
 	github.com/blang/semver v3.5.1+incompatible
 	github.com/docker/docker v0.7.3-0.20190327010347-be7ac8be2ae0
+	github.com/docker/cli v0.0.0-20200130152716-5d0cf8839492
 	github.com/k0kubun/go-ansi v0.0.0-20180517002512-3bf9e2903213
 	github.com/loft-sh/kiosk v0.1.25
 	github.com/loft-sh/api v1.8.2
@@ -24,7 +25,6 @@ require (
 	k8s.io/client-go v0.20.2
 	k8s.io/klog v1.0.0
 	k8s.io/kubectl v0.20.2
-	sigs.k8s.io/controller-runtime v0.8.2
 )
 
 
