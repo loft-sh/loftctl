@@ -1,6 +1,7 @@
 package client
 
 import (
+	"bytes"
 	"context"
 	"crypto/tls"
 	"crypto/x509"
@@ -15,6 +16,7 @@ import (
 	"github.com/pkg/errors"
 	"github.com/skratchdot/open-golang/open"
 	"gopkg.in/square/go-jose.v2/jwt"
+	"io"
 	"io/ioutil"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
@@ -36,9 +38,9 @@ var DefaultCacheConfig = "config.json"
 const (
 	LoginPath            = "%s/login?cli=true"
 	RedirectPath         = "%s/clusters"
-	TokenPath            = "%s/auth/token?username=%s&key=%s"
-	OIDCTokenPath        = "%s/auth/oidc/token?token=%s&access_token=%s"
-	OIDCRefreshTokenPath = "%s/auth/oidc/refresh?refresh_token=%s"
+	TokenPath            = "%s/auth/token"
+	OIDCTokenPath        = "%s/auth/oidc/token"
+	OIDCRefreshTokenPath = "%s/auth/oidc/refresh"
 )
 
 func init() {
@@ -377,7 +379,14 @@ func (c *client) refreshToken() error {
 }
 
 func (c *client) getTokenByOIDC(client *http.Client) ([]byte, error) {
-	resp, err := client.Get(fmt.Sprintf(OIDCTokenPath, c.config.Host, c.config.OIDCToken, c.config.OIDCAccessToken))
+	reader, err := newJSONReader(&types.OIDCTokenRequest{
+		Token:       c.config.OIDCToken,
+		AccessToken: c.config.OIDCAccessToken,
+	})
+	if err != nil {
+		return nil, err
+	}
+	resp, err := client.Post(fmt.Sprintf(OIDCTokenPath, c.config.Host), "application/json", reader)
 	if err != nil {
 		if urlError, ok := err.(*url.Error); ok {
 			if _, ok := urlError.Err.(x509.UnknownAuthorityError); ok {
@@ -395,7 +404,13 @@ func (c *client) getTokenByOIDC(client *http.Client) ([]byte, error) {
 			return nil, fmt.Errorf("OIDC token has expired, please relogin via: loft login [url]")
 		}
 
-		resp, err := client.Get(fmt.Sprintf(OIDCRefreshTokenPath, c.config.Host, c.config.OIDCRefreshToken))
+		reader, err := newJSONReader(&types.OIDCRefreshRequest{
+			RefreshToken: c.config.OIDCRefreshToken,
+		})
+		if err != nil {
+			return nil, err
+		}
+		resp, err := client.Post(fmt.Sprintf(OIDCRefreshTokenPath, c.config.Host), "application/json", reader)
 		if err != nil {
 			return nil, err
 		}
@@ -424,7 +439,14 @@ func (c *client) getTokenByOIDC(client *http.Client) ([]byte, error) {
 		}
 
 		// try to refetch
-		tokenResponse, err := client.Get(fmt.Sprintf(OIDCTokenPath, c.config.Host, c.config.OIDCToken, c.config.OIDCAccessToken))
+		reader, err = newJSONReader(&types.OIDCTokenRequest{
+			Token:       c.config.OIDCToken,
+			AccessToken: c.config.OIDCAccessToken,
+		})
+		if err != nil {
+			return nil, err
+		}
+		tokenResponse, err := client.Post(fmt.Sprintf(OIDCTokenPath, c.config.Host), "application/json",  reader)
 		if err != nil {
 			return nil, err
 		}
@@ -450,8 +472,24 @@ func (c *client) getTokenByOIDC(client *http.Client) ([]byte, error) {
 	return body, nil
 }
 
+func newJSONReader(in interface{}) (io.Reader, error) {
+	out, err := json.Marshal(in)
+	if err != nil {
+		return nil, err
+	}
+	
+	return bytes.NewReader(out), nil
+}
+
 func (c *client) getTokenByAccessKey(client *http.Client) ([]byte, error) {
-	resp, err := client.Get(fmt.Sprintf(TokenPath, c.config.Host, c.config.Username, c.config.AccessKey))
+	reader, err := newJSONReader(&types.TokenRequest{
+		Username: c.config.Username,
+		Key:      c.config.AccessKey,
+	})
+	if err != nil {
+		return nil, err
+	}
+	resp, err := client.Post(fmt.Sprintf(TokenPath, c.config.Host), "application/json", reader)
 	if err != nil {
 		if urlError, ok := err.(*url.Error); ok {
 			if _, ok := urlError.Err.(x509.UnknownAuthorityError); ok {
