@@ -11,7 +11,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/pkg/apis/clientauthentication/v1alpha1"
 	"os"
-	"time"
 )
 
 // TokenCmd holds the cmd flags
@@ -72,29 +71,27 @@ func (cmd *TokenCmd) Run(cobraCmd *cobra.Command, args []string) error {
 	if err != nil {
 		return err
 	}
-
-	// refresh token
-	_, err = baseClient.AuthInfo()
-	if err != nil {
-		return err
-	}
-
+	
 	// get config
 	config := baseClient.Config()
-	return printToken(config.Token, time.Unix(config.TokenExp, 0))
+	if config == nil {
+		return errors.New("no config loaded")
+	} else if config.Host == "" || config.AccessKey == "" {
+		return errors.New("not logged in, please make sure you have run 'loft login [loft-url]'")
+	}
+	
+	return printToken(config.AccessKey)
 }
 
-func printToken(token string, time time.Time) error {
+func printToken(token string) error {
 	// Print token to stdout
-	expireTime := metav1.NewTime(time)
 	response := &v1alpha1.ExecCredential{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "ExecCredential",
 			APIVersion: v1alpha1.SchemeGroupVersion.String(),
 		},
 		Status: &v1alpha1.ExecCredentialStatus{
-			Token:               token,
-			ExpirationTimestamp: &expireTime,
+			Token: token,
 		},
 	}
 

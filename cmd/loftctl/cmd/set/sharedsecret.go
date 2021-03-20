@@ -6,6 +6,7 @@ import (
 	storagev1 "github.com/loft-sh/api/pkg/apis/storage/v1"
 	"github.com/loft-sh/loftctl/cmd/loftctl/flags"
 	"github.com/loft-sh/loftctl/pkg/client"
+	"github.com/loft-sh/loftctl/pkg/client/helper"
 	"github.com/loft-sh/loftctl/pkg/kube"
 	"github.com/loft-sh/loftctl/pkg/log"
 	"github.com/loft-sh/loftctl/pkg/survey"
@@ -92,7 +93,7 @@ func (cmd *SharedSecretCmd) Run(cobraCmd *cobra.Command, args []string) error {
 	}
 	
 	// get target namespace
-	namespace, err := GetSharedSecretNamespace(context.TODO(), cmd.Namespace, baseClient, managementClient)
+	namespace, err := GetSharedSecretNamespace(context.TODO(), cmd.Namespace, managementClient)
 	if err != nil {
 		return errors.Wrap(err, "get shared secrets namespace")
 	}
@@ -165,14 +166,14 @@ func (cmd *SharedSecretCmd) Run(cobraCmd *cobra.Command, args []string) error {
 	return nil
 }
 
-func GetSharedSecretNamespace(ctx context.Context, namespace string, baseClient client.Client, managementClient kube.Interface) (string, error) {
+func GetSharedSecretNamespace(ctx context.Context, namespace string, managementClient kube.Interface) (string, error) {
 	if namespace == "" {
-		authInfo, err := baseClient.AuthInfo()
+		userName, err := helper.GetCurrentUser(context.TODO(), managementClient)
 		if err != nil {
 			return "", err
 		}
 
-		user, err := managementClient.Loft().ManagementV1().Users().Get(ctx, authInfo.Name, metav1.GetOptions{})
+		user, err := managementClient.Loft().ManagementV1().Users().Get(ctx, userName, metav1.GetOptions{})
 		if err != nil {
 			return "", err
 		}

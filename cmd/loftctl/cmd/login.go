@@ -9,6 +9,7 @@ import (
 	storagev1 "github.com/loft-sh/api/pkg/apis/storage/v1"
 	"github.com/loft-sh/loftctl/cmd/loftctl/flags"
 	"github.com/loft-sh/loftctl/pkg/client"
+	"github.com/loft-sh/loftctl/pkg/client/helper"
 	"github.com/loft-sh/loftctl/pkg/docker"
 	"github.com/loft-sh/loftctl/pkg/kube"
 	"github.com/loft-sh/loftctl/pkg/log"
@@ -47,7 +48,7 @@ Login into loft
 
 Example:
 loft login https://my-loft.com
-loft login https://my-loft.com --username myuser --access-key myaccesskey
+loft login https://my-loft.com --access-key myaccesskey
 #######################################################
 	`
 	if upgrade.IsPlugin == "true" {
@@ -59,7 +60,7 @@ Login into loft
 
 Example:
 devspace login https://my-loft.com
-devspace login https://my-loft.com --username myuser --access-key myaccesskey
+devspace login https://my-loft.com --access-key myaccesskey
 #######################################################
 	`
 	}
@@ -76,7 +77,7 @@ devspace login https://my-loft.com --username myuser --access-key myaccesskey
 		},
 	}
 
-	loginCmd.Flags().StringVar(&cmd.Username, "username", "", "The username to use")
+	loginCmd.Flags().StringVar(&cmd.Username, "username", "", "DEPRECATED DO NOT USE ANYMORE")
 	loginCmd.Flags().StringVar(&cmd.AccessKey, "access-key", "", "The access key to use")
 	loginCmd.Flags().BoolVar(&cmd.Insecure, "insecure", false, "Allow login into an insecure loft instance")
 	loginCmd.Flags().BoolVar(&cmd.DockerLogin, "docker-login", true, "If true, will log into the docker image registries the user has image pull secrets for")
@@ -85,6 +86,10 @@ devspace login https://my-loft.com --username myuser --access-key myaccesskey
 
 // RunLogin executes the functionality "loft login"
 func (cmd *LoginCmd) RunLogin(cobraCmd *cobra.Command, args []string) error {
+	if cmd.Username != "" {
+		cmd.Log.Warnf("--username is deprecated, please do not use anymore and only use --access-key")
+	}
+	
 	loader, err := client.NewClientFromPath(cmd.Config)
 	if err != nil {
 		return err
@@ -97,8 +102,18 @@ func (cmd *LoginCmd) RunLogin(cobraCmd *cobra.Command, args []string) error {
 			cmd.Log.Info("Not logged in")
 			return nil
 		}
+		
+		managementClient, err := loader.Management()
+		if err != nil {
+			return err
+		}
 
-		cmd.Log.Infof("Logged into %s as %s", config.Host, config.Username)
+		userName, err := helper.GetCurrentUser(context.TODO(), managementClient)
+		if err != nil {
+			return err
+		}
+
+		cmd.Log.Infof("Logged into %s as %s", config.Host, userName)
 		return nil
 	}
 
@@ -110,7 +125,7 @@ func (cmd *LoginCmd) RunLogin(cobraCmd *cobra.Command, args []string) error {
 	// log into loft
 	url = strings.TrimSuffix(url, "/")
 	if cmd.Username != "" && cmd.AccessKey != "" {
-		err = loader.LoginWithAccessKey(url, cmd.Username, cmd.AccessKey, cmd.Insecure)
+		err = loader.LoginWithAccessKey(url, cmd.AccessKey, cmd.Insecure)
 	} else {
 		err = loader.Login(url, cmd.Insecure, cmd.Log)
 	}
@@ -139,7 +154,7 @@ func dockerLogin(loader client.Client, log log.Logger) error {
 	}
 
 	// get user name
-	tokenInfo, err := loader.AuthInfo()
+	userName, err := helper.GetCurrentUser(context.TODO(), managementClient)
 	if err != nil {
 		return err
 	}
@@ -147,7 +162,7 @@ func dockerLogin(loader client.Client, log log.Logger) error {
 	dockerConfigs := []*configfile.ConfigFile{}
 
 	// get image pull secrets from teams
-	teams, err := managementClient.Loft().ManagementV1().Users().ListTeams(context.TODO(), tokenInfo.Name, metav1.GetOptions{})
+	teams, err := managementClient.Loft().ManagementV1().Users().ListTeams(context.TODO(), userName, metav1.GetOptions{})
 	if err != nil {
 		return err
 	}
@@ -156,7 +171,7 @@ func dockerLogin(loader client.Client, log log.Logger) error {
 	}
 	
 	// get image pull secrets from user
-	user, err := managementClient.Loft().ManagementV1().Users().Get(context.TODO(), tokenInfo.Name, metav1.GetOptions{})
+	user, err := managementClient.Loft().ManagementV1().Users().Get(context.TODO(), userName, metav1.GetOptions{})
 	if err != nil {
 		return err
 	}

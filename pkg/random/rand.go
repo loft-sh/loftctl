@@ -19,3 +19,14 @@ func RandomString(length int) string {
 	}
 	return string(b)
 }
+
+var moreLetterRunes = []rune("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789")
+
+// RandomFullAlphabetString creates a new random string with the given length
+func RandomFullAlphabetString(length int) string {
+	b := make([]rune, length)
+	for i := range b {
+		b[i] = moreLetterRunes[rand.Intn(len(moreLetterRunes))]
+	}
+	return string(b)
+}

@@ -4,6 +4,7 @@ import (
 	"context"
 	"github.com/loft-sh/loftctl/cmd/loftctl/flags"
 	"github.com/loft-sh/loftctl/pkg/client"
+	"github.com/loft-sh/loftctl/pkg/client/helper"
 	"github.com/loft-sh/loftctl/pkg/log"
 	"github.com/loft-sh/loftctl/pkg/upgrade"
 	"github.com/pkg/errors"
@@ -68,17 +69,17 @@ func (cmd *VirtualClustersCmd) Run(cobraCmd *cobra.Command, args []string) error
 		return err
 	}
 
-	authInfo, err := baseClient.AuthInfo()
-	if err != nil {
-		return errors.Wrap(err, "auth info")
-	}
-
 	client, err := baseClient.Management()
 	if err != nil {
 		return err
 	}
 
-	virtualClusters, err := client.Loft().ManagementV1().Users().ListVirtualClusters(context.TODO(), authInfo.Name, metav1.GetOptions{})
+	userName, err := helper.GetCurrentUser(context.TODO(), client)
+	if err != nil {
+		return err
+	}
+
+	virtualClusters, err := client.Loft().ManagementV1().Users().ListVirtualClusters(context.TODO(), userName, metav1.GetOptions{})
 	if err != nil {
 		return errors.Wrap(err, "list users")
 	}

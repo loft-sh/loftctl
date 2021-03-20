@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"github.com/loft-sh/loftctl/cmd/loftctl/flags"
 	"github.com/loft-sh/loftctl/pkg/client"
+	"github.com/loft-sh/loftctl/pkg/client/helper"
 	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -36,17 +37,17 @@ func (cmd *usernameCmd) Run(cobraCmd *cobra.Command, args []string) error {
 		return retError
 	}
 
-	authInfo, err := baseClient.AuthInfo()
-	if err != nil {
-		return retError
-	}
-
 	client, err := baseClient.Management()
 	if err != nil {
 		return err
 	}
 
-	user, err := client.Loft().ManagementV1().Users().Get(context.TODO(), authInfo.Name, metav1.GetOptions{})
+	userName, err := helper.GetCurrentUser(context.TODO(), client)
+	if err != nil {
+		return err
+	}
+
+	user, err := client.Loft().ManagementV1().Users().Get(context.TODO(), userName, metav1.GetOptions{})
 	if err != nil {
 		return errors.Wrap(err, "get user")
 	}

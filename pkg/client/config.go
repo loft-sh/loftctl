@@ -18,34 +18,9 @@ type Config struct {
 	// +optional
 	Insecure bool `json:"insecure,omitempty"`
 
-	// username is the username of the logged in user
-	// +optional
-	Username string `json:"username"`
-
 	// accesskey is the accesskey for the given loft host
 	// +optional
 	AccessKey string `json:"accesskey,omitempty"`
-
-	// oidc token is the oidc token to retrieve a loft token from
-	// +optional
-	OIDCToken string `json:"oidcToken,omitempty"`
-
-	// oidc access token is the oidc access token to retrieve the user info from
-	// +optional
-	OIDCAccessToken string `json:"oidcAccessToken,omitempty"`
-
-	// oidc refresh token is the oidc refresh token to retrieve a new
-	// oidc token from
-	// +optional
-	OIDCRefreshToken string `json:"oidcRefreshToken,omitempty"`
-
-	// token is the login token for the given loft host
-	// +optional
-	Token string `json:"token,omitempty"`
-
-	// tokenExp is the local time the token will expire
-	// +optional
-	TokenExp int64 `json:"tokenExp,omitempty"`
 }
 
 // NewConfig creates a new config

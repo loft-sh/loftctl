@@ -5,6 +5,7 @@ import (
 	"fmt"
 	managementv1 "github.com/loft-sh/api/pkg/apis/management/v1"
 	"github.com/loft-sh/loftctl/pkg/client"
+	"github.com/loft-sh/loftctl/pkg/kube"
 	"github.com/loft-sh/loftctl/pkg/kubeconfig"
 	"github.com/loft-sh/loftctl/pkg/log"
 	"github.com/loft-sh/loftctl/pkg/survey"
@@ -17,17 +18,17 @@ import (
 
 // ListClusterAccounts lists all the clusters and the corresponding accounts for the current user
 func ListClusterAccounts(client client.Client) ([]managementv1.ClusterAccounts, error) {
-	authInfo, err := client.AuthInfo()
-	if err != nil {
-		return nil, errors.Wrap(err, "auth info")
-	}
-
 	mClient, err := client.Management()
 	if err != nil {
 		return nil, err
 	}
 
-	userClusters, err := mClient.Loft().ManagementV1().Users().ListClusters(context.TODO(), authInfo.Name, metav1.GetOptions{})
+	userName, err := GetCurrentUser(context.TODO(), mClient)
+	if err != nil {
+		return nil, err
+	}
+
+	userClusters, err := mClient.Loft().ManagementV1().Users().ListClusters(context.TODO(), userName, metav1.GetOptions{})
 	if err != nil {
 		return nil, errors.Wrap(err, "get user")
 	}
@@ -220,12 +221,12 @@ func SelectSpaceAndClusterName(baseClient client.Client, spaceName, clusterName 
 		return "", "", err
 	}
 
-	tokenInfo, err := baseClient.AuthInfo()
+	userName, err := GetCurrentUser(context.TODO(), client)
 	if err != nil {
 		return "", "", err
 	}
 
-	spaces, err := client.Loft().ManagementV1().Users().ListSpaces(context.TODO(), tokenInfo.Name, metav1.GetOptions{})
+	spaces, err := client.Loft().ManagementV1().Users().ListSpaces(context.TODO(), userName, metav1.GetOptions{})
 	if err != nil {
 		return "", "", err
 	}
@@ -287,18 +288,29 @@ func SelectSpaceAndClusterName(baseClient client.Client, spaceName, clusterName 
 	return spaceName, clusterName, nil
 }
 
+func GetCurrentUser(ctx context.Context, managementClient kube.Interface) (string, error) {
+	self, err := managementClient.Loft().ManagementV1().Selves().Create(ctx, &managementv1.Self{}, metav1.CreateOptions{})
+	if err != nil {
+		return "", errors.Wrap(err, "get self")
+	} else if self.Status.User == "" {
+		return "", fmt.Errorf("no user name returned")
+	}
+	
+	return self.Status.User, nil
+}
+
 func SelectVirtualClusterAndSpaceAndClusterName(baseClient client.Client, virtualClusterName, spaceName, clusterName string, log log.Logger) (string, string, string, error) {
 	client, err := baseClient.Management()
 	if err != nil {
 		return "", "", "", err
 	}
 
-	tokenInfo, err := baseClient.AuthInfo()
+	user, err := GetCurrentUser(context.TODO(), client)
 	if err != nil {
 		return "", "", "", err
 	}
 
-	virtualClusters, err := client.Loft().ManagementV1().Users().ListVirtualClusters(context.TODO(), tokenInfo.Name, metav1.GetOptions{})
+	virtualClusters, err := client.Loft().ManagementV1().Users().ListVirtualClusters(context.TODO(), user, metav1.GetOptions{})
 	if err != nil {
 		return "", "", "", err
 	}
