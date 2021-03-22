@@ -29,10 +29,7 @@ var DefaultCacheConfig = "config.json"
 
 const (
 	LoginPath            = "%s/login?cli=true"
-	RedirectPath         = "%s/clusters"
-	TokenPath            = "%s/auth/token"
-	OIDCTokenPath        = "%s/auth/oidc/token"
-	OIDCRefreshTokenPath = "%s/auth/oidc/refresh"
+	RedirectPath         = "%s/spaces"
 )
 
 func init() {
