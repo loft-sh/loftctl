@@ -11,13 +11,11 @@ import (
 	"strings"
 	"sync"
 
-	managementv1 "github.com/loft-sh/api/pkg/apis/management/v1"
 	"github.com/loft-sh/loftctl/pkg/kube"
 	"github.com/loft-sh/loftctl/pkg/log"
 	"github.com/mitchellh/go-homedir"
 	"github.com/pkg/errors"
 	"github.com/skratchdot/open-golang/open"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
@@ -211,7 +209,7 @@ func (c *client) LoginWithAccessKey(host, accessKey string, insecure bool) error
 	}
 
 	// delete old access key if were logged in before
-	if c.config.AccessKey != "" {
+	/*if c.config.AccessKey != "" {
 		managementClient, err := c.Management()
 		if err == nil {
 			self, err := managementClient.Loft().ManagementV1().Selves().Create(context.TODO(), &managementv1.Self{}, metav1.CreateOptions{})
@@ -219,7 +217,7 @@ func (c *client) LoginWithAccessKey(host, accessKey string, insecure bool) error
 				_ = managementClient.Loft().ManagementV1().OwnedAccessKeys().Delete(context.TODO(), self.Status.AccessKey, metav1.DeleteOptions{})
 			}
 		}
-	}
+	}*/
 
 	c.config.Host = host
 	c.config.Insecure = insecure
