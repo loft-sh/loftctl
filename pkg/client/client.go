@@ -4,22 +4,23 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io/ioutil"
+	"net/http"
+	"os"
+	"path/filepath"
+	"strings"
+	"sync"
+
 	managementv1 "github.com/loft-sh/api/pkg/apis/management/v1"
 	"github.com/loft-sh/loftctl/pkg/kube"
 	"github.com/loft-sh/loftctl/pkg/log"
 	"github.com/mitchellh/go-homedir"
 	"github.com/pkg/errors"
 	"github.com/skratchdot/open-golang/open"
-	"io/ioutil"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
-	"net/http"
-	"os"
-	"path/filepath"
-	"strings"
-	"sync"
 )
 
 var cacheFolder = ".loft"
@@ -28,8 +29,9 @@ var cacheFolder = ".loft"
 var DefaultCacheConfig = "config.json"
 
 const (
-	LoginPath            = "%s/login?cli=true"
-	RedirectPath         = "%s/spaces"
+	LoginPath     = "%s/login?cli=true"
+	RedirectPath  = "%s/spaces"
+	AccessKeyPath = "%s/profile/access-keys"
 )
 
 func init() {
@@ -169,7 +171,7 @@ func verifyHost(host string) error {
 func (c *client) Login(host string, insecure bool, log log.Logger) error {
 	var (
 		loginUrl   = fmt.Sprintf(LoginPath, host)
-		key          keyStruct
+		key        keyStruct
 		keyChannel = make(chan keyStruct)
 	)
 
@@ -181,7 +183,7 @@ func (c *client) Login(host string, insecure bool, log log.Logger) error {
 	server := startServer(fmt.Sprintf(RedirectPath, host), keyChannel, log)
 	err = open.Run(fmt.Sprintf(LoginPath, host))
 	if err != nil {
-		return fmt.Errorf("couldn't open a browser window: %v. Please login via an access token", err)
+		return fmt.Errorf("couldn't open the login page in a browser: %v. Please use the --access-key flag for the login command. You can generate an access key here: %s", err, fmt.Sprintf(AccessKeyPath, host))
 	} else {
 		log.Infof("If the browser does not open automatically, please navigate to %s", loginUrl)
 		log.StartWait("Logging into loft...")
@@ -207,7 +209,7 @@ func (c *client) LoginWithAccessKey(host, accessKey string, insecure bool) error
 	if c.config.Host == host && c.config.AccessKey == accessKey {
 		return nil
 	}
-	
+
 	// delete old access key if were logged in before
 	if c.config.AccessKey != "" {
 		managementClient, err := c.Management()
