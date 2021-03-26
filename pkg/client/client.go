@@ -2,22 +2,25 @@ package client
 
 import (
 	"context"
+	"crypto/x509"
 	"encoding/json"
 	"fmt"
+	managementv1 "github.com/loft-sh/api/pkg/apis/management/v1"
+	storagev1 "github.com/loft-sh/api/pkg/apis/storage/v1"
 	"io/ioutil"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"net/http"
+	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
 	"sync"
 
-	managementv1 "github.com/loft-sh/api/pkg/apis/management/v1"
 	"github.com/loft-sh/loftctl/pkg/kube"
 	"github.com/loft-sh/loftctl/pkg/log"
 	"github.com/mitchellh/go-homedir"
 	"github.com/pkg/errors"
 	"github.com/skratchdot/open-golang/open"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
@@ -215,7 +218,7 @@ func (c *client) LoginWithAccessKey(host, accessKey string, insecure bool) error
 		managementClient, err := c.Management()
 		if err == nil {
 			self, err := managementClient.Loft().ManagementV1().Selves().Create(context.TODO(), &managementv1.Self{}, metav1.CreateOptions{})
-			if err == nil && self.Status.AccessKey != "" {
+			if err == nil && self.Status.AccessKey != "" && self.Status.AccessKeyType == storagev1.AccessKeyTypeLogin {
 				_ = managementClient.Loft().ManagementV1().OwnedAccessKeys().Delete(context.TODO(), self.Status.AccessKey, metav1.DeleteOptions{})
 			}
 		}
@@ -224,6 +227,25 @@ func (c *client) LoginWithAccessKey(host, accessKey string, insecure bool) error
 	c.config.Host = host
 	c.config.Insecure = insecure
 	c.config.AccessKey = accessKey
+	
+	// verify the connection works
+	managementClient, err := c.Management()
+	if err != nil {
+		return errors.Wrap(err, "create management client")
+	}
+	
+	// try to get self
+	_, err = managementClient.Loft().ManagementV1().Selves().Create(context.TODO(), &managementv1.Self{}, metav1.CreateOptions{})
+	if err != nil {
+		if urlError, ok := err.(*url.Error); ok {
+			if _, ok := urlError.Err.(x509.UnknownAuthorityError); ok {
+				return fmt.Errorf("unsafe login endpoint '%s', if you wish to login into an insecure loft endpoint run with the '--insecure' flag", c.config.Host)
+			}
+		}
+		
+		return errors.Errorf("error logging in: %v", err)
+	}
+	
 	return c.Save()
 }
 
