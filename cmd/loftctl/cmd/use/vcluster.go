@@ -71,7 +71,7 @@ devspace use vcluster myvcluster --cluster mycluster --space myspace
 		Args:  cobra.MaximumNArgs(1),
 		RunE: func(cobraCmd *cobra.Command, args []string) error {
 			// Check for newer version
-			if cmd.Print == false {
+			if cmd.Print == false && cmd.PrintToken == false {
 				upgrade.PrintNewerVersionWarning()
 			}
 
@@ -110,7 +110,9 @@ func (cmd *VirtualClusterCmd) Run(cobraCmd *cobra.Command, args []string) error 
 	}
 
 	// get token for virtual cluster
-	cmd.Log.StartWait("Waiting for virtual cluster to become ready...")
+	if cmd.Print == false && cmd.PrintToken == false {
+		cmd.Log.StartWait("Waiting for virtual cluster to become ready...")
+	}
 	token, err := virtualcluster.GetVirtualClusterToken(context.TODO(), clusterClient, virtualClusterName, spaceName)
 	cmd.Log.StopWait()
 	if err != nil {
