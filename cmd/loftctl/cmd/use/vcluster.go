@@ -19,9 +19,10 @@ import (
 type VirtualClusterCmd struct {
 	*flags.GlobalFlags
 
-	Space   string
-	Cluster string
-	Print   bool
+	Space      string
+	Cluster    string
+	Print      bool
+	PrintToken bool
 
 	Out io.Writer
 	Log log.Logger
@@ -81,6 +82,7 @@ devspace use vcluster myvcluster --cluster mycluster --space myspace
 	c.Flags().StringVar(&cmd.Space, "space", "", "The space to use")
 	c.Flags().StringVar(&cmd.Cluster, "cluster", "", "The cluster to use")
 	c.Flags().BoolVar(&cmd.Print, "print", false, "When enabled prints the context to stdout")
+	c.Flags().BoolVar(&cmd.PrintToken, "print-token", false, "When enabled prints the virtual cluster token")
 	return c
 }
 
@@ -118,6 +120,11 @@ func (cmd *VirtualClusterCmd) Run(cobraCmd *cobra.Command, args []string) error 
 	// check if we should print or update the config
 	if cmd.Print {
 		err = kubeconfig.PrintVirtualClusterKubeConfigTo(baseClient.Config(), clusterName, spaceName, virtualClusterName, token, cmd.Out)
+		if err != nil {
+			return err
+		}
+	} else if cmd.PrintToken {
+		_, err := cmd.Out.Write([]byte(token))
 		if err != nil {
 			return err
 		}
