@@ -35,13 +35,15 @@ func eraseVersionPrefix(version string) (string, error) {
 }
 
 func PrintNewerVersionWarning() {
-	// Get version of current binary
-	latestVersion := NewerVersionAvailable()
-	if latestVersion != "" {
-		if IsPlugin == "true" {
-			log.GetInstance().Warnf("There is a newer version of the loft devspace plugin: v%s. Run `devspace update plugin loft` to upgrade to the newest version.\n", latestVersion)
-		} else {
-			log.GetInstance().Warnf("There is a newer version of loft: v%s. Run `loft upgrade` to upgrade to the newest version.\n", latestVersion)
+	if os.Getenv("LOFT_SKIP_VERSION_CHECK") != "true" {
+		// Get version of current binary
+		latestVersion := NewerVersionAvailable()
+		if latestVersion != "" {
+			if IsPlugin == "true" {
+				log.GetInstance().Warnf("There is a newer version of the loft devspace plugin: v%s. Run `devspace update plugin loft` to upgrade to the newest version.\n", latestVersion)
+			} else {
+				log.GetInstance().Warnf("There is a newer version of loft: v%s. Run `loft upgrade` to upgrade to the newest version.\n", latestVersion)
+			}
 		}
 	}
 }
