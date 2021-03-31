@@ -79,7 +79,7 @@ func (cmd *SharedSecretCmd) Run(cobraCmd *cobra.Command, args []string) error {
 	}
 
 	// get target namespace
-	namespace, err := set.GetSharedSecretNamespace(context.TODO(), cmd.Namespace, managementClient)
+	namespace, err := set.GetSharedSecretNamespace(cmd.Namespace)
 	if err != nil {
 		return errors.Wrap(err, "get shared secrets namespace")
 	}
