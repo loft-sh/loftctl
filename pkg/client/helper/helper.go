@@ -265,7 +265,7 @@ func SelectSpaceAndClusterName(baseClient client.Client, spaceName, clusterName 
 
 		return "", "", fmt.Errorf("couldn't find space %s", ansi.Color(spaceName, "white+b"))
 	} else if len(questionOptions) == 1 {
-		return spaceName, matchedSpaces[0].Cluster, nil
+		return matchedSpaces[0].Space.Name, matchedSpaces[0].Cluster, nil
 	}
 
 	selectedSpace, err := log.Question(&survey.QuestionOptions{
