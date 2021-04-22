@@ -76,7 +76,7 @@ devspace share space myspace --cluster mycluster --user admin
 	}
 
 	c.Flags().StringVar(&cmd.Cluster, "cluster", "", "The cluster to use")
-	c.Flags().StringVar(&cmd.ClusterRole, "cluster-role", "admin", "The cluster role which is assigned to the user or team for that space")
+	c.Flags().StringVar(&cmd.ClusterRole, "cluster-role", "loft-cluster-space-default", "The cluster role which is assigned to the user or team for that space")
 	c.Flags().StringVar(&cmd.User, "user", "", "The user to share the space with. The user needs to have access to the cluster")
 	c.Flags().StringVar(&cmd.Team, "team", "", "The team to share the space with. The team needs to have access to the cluster")
 	c.Flags().BoolVar(&cmd.AllowDuplicates, "allow-duplicates", false, "If true multiple rolebindings are allowed for an user or team in a space")
