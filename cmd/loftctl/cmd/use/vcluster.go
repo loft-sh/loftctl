@@ -8,11 +8,13 @@ import (
 	"github.com/loft-sh/loftctl/pkg/kubeconfig"
 	"github.com/loft-sh/loftctl/pkg/log"
 	"github.com/loft-sh/loftctl/pkg/upgrade"
-	"github.com/loft-sh/loftctl/pkg/virtualcluster"
 	"github.com/mgutz/ansi"
 	"github.com/spf13/cobra"
 	"io"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/wait"
 	"os"
+	"time"
 )
 
 // VirtualClusterCmd holds the cmd flags
@@ -82,7 +84,6 @@ devspace use vcluster myvcluster --cluster mycluster --space myspace
 	c.Flags().StringVar(&cmd.Space, "space", "", "The space to use")
 	c.Flags().StringVar(&cmd.Cluster, "cluster", "", "The cluster to use")
 	c.Flags().BoolVar(&cmd.Print, "print", false, "When enabled prints the context to stdout")
-	c.Flags().BoolVar(&cmd.PrintToken, "print-token", false, "When enabled prints the virtual cluster token")
 	return c
 }
 
@@ -103,17 +104,22 @@ func (cmd *VirtualClusterCmd) Run(cobraCmd *cobra.Command, args []string) error 
 		return err
 	}
 
-	// create a cluster client
-	clusterClient, err := baseClient.Cluster(clusterName)
+	// get token for virtual cluster
+	vClusterClient, err := baseClient.VirtualCluster(clusterName, spaceName, virtualClusterName)
 	if err != nil {
 		return err
 	}
-
-	// get token for virtual cluster
 	if cmd.Print == false && cmd.PrintToken == false {
 		cmd.Log.StartWait("Waiting for virtual cluster to become ready...")
 	}
-	token, err := virtualcluster.GetVirtualClusterToken(context.TODO(), clusterClient, virtualClusterName, spaceName)
+	err = wait.PollImmediate(time.Second, time.Minute * 5, func() (bool, error) {
+		_, err := vClusterClient.CoreV1().Namespaces().List(context.TODO(), metav1.ListOptions{})
+		if err != nil {
+			return false, nil
+		}
+
+		return true, nil
+	})
 	cmd.Log.StopWait()
 	if err != nil {
 		return err
@@ -121,18 +127,13 @@ func (cmd *VirtualClusterCmd) Run(cobraCmd *cobra.Command, args []string) error 
 
 	// check if we should print or update the config
 	if cmd.Print {
-		err = kubeconfig.PrintVirtualClusterKubeConfigTo(baseClient.Config(), clusterName, spaceName, virtualClusterName, token, cmd.Out)
-		if err != nil {
-			return err
-		}
-	} else if cmd.PrintToken {
-		_, err := cmd.Out.Write([]byte(token))
+		err = kubeconfig.PrintVirtualClusterKubeConfigTo(baseClient.Config(), cmd.Config, clusterName, spaceName, virtualClusterName, cmd.Out)
 		if err != nil {
 			return err
 		}
 	} else {
 		// update kube config
-		err = kubeconfig.UpdateKubeConfigVirtualCluster(baseClient.Config(), clusterName, spaceName, virtualClusterName, token, true)
+		err = kubeconfig.UpdateKubeConfigVirtualCluster(baseClient.Config(), cmd.Config, clusterName, spaceName, virtualClusterName, true)
 		if err != nil {
 			return err
 		}

@@ -3,19 +3,20 @@ package create
 import (
 	"context"
 	"io"
+	"k8s.io/apimachinery/pkg/util/wait"
 	"os"
 	"strconv"
 	"strings"
+	"time"
 
-	tenancyv1alpha1 "github.com/loft-sh/kiosk/pkg/apis/tenancy/v1alpha1"
 	storagev1 "github.com/loft-sh/api/pkg/apis/storage/v1"
+	tenancyv1alpha1 "github.com/loft-sh/kiosk/pkg/apis/tenancy/v1alpha1"
 	"github.com/loft-sh/loftctl/cmd/loftctl/flags"
 	"github.com/loft-sh/loftctl/pkg/client"
 	"github.com/loft-sh/loftctl/pkg/client/helper"
 	"github.com/loft-sh/loftctl/pkg/kubeconfig"
 	"github.com/loft-sh/loftctl/pkg/log"
 	"github.com/loft-sh/loftctl/pkg/upgrade"
-	"github.com/loft-sh/loftctl/pkg/virtualcluster"
 	"github.com/mgutz/ansi"
 	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
@@ -210,7 +211,6 @@ func (cmd *VirtualClusterCmd) Run(cobraCmd *cobra.Command, args []string) error 
 			Pod: &storagev1.PodSelector{
 				Selector: metav1.LabelSelector{
 					MatchLabels: map[string]string{
-						"app":     "virtualcluster",
 						"release": virtualClusterName,
 					},
 				},
@@ -227,20 +227,32 @@ func (cmd *VirtualClusterCmd) Run(cobraCmd *cobra.Command, args []string) error 
 	}
 
 	cmd.Log.Donef("Successfully created the virtual cluster %s in cluster %s and space %s", ansi.Color(virtualClusterName, "white+b"), ansi.Color(cmd.Cluster, "white+b"), ansi.Color(cmd.Space, "white+b"))
-
+	
 	// should we create a kube context for the virtual context
 	if cmd.CreateContext || cmd.Print {
-		// get token for virtual cluster
-		cmd.Log.StartWait("Waiting for virtual cluster to become ready...")
-		token, err := virtualcluster.GetVirtualClusterToken(ctx, clusterClient, virtualClusterName, cmd.Space)
+		vClusterClient, err := baseClient.VirtualCluster(cmd.Cluster, cmd.Space, virtualClusterName)
+		if err != nil {
+			return err
+		}
+		
+		// wait until virtual cluster is reachable
+		cmd.Log.StartWait("Waiting for vCluster to be reachable...")
+		err = wait.PollImmediate(time.Second, time.Minute * 5, func() (bool, error) {
+			_, err := vClusterClient.CoreV1().Namespaces().List(context.TODO(), metav1.ListOptions{})
+			if err != nil {
+				return false, nil
+			}
+			
+			return true, nil
+		})
 		cmd.Log.StopWait()
 		if err != nil {
 			return err
 		}
-
+		
 		// check if we should print the config
 		if cmd.Print {
-			err = kubeconfig.PrintVirtualClusterKubeConfigTo(baseClient.Config(), cmd.Cluster, cmd.Space, virtualClusterName, token, cmd.Out)
+			err = kubeconfig.PrintVirtualClusterKubeConfigTo(baseClient.Config(), cmd.Config, cmd.Cluster, cmd.Space, virtualClusterName, cmd.Out)
 			if err != nil {
 				return err
 			}
@@ -249,7 +261,7 @@ func (cmd *VirtualClusterCmd) Run(cobraCmd *cobra.Command, args []string) error 
 		// check if we should update the config
 		if cmd.CreateContext {
 			// update kube config
-			err = kubeconfig.UpdateKubeConfigVirtualCluster(baseClient.Config(), cmd.Cluster, cmd.Space, virtualClusterName, token, cmd.SwitchContext)
+			err = kubeconfig.UpdateKubeConfigVirtualCluster(baseClient.Config(), cmd.Config, cmd.Cluster, cmd.Space, virtualClusterName, cmd.SwitchContext)
 			if err != nil {
 				return err
 			}

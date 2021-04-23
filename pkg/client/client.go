@@ -49,6 +49,9 @@ type Client interface {
 
 	Cluster(cluster string) (kube.Interface, error)
 	ClusterConfig(cluster string) (*rest.Config, error)
+	
+	VirtualCluster(cluster, namespace, virtualCluster string) (kube.Interface, error)
+	VirtualClusterConfig(cluster, namespace, virtualCluster string) (*rest.Config, error)
 
 	Login(host string, insecure bool, log log.Logger) error
 	LoginWithAccessKey(host, accessKey string, insecure bool) error
@@ -148,6 +151,19 @@ func (c *client) ClusterConfig(cluster string) (*rest.Config, error) {
 
 func (c *client) Cluster(cluster string) (kube.Interface, error) {
 	restConfig, err := c.ClusterConfig(cluster)
+	if err != nil {
+		return nil, err
+	}
+
+	return kube.NewForConfig(restConfig)
+}
+
+func (c *client) VirtualClusterConfig(cluster, namespace, virtualCluster string) (*rest.Config, error) {
+	return c.restConfig("/kubernetes/virtualcluster/" + cluster + "/" + namespace + "/" + virtualCluster)
+}
+
+func (c *client) VirtualCluster(cluster, namespace, virtualCluster string) (kube.Interface, error) {
+	restConfig, err := c.VirtualClusterConfig(cluster, namespace, virtualCluster)
 	if err != nil {
 		return nil, err
 	}

@@ -182,28 +182,48 @@ func printKubeConfigTo(contextName string, cluster *api.Cluster, authInfo *api.A
 	return err
 }
 
-func createVirtualClusterContextInfo(clientConfig *client.Config, clusterName, namespaceName, virtualClusterName, token string) (string, *api.Cluster, *api.AuthInfo) {
+func createVirtualClusterContextInfo(clientConfig *client.Config, configPath, clusterName, namespaceName, virtualClusterName string) (string, *api.Cluster, *api.AuthInfo, error) {
 	contextName := VirtualClusterContextName(clusterName, namespaceName, virtualClusterName)
 	cluster := api.NewCluster()
 	cluster.Server = clientConfig.Host + "/kubernetes/virtualcluster/" + clusterName + "/" + namespaceName + "/" + virtualClusterName
 	cluster.InsecureSkipTLSVerify = clientConfig.Insecure
 
+	command, err := os.Executable()
+	if err != nil {
+		return "", nil, nil, err
+	}
+
+	absConfigPath, err := filepath.Abs(configPath)
+	if err != nil {
+		return "", nil, nil, err
+	}
+
 	authInfo := api.NewAuthInfo()
-	authInfo.Token = token
-	return contextName, cluster, authInfo
+	authInfo.Exec = &api.ExecConfig{
+		APIVersion: v1alpha1.SchemeGroupVersion.String(),
+		Command:    command,
+		Args:       []string{"token", "--silent", "--config", absConfigPath},
+	}
+	return contextName, cluster, authInfo, nil
 }
 
 // UpdateKubeConfigVirtualCluster updates the kube config and adds the virtual cluster context
-func UpdateKubeConfigVirtualCluster(clientConfig *client.Config, clusterName, namespaceName, virtualClusterName, token string, setActive bool) error {
-	contextName, cluster, authInfo := createVirtualClusterContextInfo(clientConfig, clusterName, namespaceName, virtualClusterName, token)
+func UpdateKubeConfigVirtualCluster(clientConfig *client.Config, configName, clusterName, namespaceName, virtualClusterName string, setActive bool) error {
+	contextName, cluster, authInfo, err := createVirtualClusterContextInfo(clientConfig, configName, clusterName, namespaceName, virtualClusterName)
+	if err != nil {
+		return err
+	}
 
 	// we don't want to set the space name here as the default namespace in the virtual cluster, because it couldn't exist
 	return updateKubeConfig(contextName, cluster, authInfo, "", setActive)
 }
 
 // PrintVirtualClusterKubeConfigTo prints the given config to the writer
-func PrintVirtualClusterKubeConfigTo(clientConfig *client.Config, clusterName, namespaceName, virtualClusterName, token string, writer io.Writer) error {
-	contextName, cluster, authInfo := createVirtualClusterContextInfo(clientConfig, clusterName, namespaceName, virtualClusterName, token)
+func PrintVirtualClusterKubeConfigTo(clientConfig *client.Config, configName, clusterName, namespaceName, virtualClusterName string, writer io.Writer) error {
+	contextName, cluster, authInfo, err := createVirtualClusterContextInfo(clientConfig, configName, clusterName, namespaceName, virtualClusterName)
+	if err != nil {
+		return err
+	}
 
 	// we don't want to set the space name here as the default namespace in the virtual cluster, because it couldn't exist
 	return printKubeConfigTo(contextName, cluster, authInfo, "", writer)
