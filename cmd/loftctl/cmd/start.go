@@ -95,7 +95,7 @@ before running this command:
 	return startCmd
 }
 
-// RunLogin executes the functionality "loft login"
+// Run executes the functionality "loft start"
 func (cmd *StartCmd) Run(cobraCmd *cobra.Command, args []string) error {
 	loader, err := client.NewClientFromPath(cmd.Config)
 	if err != nil {
@@ -109,7 +109,7 @@ func (cmd *StartCmd) Run(cobraCmd *cobra.Command, args []string) error {
 	// load the raw config
 	kubeConfig, err := kubeClientConfig.RawConfig()
 	if err != nil {
-		return fmt.Errorf("There is an error loading your current kube config (%v), please make sure you have access to a kubernetes cluster and the command `kubectl get namespaces` is working.", err)
+		return fmt.Errorf("there is an error loading your current kube config (%v), please make sure you have access to a kubernetes cluster and the command `kubectl get namespaces` is working", err)
 	}
 
 	// we switch the context to the install config
