@@ -145,7 +145,7 @@ func (cmd *StartCmd) Run(cobraCmd *cobra.Command, args []string) error {
 		return fmt.Errorf("Seems like kubectl is not installed. Kubectl is required for the installation of loft. Please visit https://kubernetes.io/docs/tasks/tools/install-kubectl/ for install instructions.")
 	}
 
-	output, err = exec.Command("kubectl", "version").CombinedOutput()
+	output, err = exec.Command("kubectl", "version", "--context", contextToLoad).CombinedOutput()
 	if err != nil {
 		return fmt.Errorf("Seems like kubectl cannot connect to your Kubernetes cluster: \n\n%s", output)
 	}
