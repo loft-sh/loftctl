@@ -18,9 +18,17 @@ type Config struct {
 	// +optional
 	Insecure bool `json:"insecure,omitempty"`
 
-	// accesskey is the accesskey for the given loft host
+	// access key is the access key for the given loft host
 	// +optional
 	AccessKey string `json:"accesskey,omitempty"`
+
+	// the direct cluster endpoint token
+	// +optional
+	DirectClusterEndpointToken string `json:"directClusterEndpointToken,omitempty"`
+
+	// last time the direct cluster endpoint token was requested
+	// +optional
+	DirectClusterEndpointTokenRequested *metav1.Time `json:"directClusterEndpointTokenRequested,omitempty"`
 }
 
 // NewConfig creates a new config

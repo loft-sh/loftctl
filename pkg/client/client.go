@@ -15,6 +15,7 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/loft-sh/loftctl/pkg/kube"
 	"github.com/loft-sh/loftctl/pkg/log"
@@ -35,6 +36,7 @@ const (
 	LoginPath     = "%s/login?cli=true"
 	RedirectPath  = "%s/spaces"
 	AccessKeyPath = "%s/profile/access-keys"
+	RefreshToken  = time.Minute * 30
 )
 
 func init() {
@@ -49,7 +51,7 @@ type Client interface {
 
 	Cluster(cluster string) (kube.Interface, error)
 	ClusterConfig(cluster string) (*rest.Config, error)
-	
+
 	VirtualCluster(cluster, namespace, virtualCluster string) (kube.Interface, error)
 	VirtualClusterConfig(cluster, namespace, virtualCluster string) (*rest.Config, error)
 
@@ -57,6 +59,7 @@ type Client interface {
 	LoginWithAccessKey(host, accessKey string, insecure bool) error
 
 	Config() *Config
+	DirectClusterEndpointToken() (string, error)
 	Save() error
 }
 
@@ -111,6 +114,44 @@ func (c *client) initConfig() error {
 	})
 
 	return retErr
+}
+
+func (c *client) DirectClusterEndpointToken() (string, error) {
+	if c.config == nil {
+		return "", errors.New("no config loaded")
+	}
+
+	// check if we can use existing token
+	now := metav1.Now()
+	if c.config.DirectClusterEndpointToken != "" && c.config.DirectClusterEndpointTokenRequested != nil && c.config.DirectClusterEndpointTokenRequested.Add(RefreshToken).After(now.Time) {
+		return c.config.DirectClusterEndpointToken, nil
+	}
+
+	// refresh token
+	managementClient, err := c.Management()
+	if err != nil {
+		return "", err
+	}
+
+	clusterGatewayToken, err := managementClient.Loft().ManagementV1().DirectClusterEndpointTokens().Create(context.Background(), &managementv1.DirectClusterEndpointToken{}, metav1.CreateOptions{})
+	if err != nil {
+		if c.config.DirectClusterEndpointToken != "" && c.config.DirectClusterEndpointTokenRequested != nil && c.config.DirectClusterEndpointTokenRequested.Add(time.Hour*24).After(now.Time) {
+			return c.config.DirectClusterEndpointToken, nil
+		}
+
+		return "", err
+	} else if clusterGatewayToken.Status.Token == "" {
+		return "", errors.New("retrieved an empty token")
+	}
+
+	c.config.DirectClusterEndpointToken = clusterGatewayToken.Status.Token
+	c.config.DirectClusterEndpointTokenRequested = &now
+	err = c.Save()
+	if err != nil {
+		return "", errors.Wrap(err, "save config")
+	}
+
+	return c.config.DirectClusterEndpointToken, nil
 }
 
 func (c *client) Save() error {
@@ -243,13 +284,15 @@ func (c *client) LoginWithAccessKey(host, accessKey string, insecure bool) error
 	c.config.Host = host
 	c.config.Insecure = insecure
 	c.config.AccessKey = accessKey
-	
+	c.config.DirectClusterEndpointToken = ""
+	c.config.DirectClusterEndpointTokenRequested = nil
+
 	// verify the connection works
 	managementClient, err := c.Management()
 	if err != nil {
 		return errors.Wrap(err, "create management client")
 	}
-	
+
 	// try to get self
 	_, err = managementClient.Loft().ManagementV1().Selves().Create(context.TODO(), &managementv1.Self{}, metav1.CreateOptions{})
 	if err != nil {
@@ -258,10 +301,10 @@ func (c *client) LoginWithAccessKey(host, accessKey string, insecure bool) error
 				return fmt.Errorf("unsafe login endpoint '%s', if you wish to login into an insecure loft endpoint run with the '--insecure' flag", c.config.Host)
 			}
 		}
-		
+
 		return errors.Errorf("error logging in: %v", err)
 	}
-	
+
 	return c.Save()
 }
 

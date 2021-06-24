@@ -2,6 +2,8 @@ package use
 
 import (
 	"context"
+	"fmt"
+	managementv1 "github.com/loft-sh/api/pkg/apis/management/v1"
 	"github.com/loft-sh/loftctl/cmd/loftctl/flags"
 	"github.com/loft-sh/loftctl/pkg/client"
 	"github.com/loft-sh/loftctl/pkg/client/helper"
@@ -11,6 +13,7 @@ import (
 	"github.com/mgutz/ansi"
 	"github.com/spf13/cobra"
 	"io"
+	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"os"
@@ -21,10 +24,11 @@ import (
 type VirtualClusterCmd struct {
 	*flags.GlobalFlags
 
-	Space      string
-	Cluster    string
-	Print      bool
-	PrintToken bool
+	Space                        string
+	Cluster                      string
+	Print                        bool
+	PrintToken                   bool
+	DisableDirectClusterEndpoint bool
 
 	Out io.Writer
 	Log log.Logger
@@ -84,12 +88,18 @@ devspace use vcluster myvcluster --cluster mycluster --space myspace
 	c.Flags().StringVar(&cmd.Space, "space", "", "The space to use")
 	c.Flags().StringVar(&cmd.Cluster, "cluster", "", "The cluster to use")
 	c.Flags().BoolVar(&cmd.Print, "print", false, "When enabled prints the context to stdout")
+	c.Flags().BoolVar(&cmd.DisableDirectClusterEndpoint, "disable-direct-cluster-endpoint", false, "When enabled does not use an available direct cluster endpoint to connect to the vcluster")
 	return c
 }
 
 // Run executes the command
 func (cmd *VirtualClusterCmd) Run(cobraCmd *cobra.Command, args []string) error {
 	baseClient, err := client.NewClientFromPath(cmd.Config)
+	if err != nil {
+		return err
+	}
+
+	managementClient, err := baseClient.Management()
 	if err != nil {
 		return err
 	}
@@ -104,6 +114,16 @@ func (cmd *VirtualClusterCmd) Run(cobraCmd *cobra.Command, args []string) error 
 		return err
 	}
 
+	// check if the cluster exists
+	cluster, err := managementClient.Loft().ManagementV1().Clusters().Get(context.TODO(), clusterName, metav1.GetOptions{})
+	if err != nil {
+		if kerrors.IsForbidden(err) {
+			return fmt.Errorf("cluster '%s' does not exist, or you don't have permission to use it", clusterName)
+		}
+
+		return err
+	}
+
 	// get token for virtual cluster
 	vClusterClient, err := baseClient.VirtualCluster(clusterName, spaceName, virtualClusterName)
 	if err != nil {
@@ -112,7 +132,7 @@ func (cmd *VirtualClusterCmd) Run(cobraCmd *cobra.Command, args []string) error 
 	if cmd.Print == false && cmd.PrintToken == false {
 		cmd.Log.StartWait("Waiting for virtual cluster to become ready...")
 	}
-	err = wait.PollImmediate(time.Second, time.Minute * 5, func() (bool, error) {
+	err = wait.PollImmediate(time.Second, time.Minute*5, func() (bool, error) {
 		_, err := vClusterClient.CoreV1().Namespaces().List(context.TODO(), metav1.ListOptions{})
 		if err != nil {
 			return false, nil
@@ -125,15 +145,21 @@ func (cmd *VirtualClusterCmd) Run(cobraCmd *cobra.Command, args []string) error 
 		return err
 	}
 
+	// create kube context options
+	contextOptions, err := CreateVClusterContextOptions(baseClient, cmd.Config, cluster, spaceName, virtualClusterName, cmd.DisableDirectClusterEndpoint, true, cmd.Log)
+	if err != nil {
+		return err
+	}
+
 	// check if we should print or update the config
 	if cmd.Print {
-		err = kubeconfig.PrintVirtualClusterKubeConfigTo(baseClient.Config(), cmd.Config, clusterName, spaceName, virtualClusterName, cmd.Out)
+		err = kubeconfig.PrintKubeConfigTo(contextOptions, cmd.Out)
 		if err != nil {
 			return err
 		}
 	} else {
 		// update kube config
-		err = kubeconfig.UpdateKubeConfigVirtualCluster(baseClient.Config(), cmd.Config, clusterName, spaceName, virtualClusterName, true)
+		err = kubeconfig.UpdateKubeConfig(contextOptions)
 		if err != nil {
 			return err
 		}
@@ -142,4 +168,25 @@ func (cmd *VirtualClusterCmd) Run(cobraCmd *cobra.Command, args []string) error 
 	}
 
 	return nil
+}
+
+func CreateVClusterContextOptions(baseClient client.Client, config string, cluster *managementv1.Cluster, spaceName, virtualClusterName string, disableClusterGateway, setActive bool, log log.Logger) (kubeconfig.ContextOptions, error) {
+	contextOptions := kubeconfig.ContextOptions{
+		Name:       kubeconfig.VirtualClusterContextName(cluster.Name, spaceName, virtualClusterName),
+		ConfigPath: config,
+		SetActive:  setActive,
+	}
+	if disableClusterGateway == false && cluster.Annotations != nil && cluster.Annotations[LoftDirectClusterEndpoint] != "" {
+		contextOptions = ApplyDirectClusterEndpointOptions(contextOptions, cluster, "/kubernetes/virtualcluster/"+spaceName+"/"+virtualClusterName, log)
+	} else {
+		contextOptions.Server = baseClient.Config().Host + "/kubernetes/virtualcluster/" + cluster.Name + "/" + spaceName + "/" + virtualClusterName
+		contextOptions.InsecureSkipTLSVerify = baseClient.Config().Insecure
+	}
+
+	data, err := retrieveCaData(cluster)
+	if err != nil {
+		return kubeconfig.ContextOptions{}, err
+	}
+	contextOptions.CaData = data
+	return contextOptions, nil
 }

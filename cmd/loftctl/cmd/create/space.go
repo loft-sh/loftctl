@@ -2,12 +2,15 @@ package create
 
 import (
 	"context"
+	"fmt"
+	"github.com/loft-sh/loftctl/cmd/loftctl/cmd/use"
 	"github.com/loft-sh/loftctl/pkg/kube"
+	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	"strconv"
 
+	v1 "github.com/loft-sh/api/pkg/apis/management/v1"
 	"github.com/loft-sh/kiosk/pkg/apis/config/v1alpha1"
 	tenancyv1alpha1 "github.com/loft-sh/kiosk/pkg/apis/tenancy/v1alpha1"
-	v1 "github.com/loft-sh/api/pkg/apis/management/v1"
 	"github.com/loft-sh/loftctl/cmd/loftctl/flags"
 	"github.com/loft-sh/loftctl/pkg/client"
 	"github.com/loft-sh/loftctl/pkg/client/helper"
@@ -24,12 +27,13 @@ import (
 type SpaceCmd struct {
 	*flags.GlobalFlags
 
-	SleepAfter    int64
-	DeleteAfter   int64
-	Cluster       string
-	Account       string
-	CreateContext bool
-	SwitchContext bool
+	SleepAfter                   int64
+	DeleteAfter                  int64
+	Cluster                      string
+	Account                      string
+	CreateContext                bool
+	SwitchContext                bool
+	DisableDirectClusterEndpoint bool
 
 	Log log.Logger
 }
@@ -87,6 +91,7 @@ devspace create space myspace --cluster mycluster --account myaccount
 	c.Flags().Int64Var(&cmd.DeleteAfter, "delete-after", 0, "If set to non zero, will tell loft to delete the space after specified seconds of inactivity")
 	c.Flags().BoolVar(&cmd.CreateContext, "create-context", true, "If loft should create a kube context for the space")
 	c.Flags().BoolVar(&cmd.SwitchContext, "switch-context", true, "If loft should switch the current context to the new context")
+	c.Flags().BoolVar(&cmd.DisableDirectClusterEndpoint, "disable-direct-cluster-endpoint", false, "When enabled does not use an available direct cluster endpoint to connect to the space")
 	return c
 }
 
@@ -133,6 +138,16 @@ func (cmd *SpaceCmd) Run(cobraCmd *cobra.Command, args []string) error {
 		return err
 	}
 
+	// check if the cluster exists
+	cluster, err := managementClient.Loft().ManagementV1().Clusters().Get(context.TODO(), clusterName, metav1.GetOptions{})
+	if err != nil {
+		if kerrors.IsForbidden(err) {
+			return fmt.Errorf("cluster '%s' does not exist, or you don't have permission to use it", clusterName)
+		}
+
+		return err
+	}
+
 	// create space object
 	space := &tenancyv1alpha1.Space{
 		ObjectMeta: metav1.ObjectMeta{
@@ -161,8 +176,14 @@ func (cmd *SpaceCmd) Run(cobraCmd *cobra.Command, args []string) error {
 
 	// should we create a kube context for the space
 	if cmd.CreateContext {
+		// create kube context options
+		contextOptions, err := use.CreateClusterContextOptions(baseClient, cmd.Config, cluster, spaceName, cmd.DisableDirectClusterEndpoint, cmd.SwitchContext, cmd.Log)
+		if err != nil {
+			return err
+		}
+
 		// update kube config
-		err = kubeconfig.UpdateKubeConfig(baseClient.Config(), cmd.Config, clusterName, spaceName, cmd.SwitchContext)
+		err = kubeconfig.UpdateKubeConfig(contextOptions)
 		if err != nil {
 			return err
 		}

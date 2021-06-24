@@ -17,7 +17,8 @@ import (
 type TokenCmd struct {
 	*flags.GlobalFlags
 
-	log log.Logger
+	DirectClusterEndpoint bool
+	log                   log.Logger
 }
 
 // NewTokenCmd creates a new command
@@ -62,6 +63,7 @@ devspace token
 		},
 	}
 
+	tokenCmd.Flags().BoolVar(&cmd.DirectClusterEndpoint, "direct-cluster-endpoint", false, "When enabled prints a direct cluster endpoint token")
 	return tokenCmd
 }
 
@@ -71,7 +73,7 @@ func (cmd *TokenCmd) Run(cobraCmd *cobra.Command, args []string) error {
 	if err != nil {
 		return err
 	}
-	
+
 	// get config
 	config := baseClient.Config()
 	if config == nil {
@@ -79,8 +81,19 @@ func (cmd *TokenCmd) Run(cobraCmd *cobra.Command, args []string) error {
 	} else if config.Host == "" || config.AccessKey == "" {
 		return errors.New("not logged in, please make sure you have run 'loft login [loft-url]'")
 	}
-	
-	return printToken(config.AccessKey)
+
+	// by default we print the access key as token
+	token := config.AccessKey
+
+	// check if we should print a cluster gateway token instead
+	if cmd.DirectClusterEndpoint {
+		token, err = baseClient.DirectClusterEndpointToken()
+		if err != nil {
+			return err
+		}
+	}
+
+	return printToken(token)
 }
 
 func printToken(token string) error {

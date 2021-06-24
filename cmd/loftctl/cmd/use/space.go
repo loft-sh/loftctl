@@ -1,6 +1,8 @@
 package use
 
 import (
+	"context"
+	"fmt"
 	"github.com/loft-sh/loftctl/cmd/loftctl/flags"
 	"github.com/loft-sh/loftctl/pkg/client"
 	"github.com/loft-sh/loftctl/pkg/client/helper"
@@ -9,6 +11,8 @@ import (
 	"github.com/loft-sh/loftctl/pkg/upgrade"
 	"github.com/mgutz/ansi"
 	"github.com/spf13/cobra"
+	kerrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"os"
 )
 
@@ -16,9 +20,11 @@ import (
 type SpaceCmd struct {
 	*flags.GlobalFlags
 
-	Cluster string
-	Print   bool
-	log     log.Logger
+	Cluster                      string
+	Print                        bool
+	DisableDirectClusterEndpoint bool
+
+	log log.Logger
 }
 
 // NewSpaceCmd creates a new command
@@ -71,12 +77,18 @@ devspace use space myspace --cluster mycluster
 
 	c.Flags().StringVar(&cmd.Cluster, "cluster", "", "The cluster to use")
 	c.Flags().BoolVar(&cmd.Print, "print", false, "When enabled prints the context to stdout")
+	c.Flags().BoolVar(&cmd.DisableDirectClusterEndpoint, "disable-direct-cluster-endpoint", false, "When enabled does not use an available direct cluster endpoint to connect to the cluster")
 	return c
 }
 
 // Run executes the command
 func (cmd *SpaceCmd) Run(cobraCmd *cobra.Command, args []string) error {
 	baseClient, err := client.NewClientFromPath(cmd.Config)
+	if err != nil {
+		return err
+	}
+
+	managementClient, err := baseClient.Management()
 	if err != nil {
 		return err
 	}
@@ -91,15 +103,31 @@ func (cmd *SpaceCmd) Run(cobraCmd *cobra.Command, args []string) error {
 		return err
 	}
 
+	// check if the cluster exists
+	cluster, err := managementClient.Loft().ManagementV1().Clusters().Get(context.TODO(), clusterName, metav1.GetOptions{})
+	if err != nil {
+		if kerrors.IsForbidden(err) {
+			return fmt.Errorf("cluster '%s' does not exist, or you don't have permission to use it", clusterName)
+		}
+
+		return err
+	}
+
+	// create kube context options
+	contextOptions, err := CreateClusterContextOptions(baseClient, cmd.Config, cluster, spaceName, cmd.DisableDirectClusterEndpoint, true, cmd.log)
+	if err != nil {
+		return err
+	}
+
 	// check if we should print or update the config
 	if cmd.Print {
-		err = kubeconfig.PrintKubeConfigTo(baseClient.Config(), cmd.Config, clusterName, spaceName, os.Stdout)
+		err = kubeconfig.PrintKubeConfigTo(contextOptions, os.Stdout)
 		if err != nil {
 			return err
 		}
 	} else {
 		// update kube config
-		err = kubeconfig.UpdateKubeConfig(baseClient.Config(), cmd.Config, clusterName, spaceName, true)
+		err = kubeconfig.UpdateKubeConfig(contextOptions)
 		if err != nil {
 			return err
 		}

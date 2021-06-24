@@ -2,6 +2,8 @@ package create
 
 import (
 	"context"
+	"fmt"
+	"github.com/loft-sh/loftctl/cmd/loftctl/cmd/use"
 	"io"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"os"
@@ -37,6 +39,8 @@ type VirtualClusterCmd struct {
 	CreateContext bool
 	SwitchContext bool
 	Print         bool
+
+	DisableDirectClusterEndpoint bool
 
 	Out io.Writer
 	Log log.Logger
@@ -100,6 +104,7 @@ devspace create vcluster test --cluster mycluster --space myspace
 	c.Flags().Int64Var(&cmd.DeleteAfter, "delete-after", 0, "If set to non zero, will tell loft to delete the space after specified seconds of inactivity")
 	c.Flags().BoolVar(&cmd.CreateContext, "create-context", true, "If loft should create a kube context for the space")
 	c.Flags().BoolVar(&cmd.SwitchContext, "switch-context", true, "If loft should switch the current context to the new context")
+	c.Flags().BoolVar(&cmd.DisableDirectClusterEndpoint, "disable-direct-cluster-endpoint", false, "When enabled does not use an available direct cluster endpoint to connect to the vcluster")
 	return c
 }
 
@@ -145,6 +150,16 @@ func (cmd *VirtualClusterCmd) Run(cobraCmd *cobra.Command, args []string) error 
 		for _, w := range warningLines {
 			cmd.Log.Warn(w)
 		}
+	}
+
+	// check if the cluster exists
+	cluster, err := managementClient.Loft().ManagementV1().Clusters().Get(context.TODO(), cmd.Cluster, metav1.GetOptions{})
+	if err != nil {
+		if kerrors.IsForbidden(err) {
+			return fmt.Errorf("cluster '%s' does not exist, or you don't have permission to use it", cmd.Cluster)
+		}
+
+		return err
 	}
 
 	// create space if it does not exist
@@ -227,32 +242,38 @@ func (cmd *VirtualClusterCmd) Run(cobraCmd *cobra.Command, args []string) error 
 	}
 
 	cmd.Log.Donef("Successfully created the virtual cluster %s in cluster %s and space %s", ansi.Color(virtualClusterName, "white+b"), ansi.Color(cmd.Cluster, "white+b"), ansi.Color(cmd.Space, "white+b"))
-	
+
 	// should we create a kube context for the virtual context
 	if cmd.CreateContext || cmd.Print {
 		vClusterClient, err := baseClient.VirtualCluster(cmd.Cluster, cmd.Space, virtualClusterName)
 		if err != nil {
 			return err
 		}
-		
+
 		// wait until virtual cluster is reachable
 		cmd.Log.StartWait("Waiting for vCluster to be reachable...")
-		err = wait.PollImmediate(time.Second, time.Minute * 5, func() (bool, error) {
+		err = wait.PollImmediate(time.Second, time.Minute*5, func() (bool, error) {
 			_, err := vClusterClient.CoreV1().Namespaces().List(context.TODO(), metav1.ListOptions{})
 			if err != nil {
 				return false, nil
 			}
-			
+
 			return true, nil
 		})
 		cmd.Log.StopWait()
 		if err != nil {
 			return err
 		}
-		
+
+		// create kube context options
+		contextOptions, err := use.CreateVClusterContextOptions(baseClient, cmd.Config, cluster, cmd.Space, virtualClusterName, cmd.DisableDirectClusterEndpoint, cmd.SwitchContext, cmd.Log)
+		if err != nil {
+			return err
+		}
+
 		// check if we should print the config
 		if cmd.Print {
-			err = kubeconfig.PrintVirtualClusterKubeConfigTo(baseClient.Config(), cmd.Config, cmd.Cluster, cmd.Space, virtualClusterName, cmd.Out)
+			err = kubeconfig.PrintKubeConfigTo(contextOptions, cmd.Out)
 			if err != nil {
 				return err
 			}
@@ -261,7 +282,7 @@ func (cmd *VirtualClusterCmd) Run(cobraCmd *cobra.Command, args []string) error 
 		// check if we should update the config
 		if cmd.CreateContext {
 			// update kube config
-			err = kubeconfig.UpdateKubeConfigVirtualCluster(baseClient.Config(), cmd.Config, cmd.Cluster, cmd.Space, virtualClusterName, cmd.SwitchContext)
+			err = kubeconfig.UpdateKubeConfig(contextOptions)
 			if err != nil {
 				return err
 			}

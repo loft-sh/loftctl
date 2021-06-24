@@ -6,12 +6,23 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/loft-sh/loftctl/pkg/client"
 	"k8s.io/client-go/pkg/apis/clientauthentication/v1alpha1"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/client-go/tools/clientcmd/api"
 )
+
+type ContextOptions struct {
+	Name                         string
+	Server                       string
+	CaData                       []byte
+	ConfigPath                   string
+	InsecureSkipTLSVerify        bool
+	DirectClusterEndpointEnabled bool
+
+	CurrentNamespace string
+	SetActive        bool
+}
 
 func SpaceContextName(clusterName, namespaceName string) string {
 	contextName := "loft_"
@@ -84,52 +95,6 @@ func DeleteContext(contextName string) error {
 	return clientcmd.ModifyConfig(clientcmd.NewDefaultClientConfigLoadingRules(), config, false)
 }
 
-// PrintKubeConfigTo prints the given config to the writer
-func PrintKubeConfigTo(clientConfig *client.Config, configPath, clusterName, namespaceName string, writer io.Writer) error {
-	contextName, cluster, authInfo, err := createSpaceContextInfo(clientConfig, configPath, clusterName, namespaceName)
-	if err != nil {
-		return err
-	}
-
-	return printKubeConfigTo(contextName, cluster, authInfo, namespaceName, writer)
-}
-
-// UpdateKubeConfig updates the kube config and adds the spaceConfig context
-func UpdateKubeConfig(clientConfig *client.Config, configPath, clusterName, namespaceName string, setActive bool) error {
-	contextName, cluster, authInfo, err := createSpaceContextInfo(clientConfig, configPath, clusterName, namespaceName)
-	if err != nil {
-		return err
-	}
-
-	// Save the config
-	return updateKubeConfig(contextName, cluster, authInfo, namespaceName, setActive)
-}
-
-func createSpaceContextInfo(clientConfig *client.Config, configPath, clusterName, namespaceName string) (string, *api.Cluster, *api.AuthInfo, error) {
-	contextName := SpaceContextName(clusterName, namespaceName)
-	cluster := api.NewCluster()
-	cluster.Server = clientConfig.Host + "/kubernetes/cluster/" + clusterName
-	cluster.InsecureSkipTLSVerify = clientConfig.Insecure
-
-	command, err := os.Executable()
-	if err != nil {
-		return "", nil, nil, err
-	}
-
-	absConfigPath, err := filepath.Abs(configPath)
-	if err != nil {
-		return "", nil, nil, err
-	}
-
-	authInfo := api.NewAuthInfo()
-	authInfo.Exec = &api.ExecConfig{
-		APIVersion: v1alpha1.SchemeGroupVersion.String(),
-		Command:    command,
-		Args:       []string{"token", "--silent", "--config", absConfigPath},
-	}
-	return contextName, cluster, authInfo, nil
-}
-
 func updateKubeConfig(contextName string, cluster *api.Cluster, authInfo *api.AuthInfo, namespaceName string, setActive bool) error {
 	config, err := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(clientcmd.NewDefaultClientConfigLoadingRules(), &clientcmd.ConfigOverrides{}).RawConfig()
 	if err != nil {
@@ -182,51 +147,26 @@ func printKubeConfigTo(contextName string, cluster *api.Cluster, authInfo *api.A
 	return err
 }
 
-func createVirtualClusterContextInfo(clientConfig *client.Config, configPath, clusterName, namespaceName, virtualClusterName string) (string, *api.Cluster, *api.AuthInfo, error) {
-	contextName := VirtualClusterContextName(clusterName, namespaceName, virtualClusterName)
-	cluster := api.NewCluster()
-	cluster.Server = clientConfig.Host + "/kubernetes/virtualcluster/" + clusterName + "/" + namespaceName + "/" + virtualClusterName
-	cluster.InsecureSkipTLSVerify = clientConfig.Insecure
-
-	command, err := os.Executable()
-	if err != nil {
-		return "", nil, nil, err
-	}
-
-	absConfigPath, err := filepath.Abs(configPath)
-	if err != nil {
-		return "", nil, nil, err
-	}
-
-	authInfo := api.NewAuthInfo()
-	authInfo.Exec = &api.ExecConfig{
-		APIVersion: v1alpha1.SchemeGroupVersion.String(),
-		Command:    command,
-		Args:       []string{"token", "--silent", "--config", absConfigPath},
-	}
-	return contextName, cluster, authInfo, nil
-}
-
-// UpdateKubeConfigVirtualCluster updates the kube config and adds the virtual cluster context
-func UpdateKubeConfigVirtualCluster(clientConfig *client.Config, configName, clusterName, namespaceName, virtualClusterName string, setActive bool) error {
-	contextName, cluster, authInfo, err := createVirtualClusterContextInfo(clientConfig, configName, clusterName, namespaceName, virtualClusterName)
+// UpdateKubeConfig updates the kube config and adds the virtual cluster context
+func UpdateKubeConfig(options ContextOptions) error {
+	contextName, cluster, authInfo, err := createContext(options)
 	if err != nil {
 		return err
 	}
 
 	// we don't want to set the space name here as the default namespace in the virtual cluster, because it couldn't exist
-	return updateKubeConfig(contextName, cluster, authInfo, "", setActive)
+	return updateKubeConfig(contextName, cluster, authInfo, options.CurrentNamespace, options.SetActive)
 }
 
-// PrintVirtualClusterKubeConfigTo prints the given config to the writer
-func PrintVirtualClusterKubeConfigTo(clientConfig *client.Config, configName, clusterName, namespaceName, virtualClusterName string, writer io.Writer) error {
-	contextName, cluster, authInfo, err := createVirtualClusterContextInfo(clientConfig, configName, clusterName, namespaceName, virtualClusterName)
+// PrintKubeConfigTo prints the given config to the writer
+func PrintKubeConfigTo(options ContextOptions, writer io.Writer) error {
+	contextName, cluster, authInfo, err := createContext(options)
 	if err != nil {
 		return err
 	}
 
 	// we don't want to set the space name here as the default namespace in the virtual cluster, because it couldn't exist
-	return printKubeConfigTo(contextName, cluster, authInfo, "", writer)
+	return printKubeConfigTo(contextName, cluster, authInfo, options.CurrentNamespace, writer)
 }
 
 // PrintTokenKubeConfig writes the kube config to the os.Stdout
@@ -243,4 +183,34 @@ func PrintTokenKubeConfig(restConfig *rest.Config, token string) error {
 	authInfo.Token = token
 
 	return printKubeConfigTo(contextName, cluster, authInfo, "", os.Stdout)
+}
+
+func createContext(options ContextOptions) (string, *api.Cluster, *api.AuthInfo, error) {
+	contextName := options.Name
+	cluster := api.NewCluster()
+	cluster.Server = options.Server
+	cluster.CertificateAuthorityData = options.CaData
+	cluster.InsecureSkipTLSVerify = options.InsecureSkipTLSVerify
+
+	command, err := os.Executable()
+	if err != nil {
+		return "", nil, nil, err
+	}
+
+	absConfigPath, err := filepath.Abs(options.ConfigPath)
+	if err != nil {
+		return "", nil, nil, err
+	}
+
+	authInfo := api.NewAuthInfo()
+	authInfo.Exec = &api.ExecConfig{
+		APIVersion: v1alpha1.SchemeGroupVersion.String(),
+		Command:    command,
+		Args:       []string{"token", "--silent", "--config", absConfigPath},
+	}
+	if options.DirectClusterEndpointEnabled {
+		authInfo.Exec.Args = append(authInfo.Exec.Args, "--direct-cluster-endpoint")
+	}
+
+	return contextName, cluster, authInfo, nil
 }

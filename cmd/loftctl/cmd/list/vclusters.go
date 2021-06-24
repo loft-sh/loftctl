@@ -69,17 +69,17 @@ func (cmd *VirtualClustersCmd) Run(cobraCmd *cobra.Command, args []string) error
 		return err
 	}
 
-	client, err := baseClient.Management()
+	managementClient, err := baseClient.Management()
 	if err != nil {
 		return err
 	}
 
-	userName, err := helper.GetCurrentUser(context.TODO(), client)
+	userName, err := helper.GetCurrentUser(context.TODO(), managementClient)
 	if err != nil {
 		return err
 	}
 
-	virtualClusters, err := client.Loft().ManagementV1().Users().ListVirtualClusters(context.TODO(), userName, metav1.GetOptions{})
+	virtualClusters, err := managementClient.Loft().ManagementV1().Users().ListVirtualClusters(context.TODO(), userName, metav1.GetOptions{})
 	if err != nil {
 		return errors.Wrap(err, "list users")
 	}

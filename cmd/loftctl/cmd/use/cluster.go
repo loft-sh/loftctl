@@ -2,7 +2,9 @@ package use
 
 import (
 	"context"
+	"encoding/base64"
 	"fmt"
+	managementv1 "github.com/loft-sh/api/pkg/apis/management/v1"
 	"github.com/loft-sh/loftctl/cmd/loftctl/flags"
 	"github.com/loft-sh/loftctl/pkg/client"
 	"github.com/loft-sh/loftctl/pkg/client/helper"
@@ -14,14 +16,29 @@ import (
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"os"
+	"strings"
+)
+
+const (
+	// LoftDirectClusterEndpoint is a cluster annotation that tells the loft cli to use this endpoint instead of
+	// the default loft server address to connect to this cluster.
+	LoftDirectClusterEndpoint = "loft.sh/direct-cluster-endpoint"
+
+	// LoftDirectClusterEndpointInsecure is a cluster annotation that tells the loft cli to allow untrusted certificates
+	LoftDirectClusterEndpointInsecure = "loft.sh/direct-cluster-endpoint-insecure"
+
+	// LoftDirectClusterEndpointCaData is a cluster annotation that tells the loft cli which cluster ca data to use
+	LoftDirectClusterEndpointCaData = "loft.sh/direct-cluster-endpoint-ca-data"
 )
 
 // ClusterCmd holds the cmd flags
 type ClusterCmd struct {
 	*flags.GlobalFlags
 
-	Print bool
-	log   log.Logger
+	Print                        bool
+	DisableDirectClusterEndpoint bool
+
+	log log.Logger
 }
 
 // NewClusterCmd creates a new command
@@ -71,6 +88,7 @@ devspace use cluster mycluster
 	}
 
 	c.Flags().BoolVar(&cmd.Print, "print", false, "When enabled prints the context to stdout")
+	c.Flags().BoolVar(&cmd.DisableDirectClusterEndpoint, "disable-direct-cluster-endpoint", false, "When enabled does not use an available direct cluster endpoint to connect to the cluster")
 	return c
 }
 
@@ -81,7 +99,7 @@ func (cmd *ClusterCmd) Run(cobraCmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	client, err := baseClient.Management()
+	managementClient, err := baseClient.Management()
 	if err != nil {
 		return err
 	}
@@ -97,8 +115,8 @@ func (cmd *ClusterCmd) Run(cobraCmd *cobra.Command, args []string) error {
 		clusterName = args[0]
 	}
 
-	// check if we cluster exists
-	_, err = client.Loft().ManagementV1().Clusters().Get(context.TODO(), clusterName, metav1.GetOptions{})
+	// check if the cluster exists
+	cluster, err := managementClient.Loft().ManagementV1().Clusters().Get(context.TODO(), clusterName, metav1.GetOptions{})
 	if err != nil {
 		if kerrors.IsForbidden(err) {
 			return fmt.Errorf("cluster '%s' does not exist, or you don't have permission to use it", clusterName)
@@ -107,15 +125,21 @@ func (cmd *ClusterCmd) Run(cobraCmd *cobra.Command, args []string) error {
 		return err
 	}
 
+	// create kube context options
+	contextOptions, err := CreateClusterContextOptions(baseClient, cmd.Config, cluster, "", cmd.DisableDirectClusterEndpoint, true, cmd.log)
+	if err != nil {
+		return err
+	}
+
 	// check if we should print or update the config
 	if cmd.Print {
-		err = kubeconfig.PrintKubeConfigTo(baseClient.Config(), cmd.Config, clusterName, "", os.Stdout)
+		err = kubeconfig.PrintKubeConfigTo(contextOptions, os.Stdout)
 		if err != nil {
 			return err
 		}
 	} else {
 		// update kube config
-		err = kubeconfig.UpdateKubeConfig(baseClient.Config(), cmd.Config, clusterName, "", true)
+		err = kubeconfig.UpdateKubeConfig(contextOptions)
 		if err != nil {
 			return err
 		}
@@ -124,4 +148,54 @@ func (cmd *ClusterCmd) Run(cobraCmd *cobra.Command, args []string) error {
 	}
 
 	return nil
+}
+
+func CreateClusterContextOptions(baseClient client.Client, config string, cluster *managementv1.Cluster, spaceName string, disableClusterGateway, setActive bool, log log.Logger) (kubeconfig.ContextOptions, error) {
+	contextOptions := kubeconfig.ContextOptions{
+		Name:             kubeconfig.SpaceContextName(cluster.Name, spaceName),
+		ConfigPath:       config,
+		CurrentNamespace: spaceName,
+		SetActive:        setActive,
+	}
+	if disableClusterGateway == false && cluster.Annotations != nil && cluster.Annotations[LoftDirectClusterEndpoint] != "" {
+		contextOptions = ApplyDirectClusterEndpointOptions(contextOptions, cluster, "/kubernetes/cluster", log)
+	} else {
+		contextOptions.Server = baseClient.Config().Host + "/kubernetes/cluster/" + cluster.Name
+		contextOptions.InsecureSkipTLSVerify = baseClient.Config().Insecure
+	}
+
+	data, err := retrieveCaData(cluster)
+	if err != nil {
+		return kubeconfig.ContextOptions{}, err
+	}
+	contextOptions.CaData = data
+	return contextOptions, nil
+}
+
+func ApplyDirectClusterEndpointOptions(options kubeconfig.ContextOptions, cluster *managementv1.Cluster, path string, log log.Logger) kubeconfig.ContextOptions {
+	server := strings.TrimSuffix(cluster.Annotations[LoftDirectClusterEndpoint], "/")
+	if strings.HasPrefix(server, "https://") == false {
+		server = "https://" + server
+	}
+
+	log.Infof("Using direct cluster endpoint at %s", server)
+	options.Server = server + path
+	if cluster.Annotations[LoftDirectClusterEndpointInsecure] == "true" {
+		options.InsecureSkipTLSVerify = true
+	}
+	options.DirectClusterEndpointEnabled = true
+	return options
+}
+
+func retrieveCaData(cluster *managementv1.Cluster) ([]byte, error) {
+	if cluster.Annotations == nil || cluster.Annotations[LoftDirectClusterEndpointCaData] == "" {
+		return nil, nil
+	}
+
+	data, err := base64.StdEncoding.DecodeString(cluster.Annotations[LoftDirectClusterEndpointCaData])
+	if err != nil {
+		return nil, fmt.Errorf("error decoding cluster %s annotation: %v", LoftDirectClusterEndpointCaData, err)
+	}
+
+	return data, nil
 }
