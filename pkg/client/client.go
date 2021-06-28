@@ -59,7 +59,7 @@ type Client interface {
 	LoginWithAccessKey(host, accessKey string, insecure bool) error
 
 	Config() *Config
-	DirectClusterEndpointToken() (string, error)
+	DirectClusterEndpointToken(forceRefresh bool) (string, error)
 	Save() error
 }
 
@@ -116,14 +116,14 @@ func (c *client) initConfig() error {
 	return retErr
 }
 
-func (c *client) DirectClusterEndpointToken() (string, error) {
+func (c *client) DirectClusterEndpointToken(forceRefresh bool) (string, error) {
 	if c.config == nil {
 		return "", errors.New("no config loaded")
 	}
 
 	// check if we can use existing token
 	now := metav1.Now()
-	if c.config.DirectClusterEndpointToken != "" && c.config.DirectClusterEndpointTokenRequested != nil && c.config.DirectClusterEndpointTokenRequested.Add(RefreshToken).After(now.Time) {
+	if forceRefresh == false && c.config.DirectClusterEndpointToken != "" && c.config.DirectClusterEndpointTokenRequested != nil && c.config.DirectClusterEndpointTokenRequested.Add(RefreshToken).After(now.Time) {
 		return c.config.DirectClusterEndpointToken, nil
 	}
 

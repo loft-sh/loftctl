@@ -87,7 +87,7 @@ func (cmd *TokenCmd) Run(cobraCmd *cobra.Command, args []string) error {
 
 	// check if we should print a cluster gateway token instead
 	if cmd.DirectClusterEndpoint {
-		token, err = baseClient.DirectClusterEndpointToken()
+		token, err = baseClient.DirectClusterEndpointToken(false)
 		if err != nil {
 			return err
 		}

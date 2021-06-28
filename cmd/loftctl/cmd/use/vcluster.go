@@ -178,6 +178,10 @@ func CreateVClusterContextOptions(baseClient client.Client, config string, clust
 	}
 	if disableClusterGateway == false && cluster.Annotations != nil && cluster.Annotations[LoftDirectClusterEndpoint] != "" {
 		contextOptions = ApplyDirectClusterEndpointOptions(contextOptions, cluster, "/kubernetes/virtualcluster/"+spaceName+"/"+virtualClusterName, log)
+		_, err := baseClient.DirectClusterEndpointToken(true)
+		if err != nil {
+			log.Errorf("Retrieving direct cluster endpoint token: %v", err)
+		}
 	} else {
 		contextOptions.Server = baseClient.Config().Host + "/kubernetes/virtualcluster/" + cluster.Name + "/" + spaceName + "/" + virtualClusterName
 		contextOptions.InsecureSkipTLSVerify = baseClient.Config().Insecure
