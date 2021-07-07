@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"bytes"
 	"context"
 	"crypto/tls"
 	"encoding/json"
@@ -41,11 +42,12 @@ var emailRegex = regexp.MustCompile("^[^@]+@[^\\.]+\\..+$")
 type StartCmd struct {
 	*flags.GlobalFlags
 
-	LocalPort        string
-	Reset            bool
-	Version          string
-	Namespace        string
-	Password         string
+	LocalPort string
+	Reset     bool
+	Version   string
+	Namespace string
+	Password  string
+	Values    string
 
 	Log log.Logger
 }
@@ -76,7 +78,7 @@ before running this command:
 
 #######################################################
 	`,
-		Args: cobra.MaximumNArgs(1),
+		Args: cobra.NoArgs,
 		RunE: func(cobraCmd *cobra.Command, args []string) error {
 			// Check for newer version
 			upgrade.PrintNewerVersionWarning()
@@ -89,6 +91,7 @@ before running this command:
 	startCmd.Flags().StringVar(&cmd.LocalPort, "local-port", "9898", "The local port to bind to if using port-forwarding")
 	startCmd.Flags().StringVar(&cmd.Password, "password", "", "The password to use for the admin account. (If empty this will be the namespace UID)")
 	startCmd.Flags().StringVar(&cmd.Version, "version", "", "The loft version to install")
+	startCmd.Flags().StringVar(&cmd.Values, "values", "", "Path to a file for extra loft helm chart values")
 	startCmd.Flags().BoolVar(&cmd.Reset, "reset", false, "If true, an existing loft instance will be deleted before installing loft")
 	return startCmd
 }
@@ -214,8 +217,8 @@ func (cmd *StartCmd) Run(cobraCmd *cobra.Command, args []string) error {
 
 					return cmd.upgradeWithIngress(kubeClient, contextToLoad, host, password)
 				}
-				
-				err = cmd.startPortforwarding(contextToLoad)
+
+				err = cmd.startPortforwarding(contextToLoad, kubeClient)
 				if err != nil {
 					return err
 				}
@@ -231,7 +234,7 @@ func (cmd *StartCmd) Run(cobraCmd *cobra.Command, args []string) error {
 			if err != nil {
 				return err
 			}
-			
+
 			// check if loft is reachable
 			reachable, err := isLoftReachable(host)
 			if reachable == false || err != nil {
@@ -253,7 +256,7 @@ func (cmd *StartCmd) Run(cobraCmd *cobra.Command, args []string) error {
 				}
 
 				if answer == YesOption {
-					err := cmd.startPortforwarding(contextToLoad)
+					err := cmd.startPortforwarding(contextToLoad, kubeClient)
 					if err != nil {
 						return err
 					}
@@ -384,7 +387,7 @@ func (cmd *StartCmd) reset(kubeClient kubernetes.Interface, restConfig *rest.Con
 	cmd.Log.Infof("Executing command: helm %s\n", strings.Join(args, " "))
 	output, err := exec.Command("helm", args...).CombinedOutput()
 	if err != nil {
-		return fmt.Errorf("Error during helm command: %s (%v)", string(output), err)
+		return fmt.Errorf("error during helm command: %s (%v)", string(output), err)
 	}
 
 	// wait for the loft pods to terminate
@@ -470,7 +473,7 @@ func enterHostNameQuestion(log log.Logger) (string, error) {
 		ValidationFunc: func(answer string) error {
 			u, err := url.Parse("https://" + answer)
 			if err != nil || u.Path != "" || u.Port() != "" || len(strings.Split(answer, ".")) < 2 {
-				return fmt.Errorf("Please enter a valid hostname without protocol (https://), without path and without port, e.g. loft.my-domain.tld")
+				return fmt.Errorf("please enter a valid hostname without protocol (https://), without path and without port, e.g. loft.my-domain.tld")
 			}
 			return nil
 		},
@@ -607,7 +610,7 @@ func (cmd *StartCmd) installIngressController(kubeClient kubernetes.Interface, k
 
 		cmd.Log.Done("Successfully installed ingress-nginx to your kubernetes cluster!")
 	}
-	
+
 	return nil
 }
 
@@ -644,10 +647,12 @@ func (cmd *StartCmd) installRemote(kubeClient kubernetes.Interface, kubeContext,
 		"admin.password=" + password,
 		"--set",
 		"admin.email=" + email,
-		"--wait",
 	}
 	if cmd.Version != "" {
 		args = append(args, "--version", cmd.Version)
+	}
+	if cmd.Values != "" {
+		args = append(args, "--values", cmd.Values)
 	}
 
 	cmd.Log.WriteString("\n")
@@ -678,7 +683,7 @@ func (cmd *StartCmd) upgradeWithIngress(kubeClient kubernetes.Interface, kubeCon
 	if err != nil {
 		return errors.Wrap(err, "install ingress controller")
 	}
-	
+
 	// now we install loft
 	args := []string{
 		"upgrade",
@@ -696,10 +701,12 @@ func (cmd *StartCmd) upgradeWithIngress(kubeClient kubernetes.Interface, kubeCon
 		"ingress.enabled=true",
 		"--set",
 		"ingress.host=" + host,
-		"--wait",
 	}
 	if cmd.Version != "" {
 		args = append(args, "--version", cmd.Version)
+	}
+	if cmd.Values != "" {
+		args = append(args, "--values", cmd.Values)
 	}
 
 	cmd.Log.WriteString("\n")
@@ -748,10 +755,12 @@ func (cmd *StartCmd) installLocal(kubeClient kubernetes.Interface, kubeContext, 
 		"admin.password=" + password,
 		"--set",
 		"admin.email=" + email,
-		"--wait",
 	}
 	if cmd.Version != "" {
 		args = append(args, "--version", cmd.Version)
+	}
+	if cmd.Values != "" {
+		args = append(args, "--values", cmd.Values)
 	}
 
 	cmd.Log.Infof("Executing command: helm %s\n", strings.Join(args, " "))
@@ -764,15 +773,8 @@ func (cmd *StartCmd) installLocal(kubeClient kubernetes.Interface, kubeContext, 
 
 	cmd.Log.WriteString("\n")
 	cmd.Log.Done("Successfully deployed loft to your kubernetes cluster!")
-	cmd.Log.StartWait("Waiting until loft pod has been started...")
-	defer cmd.Log.StopWait()
-	err = cmd.waitForReadyLoftPod(kubeClient)
-	if err != nil {
-		return err
-	}
-	cmd.Log.StopWait()
 
-	err = cmd.startPortforwarding(kubeContext)
+	err = cmd.startPortforwarding(kubeContext, kubeClient)
 	if err != nil {
 		return err
 	}
@@ -801,7 +803,7 @@ func isLoftReachable(host string) (bool, error) {
 		if err != nil {
 			return false, nil
 		}
-		
+
 		v := &version{}
 		err = json.Unmarshal(out, v)
 		if err != nil {
@@ -809,10 +811,10 @@ func isLoftReachable(host string) (bool, error) {
 		} else if v.Version == "" {
 			return false, fmt.Errorf("unexpected response from %s: %s. Try running 'loft start --reset'", url, string(out))
 		}
-		
+
 		return true, nil
 	}
-	
+
 	return false, nil
 }
 
@@ -938,7 +940,14 @@ func (cmd *StartCmd) getDefaultPassword(kubeClient kubernetes.Interface) (string
 	return string(loftNamespace.UID), nil
 }
 
-func (cmd *StartCmd) startPortforwarding(kubeContext string) error {
+func (cmd *StartCmd) startPortforwarding(kubeContext string, kubeClient kubernetes.Interface) error {
+	cmd.Log.StartWait("Waiting until loft pod has been started...")
+	err := cmd.waitForReadyLoftPod(kubeClient)
+	cmd.Log.StopWait()
+	if err != nil {
+		return err
+	}
+
 	cmd.Log.WriteString("\n")
 	cmd.Log.Info("Loft will now start port-forwarding to the loft pod")
 	args := []string{
@@ -952,18 +961,19 @@ func (cmd *StartCmd) startPortforwarding(kubeContext string) error {
 	}
 	cmd.Log.Infof("Starting command: kubectl %s", strings.Join(args, " "))
 
+	buffer := &bytes.Buffer{}
 	c := exec.Command("kubectl", args...)
-	// c.Stderr = os.Stderr
+	c.Stderr = buffer
 	// c.Stdout = os.Stdout
 
-	err := c.Start()
+	err = c.Start()
 	if err != nil {
 		return fmt.Errorf("error starting kubectl command: %v", err)
 	}
 	go func() {
 		err := c.Wait()
 		if err != nil {
-			cmd.Log.Fatal("Port-Forwarding has unexpectedly ended. Please restart the command via 'loft start'")
+			cmd.Log.Fatalf("Port-Forwarding has unexpectedly ended. Please restart the command via 'loft start'. Error: %s", buffer.String())
 		}
 	}()
 
@@ -1002,7 +1012,9 @@ func (cmd *StartCmd) getHost(kubeClient kubernetes.Interface) (string, error) {
 
 func (cmd *StartCmd) waitForReadyLoftPod(kubeClient kubernetes.Interface) error {
 	// wait until we have a running loft pod
-	err := wait.PollImmediate(time.Second*3, time.Minute*10, func() (bool, error) {
+	now := time.Now()
+	warningPrinted := false
+	return wait.PollImmediate(time.Second*2, time.Minute*10, func() (bool, error) {
 		pods, err := kubeClient.CoreV1().Pods(cmd.Namespace).List(context.TODO(), metav1.ListOptions{
 			LabelSelector: "app=loft",
 		})
@@ -1014,18 +1026,34 @@ func (cmd *StartCmd) waitForReadyLoftPod(kubeClient kubernetes.Interface) error 
 		}
 
 		loftPod := &pods.Items[0]
+		found := false
 		for _, containerStatus := range loftPod.Status.ContainerStatuses {
 			if containerStatus.State.Running != nil && containerStatus.Ready {
+				if containerStatus.Name == "manager" {
+					found = true
+				}
+
 				continue
-			} else if containerStatus.State.Terminated != nil && containerStatus.State.Terminated.ExitCode != 0 {
-				cmd.Log.Warnf("There seems to be an issue with loft starting up: %s (%s). Please reach out to our support at https://loft.sh/", containerStatus.State.Terminated.Message, containerStatus.State.Terminated.Reason)
-				continue
+			} else if containerStatus.State.Terminated != nil {
+				out, err := kubeClient.CoreV1().Pods(cmd.Namespace).GetLogs(loftPod.Name, &corev1.PodLogOptions{
+					Container: "manager",
+				}).Do(context.Background()).Raw()
+				if err != nil {
+					return false, fmt.Errorf("There seems to be an issue with loft starting up. Please reach out to our support at https://loft.sh/")
+				}
+				if strings.Contains(string(out), "register instance: Post \"https://license.loft.sh/register\": dial tcp") {
+					return false, fmt.Errorf("There seems to be an issue with loft starting up. Looks like you try to install Loft into an air-gapped environment, please reach out to our support at https://loft.sh/ for an offline license. Loft logs: \n%v", string(out))
+				}
+
+				return false, fmt.Errorf("There seems to be an issue with loft starting up. Please reach out to our support at https://loft.sh/. Loft logs: \n%v", string(out))
+			} else if containerStatus.State.Waiting != nil && time.Now().After(now.Add(time.Minute*3)) && warningPrinted == false {
+				cmd.Log.Warnf("There might be an issue with loft starting up. The container is still waiting, because of %s (%s). Please reach out to our support at https://loft.sh/", containerStatus.State.Waiting.Message, containerStatus.State.Waiting.Reason)
+				warningPrinted = true
 			}
 
 			return false, nil
 		}
 
-		return true, nil
+		return found, nil
 	})
-	return err
 }
