@@ -7,6 +7,7 @@ import (
 	"github.com/loft-sh/loftctl/pkg/printhelper"
 	"github.com/loft-sh/loftctl/pkg/upgrade"
 	"github.com/pkg/errors"
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/client-go/rest"
 	"net"
 	"os/exec"
@@ -351,14 +352,14 @@ func (cmd *StartCmd) handleAlreadyExistingInstallation() error {
 	isLocal = clihelper.IsLoftInstalledLocally(cmd.KubeClient, cmd.Namespace)
 
 	// wait until Loft is ready
-	err := cmd.waitForLoft(password)
+	loftPod, err := cmd.waitForLoft(password)
 	if err != nil {
 		return err
 	}
 
 	// check if local or remote installation
 	if isLocal {
-		err = clihelper.StartPortForwarding(cmd.KubeClient, cmd.Context, cmd.Namespace, cmd.LocalPort, cmd.Log)
+		err = clihelper.StartPortForwarding(cmd.Context, cmd.Namespace, loftPod.Name, cmd.LocalPort, cmd.Log)
 		if err != nil {
 			return err
 		}
@@ -395,7 +396,7 @@ func (cmd *StartCmd) handleAlreadyExistingInstallation() error {
 		}
 
 		if answer == YesOption {
-			err := clihelper.StartPortForwarding(cmd.KubeClient, cmd.Context, cmd.Namespace, cmd.LocalPort, cmd.Log)
+			err := clihelper.StartPortForwarding(cmd.Context, cmd.Namespace, loftPod.Name, cmd.LocalPort, cmd.Log)
 			if err != nil {
 				return err
 			}
@@ -407,22 +408,22 @@ func (cmd *StartCmd) handleAlreadyExistingInstallation() error {
 	return cmd.successRemote(host, password)
 }
 
-func (cmd *StartCmd) waitForLoft(password string) error {
+func (cmd *StartCmd) waitForLoft(password string) (*corev1.Pod, error) {
 	// wait for loft pod to start
 	cmd.Log.StartWait("Waiting until loft pod has been started...")
-	err := clihelper.WaitForReadyLoftPod(cmd.KubeClient, cmd.Namespace, cmd.Log)
+	loftPod, err := clihelper.WaitForReadyLoftPod(cmd.KubeClient, cmd.Namespace, cmd.Log)
 	cmd.Log.StopWait()
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	// ensure user admin secret is there
 	err = clihelper.EnsureAdminPassword(cmd.KubeClient, cmd.RestConfig, password, cmd.Log)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
-	return nil
+	return loftPod, nil
 }
 
 func (cmd *StartCmd) installRemote(email, host string) error {
@@ -447,7 +448,7 @@ func (cmd *StartCmd) installRemote(email, host string) error {
 	}
 
 	// wait until Loft is ready
-	err = cmd.waitForLoft(password)
+	_, err = cmd.waitForLoft(password)
 	if err != nil {
 		return err
 	}
@@ -496,12 +497,12 @@ func (cmd *StartCmd) installLocal(email string) error {
 	}
 
 	// wait until Loft is ready
-	err = cmd.waitForLoft(password)
+	loftPod, err := cmd.waitForLoft(password)
 	if err != nil {
 		return err
 	}
 
-	err = clihelper.StartPortForwarding(cmd.KubeClient, cmd.Context, cmd.Namespace, cmd.LocalPort, cmd.Log)
+	err = clihelper.StartPortForwarding(cmd.Context, cmd.Namespace, loftPod.Name, cmd.LocalPort, cmd.Log)
 	if err != nil {
 		return err
 	}

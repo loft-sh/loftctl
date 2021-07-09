@@ -25,6 +25,7 @@ import (
 	"net/http"
 	"net/url"
 	"os/exec"
+	"sort"
 	"strings"
 	"time"
 )
@@ -42,11 +43,12 @@ func GetLoftIngressHost(kubeClient kubernetes.Interface, namespace string) (stri
 	return "", fmt.Errorf("couldn't find any host in loft ingress '%s/loft-ingress', please make sure you have not changed any deployed resources")
 }
 
-func WaitForReadyLoftPod(kubeClient kubernetes.Interface, namespace string, log log.Logger) error {
+func WaitForReadyLoftPod(kubeClient kubernetes.Interface, namespace string, log log.Logger) (*corev1.Pod, error) {
 	// wait until we have a running loft pod
 	now := time.Now()
 	warningPrinted := false
-	return wait.PollImmediate(time.Second*2, time.Minute*10, func() (bool, error) {
+	pod := &corev1.Pod{}
+	err := wait.Poll(time.Second*2, time.Minute*10, func() (bool, error) {
 		pods, err := kubeClient.CoreV1().Pods(namespace).List(context.TODO(), metav1.ListOptions{
 			LabelSelector: "app=loft",
 		})
@@ -57,6 +59,10 @@ func WaitForReadyLoftPod(kubeClient kubernetes.Interface, namespace string, log 
 			return false, nil
 		}
 
+		sort.Slice(pods.Items, func(i, j int) bool {
+			return pods.Items[i].CreationTimestamp.After(pods.Items[j].CreationTimestamp.Time)
+		})
+
 		loftPod := &pods.Items[0]
 		found := false
 		for _, containerStatus := range loftPod.Status.ContainerStatuses {
@@ -66,7 +72,7 @@ func WaitForReadyLoftPod(kubeClient kubernetes.Interface, namespace string, log 
 				}
 
 				continue
-			} else if containerStatus.State.Terminated != nil {
+			} else if containerStatus.State.Terminated != nil || (containerStatus.State.Waiting != nil && containerStatus.State.Waiting.Reason == "CrashLoopBackOff") {
 				out, err := kubeClient.CoreV1().Pods(namespace).GetLogs(loftPod.Name, &corev1.PodLogOptions{
 					Container: "manager",
 				}).Do(context.Background()).Raw()
@@ -74,10 +80,10 @@ func WaitForReadyLoftPod(kubeClient kubernetes.Interface, namespace string, log 
 					return false, fmt.Errorf("There seems to be an issue with loft starting up. Please reach out to our support at https://loft.sh/")
 				}
 				if strings.Contains(string(out), "register instance: Post \"https://license.loft.sh/register\": dial tcp") {
-					return false, fmt.Errorf("There seems to be an issue with loft starting up. Looks like you try to install Loft into an air-gapped environment, please reach out to our support at https://loft.sh/ for an offline license. Loft logs: \n%v", string(out))
+					return false, fmt.Errorf("Loft logs: \n%v \nThere seems to be an issue with loft starting up. Looks like you try to install Loft into an air-gapped environment, please reach out to our support at https://loft.sh/ for an offline license and take a look at the air-gapped installation guide https://loft.sh/docs/guides/administration/air-gapped-installation", string(out))
 				}
 
-				return false, fmt.Errorf("There seems to be an issue with loft starting up. Please reach out to our support at https://loft.sh/. Loft logs: \n%v", string(out))
+				return false, fmt.Errorf("Loft logs: \n%v \nThere seems to be an issue with loft starting up. Please reach out to our support at https://loft.sh/", string(out))
 			} else if containerStatus.State.Waiting != nil && time.Now().After(now.Add(time.Minute*3)) && warningPrinted == false {
 				log.Warnf("There might be an issue with loft starting up. The container is still waiting, because of %s (%s). Please reach out to our support at https://loft.sh/", containerStatus.State.Waiting.Message, containerStatus.State.Waiting.Reason)
 				warningPrinted = true
@@ -86,16 +92,22 @@ func WaitForReadyLoftPod(kubeClient kubernetes.Interface, namespace string, log 
 			return false, nil
 		}
 
+		pod = loftPod
 		return found, nil
 	})
+	if err != nil {
+		return nil, err
+	}
+
+	return pod, nil
 }
 
-func StartPortForwarding(kubeClient kubernetes.Interface, kubeContext, namespace string, localPort string, log log.Logger) error {
+func StartPortForwarding(kubeContext, namespace string, pod, localPort string, log log.Logger) error {
 	log.WriteString("\n")
 	log.Info("Loft will now start port-forwarding to the loft pod")
 	args := []string{
 		"port-forward",
-		"deploy/loft",
+		pod,
 		"--context",
 		kubeContext,
 		"--namespace",
