@@ -82,7 +82,7 @@ func SelectAccount(baseClient client.Client, clusterName string, log log.Logger)
 	} else if len(accountNames) == 1 {
 		return accountNames[0], nil
 	}
-	
+
 	return log.Question(&survey.QuestionOptions{
 		Question:     "Please choose an account to use",
 		DefaultValue: accountNames[0],
@@ -92,7 +92,7 @@ func SelectAccount(baseClient client.Client, clusterName string, log log.Logger)
 
 func SelectPod(client kubernetes.Interface, namespace string, log log.Logger) (string, error) {
 	podList, err := client.CoreV1().Pods(namespace).List(context.TODO(), metav1.ListOptions{
-		LabelSelector: "app=virtualcluster",
+		LabelSelector: "app=vcluster",
 	})
 	if err != nil {
 		return "", err
@@ -295,7 +295,7 @@ func GetCurrentUser(ctx context.Context, managementClient kube.Interface) (strin
 	} else if self.Status.User == "" {
 		return "", fmt.Errorf("no user name returned")
 	}
-	
+
 	return self.Status.User, nil
 }
 
