@@ -470,7 +470,7 @@ func UpgradeLoft(kubeContext, namespace string, extraArgs []string, log log.Logg
 		"--create-namespace",
 		"--repository-config=''",
 		"--repo",
-		"https://charts.devspace.sh/",
+		"https://charts.loft.sh/",
 		"--kube-context",
 		kubeContext,
 		"--namespace",
