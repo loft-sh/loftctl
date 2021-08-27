@@ -23,17 +23,29 @@ func ListClusterAccounts(client client.Client) ([]managementv1.ClusterAccounts, 
 		return nil, err
 	}
 
-	userName, err := GetCurrentUser(context.TODO(), mClient)
+	userName, teamName, err := GetCurrentUser(context.TODO(), mClient)
 	if err != nil {
 		return nil, err
 	}
 
-	userClusters, err := mClient.Loft().ManagementV1().Users().ListClusters(context.TODO(), userName, metav1.GetOptions{})
-	if err != nil {
-		return nil, errors.Wrap(err, "get user")
+	var clusters []managementv1.ClusterAccounts
+	if userName != "" {
+		userClusters, err := mClient.Loft().ManagementV1().Users().ListClusters(context.TODO(), userName, metav1.GetOptions{})
+		if err != nil {
+			return nil, errors.Wrap(err, "get user")
+		}
+
+		clusters = userClusters.Clusters
+	} else {
+		teamClusters, err := mClient.Loft().ManagementV1().Teams().ListClusters(context.TODO(), teamName, metav1.GetOptions{})
+		if err != nil {
+			return nil, errors.Wrap(err, "get user")
+		}
+
+		clusters = teamClusters.Clusters
 	}
 
-	return userClusters.Clusters, nil
+	return clusters, nil
 }
 
 // SelectCluster lets the user select a cluster
@@ -214,19 +226,73 @@ func SelectClusterUserOrTeam(baseClient client.Client, clusterName, userName, te
 	return nil, fmt.Errorf("selected question option not found")
 }
 
+// GetSpaces returns all spaces accessible by the user or team
+func GetSpaces(baseClient client.Client) ([]managementv1.ClusterSpace, error) {
+	kubeClient, err := baseClient.Management()
+	if err != nil {
+		return nil, err
+	}
+
+	userName, teamName, err := GetCurrentUser(context.TODO(), kubeClient)
+	if err != nil {
+		return nil, err
+	}
+
+	var spaces []managementv1.ClusterSpace
+	if userName != "" {
+		spacesObj, err := kubeClient.Loft().ManagementV1().Users().ListSpaces(context.TODO(), userName, metav1.GetOptions{})
+		if err != nil {
+			return nil, err
+		}
+
+		spaces = spacesObj.Spaces
+	} else {
+		spacesObj, err := kubeClient.Loft().ManagementV1().Teams().ListSpaces(context.TODO(), teamName, metav1.GetOptions{})
+		if err != nil {
+			return nil, err
+		}
+
+		spaces = spacesObj.Spaces
+	}
+
+	return spaces, nil
+}
+
+// GetVirtualClusters returns all virtual clusters the user has access to
+func GetVirtualClusters(baseClient client.Client) ([]managementv1.ClusterVirtualCluster, error) {
+	kubeClient, err := baseClient.Management()
+	if err != nil {
+		return nil, err
+	}
+
+	user, team, err := GetCurrentUser(context.TODO(), kubeClient)
+	if err != nil {
+		return nil, err
+	}
+
+	var virtualClusters []managementv1.ClusterVirtualCluster
+	if user != "" {
+		virtualClustersObject, err := kubeClient.Loft().ManagementV1().Users().ListVirtualClusters(context.TODO(), user, metav1.GetOptions{})
+		if err != nil {
+			return nil, err
+		}
+
+		virtualClusters = virtualClustersObject.VirtualClusters
+	} else {
+		virtualClustersObject, err := kubeClient.Loft().ManagementV1().Teams().ListVirtualClusters(context.TODO(), team, metav1.GetOptions{})
+		if err != nil {
+			return nil, err
+		}
+
+		virtualClusters = virtualClustersObject.VirtualClusters
+	}
+
+	return virtualClusters, nil
+}
+
 // SelectSpaceAndClusterName selects a space and cluster name
 func SelectSpaceAndClusterName(baseClient client.Client, spaceName, clusterName string, log log.Logger) (string, string, error) {
-	client, err := baseClient.Management()
-	if err != nil {
-		return "", "", err
-	}
-
-	userName, err := GetCurrentUser(context.TODO(), client)
-	if err != nil {
-		return "", "", err
-	}
-
-	spaces, err := client.Loft().ManagementV1().Users().ListSpaces(context.TODO(), userName, metav1.GetOptions{})
+	spaces, err := GetSpaces(baseClient)
 	if err != nil {
 		return "", "", err
 	}
@@ -240,7 +306,7 @@ func SelectSpaceAndClusterName(baseClient client.Client, spaceName, clusterName 
 	matchedSpaces := []managementv1.ClusterSpace{}
 	questionOptionsUnformatted := [][]string{}
 	defaultIndex := 0
-	for _, space := range spaces.Spaces {
+	for _, space := range spaces {
 		if spaceName != "" && space.Space.Name != spaceName {
 			continue
 		} else if clusterName != "" && space.Cluster != clusterName {
@@ -288,29 +354,19 @@ func SelectSpaceAndClusterName(baseClient client.Client, spaceName, clusterName 
 	return spaceName, clusterName, nil
 }
 
-func GetCurrentUser(ctx context.Context, managementClient kube.Interface) (string, error) {
+func GetCurrentUser(ctx context.Context, managementClient kube.Interface) (string, string, error) {
 	self, err := managementClient.Loft().ManagementV1().Selves().Create(ctx, &managementv1.Self{}, metav1.CreateOptions{})
 	if err != nil {
-		return "", errors.Wrap(err, "get self")
-	} else if self.Status.User == "" {
-		return "", fmt.Errorf("no user name returned")
+		return "", "", errors.Wrap(err, "get self")
+	} else if self.Status.User == "" && self.Status.Team == "" {
+		return "", "", fmt.Errorf("no user or team name returned")
 	}
 
-	return self.Status.User, nil
+	return self.Status.User, self.Status.Team, nil
 }
 
 func SelectVirtualClusterAndSpaceAndClusterName(baseClient client.Client, virtualClusterName, spaceName, clusterName string, log log.Logger) (string, string, string, error) {
-	client, err := baseClient.Management()
-	if err != nil {
-		return "", "", "", err
-	}
-
-	user, err := GetCurrentUser(context.TODO(), client)
-	if err != nil {
-		return "", "", "", err
-	}
-
-	virtualClusters, err := client.Loft().ManagementV1().Users().ListVirtualClusters(context.TODO(), user, metav1.GetOptions{})
+	virtualClusters, err := GetVirtualClusters(baseClient)
 	if err != nil {
 		return "", "", "", err
 	}
@@ -324,7 +380,7 @@ func SelectVirtualClusterAndSpaceAndClusterName(baseClient client.Client, virtua
 	matchedVClusters := []managementv1.ClusterVirtualCluster{}
 	questionOptionsUnformatted := [][]string{}
 	defaultIndex := 0
-	for _, virtualCluster := range virtualClusters.VirtualClusters {
+	for _, virtualCluster := range virtualClusters {
 		if virtualClusterName != "" && virtualCluster.VirtualCluster.Name != virtualClusterName {
 			continue
 		} else if spaceName != "" && virtualCluster.VirtualCluster.Namespace != spaceName {

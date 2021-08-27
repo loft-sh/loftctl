@@ -93,7 +93,7 @@ func (cmd *SleepCmd) Run(cobraCmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	configs, err := clusterClient.Loft().ClusterV1().SleepModeConfigs(spaceName).List(context.TODO(), metav1.ListOptions{})
+	configs, err := clusterClient.Agent().ClusterV1().SleepModeConfigs(spaceName).List(context.TODO(), metav1.ListOptions{})
 	if err != nil {
 		return err
 	}
@@ -104,7 +104,7 @@ func (cmd *SleepCmd) Run(cobraCmd *cobra.Command, args []string) error {
 		sleepModeConfig.Spec.ForceSleepDuration = &cmd.ForceDuration
 	}
 
-	sleepModeConfig, err = clusterClient.Loft().ClusterV1().SleepModeConfigs(spaceName).Create(context.TODO(), sleepModeConfig, metav1.CreateOptions{})
+	sleepModeConfig, err = clusterClient.Agent().ClusterV1().SleepModeConfigs(spaceName).Create(context.TODO(), sleepModeConfig, metav1.CreateOptions{})
 	if err != nil {
 		return err
 	}
@@ -113,7 +113,7 @@ func (cmd *SleepCmd) Run(cobraCmd *cobra.Command, args []string) error {
 	cmd.Log.StartWait("Wait until space is sleeping")
 	defer cmd.Log.StopWait()
 	err = wait.Poll(time.Second, time.Minute, func() (bool, error) {
-		configs, err := clusterClient.Loft().ClusterV1().SleepModeConfigs(spaceName).List(context.TODO(), metav1.ListOptions{})
+		configs, err := clusterClient.Agent().ClusterV1().SleepModeConfigs(spaceName).List(context.TODO(), metav1.ListOptions{})
 		if err != nil {
 			return false, err
 		}

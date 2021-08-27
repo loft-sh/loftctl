@@ -105,7 +105,7 @@ func (cmd *VirtualClusterCmd) Run(cobraCmd *cobra.Command, args []string) error 
 	}
 
 	gracePeriod := int64(0)
-	err = clusterClient.Loft().StorageV1().VirtualClusters(spaceName).Delete(context.TODO(), virtualClusterName, metav1.DeleteOptions{GracePeriodSeconds: &gracePeriod})
+	err = clusterClient.Agent().StorageV1().VirtualClusters(spaceName).Delete(context.TODO(), virtualClusterName, metav1.DeleteOptions{GracePeriodSeconds: &gracePeriod})
 	if err != nil {
 		return errors.Wrap(err, "delete virtual cluster")
 	}

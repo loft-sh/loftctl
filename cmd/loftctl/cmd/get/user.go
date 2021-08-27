@@ -74,9 +74,11 @@ func (cmd *UserCmd) Run(cobraCmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	userName, err := helper.GetCurrentUser(context.TODO(), client)
+	userName, teamName, err := helper.GetCurrentUser(context.TODO(), client)
 	if err != nil {
 		return err
+	} else if teamName != "" {
+		return errors.New("logged in with a team and not a user")
 	}
 
 	user, err := client.Loft().ManagementV1().Users().Get(context.TODO(), userName, metav1.GetOptions{})

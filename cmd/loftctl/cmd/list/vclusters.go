@@ -1,15 +1,12 @@
 package list
 
 import (
-	"context"
 	"github.com/loft-sh/loftctl/cmd/loftctl/flags"
 	"github.com/loft-sh/loftctl/pkg/client"
 	"github.com/loft-sh/loftctl/pkg/client/helper"
 	"github.com/loft-sh/loftctl/pkg/log"
 	"github.com/loft-sh/loftctl/pkg/upgrade"
-	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/duration"
 	"time"
 )
@@ -69,19 +66,9 @@ func (cmd *VirtualClustersCmd) Run(cobraCmd *cobra.Command, args []string) error
 		return err
 	}
 
-	managementClient, err := baseClient.Management()
+	virtualClusters, err := helper.GetVirtualClusters(baseClient)
 	if err != nil {
 		return err
-	}
-
-	userName, err := helper.GetCurrentUser(context.TODO(), managementClient)
-	if err != nil {
-		return err
-	}
-
-	virtualClusters, err := managementClient.Loft().ManagementV1().Users().ListVirtualClusters(context.TODO(), userName, metav1.GetOptions{})
-	if err != nil {
-		return errors.Wrap(err, "list users")
 	}
 
 	header := []string{
@@ -92,7 +79,7 @@ func (cmd *VirtualClustersCmd) Run(cobraCmd *cobra.Command, args []string) error
 		"Age",
 	}
 	values := [][]string{}
-	for _, virtualCluster := range virtualClusters.VirtualClusters {
+	for _, virtualCluster := range virtualClusters {
 		status := "Active"
 		if virtualCluster.VirtualCluster.Status.HelmRelease != nil {
 			status = string(virtualCluster.VirtualCluster.Status.HelmRelease.Phase)

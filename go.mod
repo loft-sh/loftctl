@@ -12,7 +12,7 @@ require (
 	github.com/evanphx/json-patch v4.11.0+incompatible
 	github.com/k0kubun/go-ansi v0.0.0-20180517002512-3bf9e2903213
 	github.com/loft-sh/api v1.14.0
-	github.com/loft-sh/kiosk v0.2.7
+	github.com/loft-sh/apimachinery v0.0.0
 	github.com/mgutz/ansi v0.0.0-20200706080929-d51e80ef957d
 	github.com/mitchellh/go-homedir v1.1.0
 	github.com/opencontainers/image-spec v1.0.1 // indirect
@@ -40,6 +40,8 @@ replace (
 	github.com/googleapis/gnostic => github.com/googleapis/gnostic v0.4.1
 	github.com/kubernetes-incubator/reference-docs => github.com/kubernetes-sigs/reference-docs v0.0.0-20170929004150-fcf65347b256
 	github.com/loft-sh/api => ../api
+	github.com/loft-sh/agentapi => ../agentapi
+	github.com/loft-sh/apimachinery => ../apimachinery
 	github.com/markbates/inflect => github.com/markbates/inflect v1.0.4
 	k8s.io/kube-openapi => k8s.io/kube-openapi v0.0.0-20210305001622-591a79e4bda7
 )

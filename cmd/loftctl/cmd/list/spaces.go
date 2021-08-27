@@ -1,15 +1,12 @@
 package list
 
 import (
-	"context"
 	"github.com/loft-sh/loftctl/cmd/loftctl/flags"
 	"github.com/loft-sh/loftctl/pkg/client"
 	"github.com/loft-sh/loftctl/pkg/client/helper"
 	"github.com/loft-sh/loftctl/pkg/log"
 	"github.com/loft-sh/loftctl/pkg/upgrade"
-	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/duration"
 	"time"
 )
@@ -68,20 +65,10 @@ func (cmd *SpacesCmd) RunSpaces(cobraCmd *cobra.Command, args []string) error {
 	if err != nil {
 		return err
 	}
-	
-	client, err := baseClient.Management()
-	if err != nil {
-		return err
-	}
 
-	userName, err := helper.GetCurrentUser(context.TODO(), client)
+	spaces, err := helper.GetSpaces(baseClient)
 	if err != nil {
 		return err
-	}
-	
-	spaces, err := client.Loft().ManagementV1().Users().ListSpaces(context.TODO(), userName, metav1.GetOptions{})
-	if err != nil {
-		return errors.Wrap(err, "list users")
 	}
 
 	header := []string{
@@ -92,7 +79,7 @@ func (cmd *SpacesCmd) RunSpaces(cobraCmd *cobra.Command, args []string) error {
 		"Age",
 	}
 	values := [][]string{}
-	for _, space := range spaces.Spaces {
+	for _, space := range spaces {
 		sleepModeConfig := space.SleepModeConfig
 		sleeping := "false"
 		if sleepModeConfig.Status.SleepingSince != 0 {

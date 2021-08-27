@@ -9,10 +9,8 @@ import (
 	"github.com/pkg/errors"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/client-go/rest"
-	"net"
 	"os/exec"
 	"regexp"
-	"strings"
 	"time"
 
 	"github.com/loft-sh/loftctl/cmd/loftctl/flags"
@@ -187,12 +185,6 @@ func (cmd *StartCmd) Run(cobraCmd *cobra.Command, args []string) error {
 		Question: "Enter an email address for your admin user",
 		ValidationFunc: func(emailVal string) error {
 			if !emailRegex.MatchString(emailVal) {
-				return fmt.Errorf("%s is not a valid email address", emailVal)
-			}
-
-			parts := strings.Split(emailVal, "@")
-			mx, err := net.LookupMX(parts[1])
-			if err != nil || len(mx) == 0 {
 				return fmt.Errorf("%s is not a valid email address", emailVal)
 			}
 			return nil

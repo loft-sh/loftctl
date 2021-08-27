@@ -7,6 +7,7 @@ import (
 	"github.com/loft-sh/loftctl/pkg/client/helper"
 	"github.com/loft-sh/loftctl/pkg/log"
 	"github.com/loft-sh/loftctl/pkg/upgrade"
+	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/duration"
@@ -74,9 +75,11 @@ func (cmd *TeamsCmd) Run(cobraCmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	userName, err := helper.GetCurrentUser(context.TODO(), client)
+	userName, teamName, err := helper.GetCurrentUser(context.TODO(), client)
 	if err != nil {
 		return err
+	} else if teamName != "" {
+		return errors.New("logged in as a team")
 	}
 
 	teams, err := client.Loft().ManagementV1().Users().ListTeams(context.TODO(), userName, metav1.GetOptions{})

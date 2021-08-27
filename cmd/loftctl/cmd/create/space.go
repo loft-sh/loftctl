@@ -3,14 +3,16 @@ package create
 import (
 	"context"
 	"fmt"
+	clusterv1 "github.com/loft-sh/agentapi/pkg/apis/loft/cluster/v1"
+	storagev1 "github.com/loft-sh/api/pkg/apis/storage/v1"
 	"github.com/loft-sh/loftctl/cmd/loftctl/cmd/use"
 	"github.com/loft-sh/loftctl/pkg/kube"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	"strconv"
 
+	"github.com/loft-sh/agentapi/pkg/apis/kiosk/config/v1alpha1"
+	tenancyv1alpha1 "github.com/loft-sh/agentapi/pkg/apis/kiosk/tenancy/v1alpha1"
 	v1 "github.com/loft-sh/api/pkg/apis/management/v1"
-	"github.com/loft-sh/kiosk/pkg/apis/config/v1alpha1"
-	tenancyv1alpha1 "github.com/loft-sh/kiosk/pkg/apis/tenancy/v1alpha1"
 	"github.com/loft-sh/loftctl/cmd/loftctl/flags"
 	"github.com/loft-sh/loftctl/pkg/client"
 	"github.com/loft-sh/loftctl/pkg/client/helper"
@@ -21,6 +23,20 @@ import (
 	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+)
+
+const (
+	// LoftHelmReleaseAppLabel indicates if the helm release was deployed via the loft app store
+	LoftHelmReleaseAppLabel = "loft.sh/app"
+	
+	// LoftHelmReleaseAppNameLabel indicates if the helm release was deployed via the loft app store
+	LoftHelmReleaseAppNameLabel = "loft.sh/app-name"
+
+	// LoftHelmReleaseAppResourceVersionAnnotation indicates the resource version of the loft app
+	LoftHelmReleaseAppResourceVersionAnnotation = "loft.sh/app-resource-version"
+	
+	// LoftDefaultSpaceTemplate indicates the default space template on a cluster
+	LoftDefaultSpaceTemplate = "space.loft.sh/default-template"
 )
 
 // SpaceCmd holds the cmd flags
@@ -34,6 +50,7 @@ type SpaceCmd struct {
 	CreateContext                bool
 	SwitchContext                bool
 	DisableDirectClusterEndpoint bool
+	Template                     string
 
 	Log log.Logger
 }
@@ -91,6 +108,7 @@ devspace create space myspace --cluster mycluster --account myaccount
 	c.Flags().Int64Var(&cmd.DeleteAfter, "delete-after", 0, "If set to non zero, will tell loft to delete the space after specified seconds of inactivity")
 	c.Flags().BoolVar(&cmd.CreateContext, "create-context", true, "If loft should create a kube context for the space")
 	c.Flags().BoolVar(&cmd.SwitchContext, "switch-context", true, "If loft should switch the current context to the new context")
+	c.Flags().StringVar(&cmd.Template, "template", "", "The space template to use")
 	c.Flags().BoolVar(&cmd.DisableDirectClusterEndpoint, "disable-direct-cluster-endpoint", false, "When enabled does not use an available direct cluster endpoint to connect to the space")
 	return c
 }
@@ -147,6 +165,22 @@ func (cmd *SpaceCmd) Run(cobraCmd *cobra.Command, args []string) error {
 
 		return err
 	}
+	
+	// get default space template
+	spaceTemplate, err := resolveSpaceTemplate(managementClient, cluster, cmd.Template)
+	if err != nil {
+		return errors.Wrap(err, "resolve space template")
+	} else if spaceTemplate != nil {
+		cmd.Log.Infof("Using space template %s to create space %s", spaceTemplate.Name, spaceName)
+	}
+	
+	var apps []v1.App
+	if spaceTemplate != nil && len(spaceTemplate.Spec.Template.Apps) > 0 {
+		apps, err = resolveApps(managementClient, spaceTemplate.Spec.Template.Apps)
+		if err != nil {
+			return errors.Wrap(err, "resolve space template apps")
+		}
+	}
 
 	// create space object
 	space := &tenancyv1alpha1.Space{
@@ -159,6 +193,10 @@ func (cmd *SpaceCmd) Run(cobraCmd *cobra.Command, args []string) error {
 			Account: accountName,
 		},
 	}
+	if spaceTemplate != nil {
+		space.Annotations = spaceTemplate.Spec.Template.Metadata.Annotations
+		space.Labels = spaceTemplate.Spec.Template.Metadata.Labels
+	}
 	if cmd.SleepAfter > 0 {
 		space.Annotations["sleepmode.loft.sh/sleep-after"] = strconv.FormatInt(cmd.SleepAfter, 10)
 	}
@@ -170,6 +208,14 @@ func (cmd *SpaceCmd) Run(cobraCmd *cobra.Command, args []string) error {
 	_, err = clusterClient.Kiosk().TenancyV1alpha1().Spaces().Create(context.TODO(), space, metav1.CreateOptions{})
 	if err != nil {
 		return errors.Wrap(err, "create space")
+	}
+	
+	// check if we should deploy apps
+	if len(apps) > 0 {
+		err = deploySpaceApps(clusterClient, space.Name, apps, cmd.Log)
+		if err != nil {
+			return err
+		}
 	}
 
 	cmd.Log.Donef("Successfully created the space %s in cluster %s", ansi.Color(spaceName, "white+b"), ansi.Color(clusterName, "white+b"))
@@ -194,6 +240,20 @@ func (cmd *SpaceCmd) Run(cobraCmd *cobra.Command, args []string) error {
 	return nil
 }
 
+func deploySpaceApps(clusterClient kube.Interface, space string, apps []v1.App, log log.Logger) error {
+	log.Infof("Creating space %s...", space)
+	for _, app := range apps {
+		log.Infof("Deploying app %s...", app.Name)
+		_, err := clusterClient.Agent().ClusterV1().HelmReleases(space).Create(context.TODO(), convertAppToHelmRelease(app), metav1.CreateOptions{})
+		if err != nil {
+			_ = clusterClient.Kiosk().TenancyV1alpha1().Spaces().Delete(context.TODO(), space, metav1.DeleteOptions{})
+			return errors.Wrap(err, "deploy app " + app.Name)
+		}
+	}
+	
+	return nil
+}
+
 func getOwnerReferences(client kube.Interface, cluster, accountName string) ([]metav1.OwnerReference, error) {
 	clusterMembers, err := client.Loft().ManagementV1().Clusters().ListMembers(context.TODO(), cluster, metav1.GetOptions{})
 	if err != nil {
@@ -202,12 +262,14 @@ func getOwnerReferences(client kube.Interface, cluster, accountName string) ([]m
 	account := findOwnerAccount(append(clusterMembers.Teams, clusterMembers.Users...), accountName)
 
 	if account != nil {
+		t := true
 		return []metav1.OwnerReference{
 			{
 				APIVersion: account.APIVersion,
 				Kind:       account.Kind,
 				Name:       account.Name,
 				UID:        account.UID,
+				Controller: &t, 
 			},
 		}, nil
 	}
@@ -223,3 +285,79 @@ func findOwnerAccount(haystack []v1.ClusterMember, needle string) *v1alpha1.Acco
 	}
 	return nil
 }
+
+func convertAppToHelmRelease(app v1.App) *clusterv1.HelmRelease {
+	release := &clusterv1.HelmRelease{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: app.Name,
+			Labels: map[string]string{
+				LoftHelmReleaseAppLabel: "true",
+				LoftHelmReleaseAppNameLabel: app.Name,
+			},
+			Annotations: map[string]string{
+				LoftHelmReleaseAppResourceVersionAnnotation: app.ResourceVersion,
+			},
+		},
+		Spec: clusterv1.HelmReleaseSpec{
+			Manifests: app.Spec.Manifests,
+		},
+	}
+	if app.Spec.Helm != nil {
+		release.Spec.Chart = clusterv1.Chart{
+			Name:     app.Spec.Helm.Name,
+			Version:  app.Spec.Helm.Version,
+			RepoURL:  app.Spec.Helm.RepoURL,
+			Username: app.Spec.Helm.Username,
+			Password: string(app.Spec.Helm.Password),
+		}
+		release.Spec.Config = app.Spec.Helm.Values
+		release.Spec.InsecureSkipTlsVerify = app.Spec.Helm.Insecure
+	}
+	return release
+}
+
+func resolveSpaceTemplate(client kube.Interface, cluster *v1.Cluster, template string) (*v1.SpaceTemplate, error) {
+	if template == "" && cluster.Annotations != nil && cluster.Annotations[LoftDefaultSpaceTemplate] != "" {
+		template = cluster.Annotations[LoftDefaultSpaceTemplate]
+	}
+	
+	if template != "" {
+		spaceTemplate, err := client.Loft().ManagementV1().SpaceTemplates().Get(context.TODO(), template, metav1.GetOptions{})
+		if err != nil {
+			return nil, err
+		}
+		
+		return spaceTemplate, nil
+	}
+	
+	return nil, nil
+}
+
+func resolveApps(client kube.Interface, apps []storagev1.SpaceAppReference) ([]v1.App, error) {
+	appsList, err := client.Loft().ManagementV1().Apps().List(context.TODO(), metav1.ListOptions{})
+	if err != nil {
+		return nil, err
+	}
+	
+	retApps := []v1.App{}
+	for _, a := range apps {
+		found := false
+		for _, ma := range appsList.Items {
+			if a.Name == "" {
+				continue
+			}
+			if ma.Name == a.Name {
+				retApps = append(retApps, ma)
+				found = true
+				break
+			}
+		}
+		if !found {
+			return nil, fmt.Errorf("couldn't find app %s. The app either doesn't exist or you have no access to use it", a)
+		}
+	}
+	
+	return retApps, nil
+}
+
+
