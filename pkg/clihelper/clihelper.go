@@ -31,15 +31,24 @@ import (
 )
 
 func GetLoftIngressHost(kubeClient kubernetes.Interface, namespace string) (string, error) {
-	ingress, err := kubeClient.NetworkingV1beta1().Ingresses(namespace).Get(context.TODO(), "loft-ingress", metav1.GetOptions{})
+	ingress, err := kubeClient.NetworkingV1().Ingresses(namespace).Get(context.TODO(), "loft-ingress", metav1.GetOptions{})
 	if err != nil {
-		return "", err
+		ingress, err := kubeClient.NetworkingV1beta1().Ingresses(namespace).Get(context.TODO(), "loft-ingress", metav1.GetOptions{})
+		if err != nil {
+			return "", err
+		} else {
+			// find host
+			for _, rule := range ingress.Spec.Rules {
+				return rule.Host, nil
+			}
+		}
+	} else {
+		// find host
+		for _, rule := range ingress.Spec.Rules {
+			return rule.Host, nil
+		}
 	}
 
-	// find host
-	for _, rule := range ingress.Spec.Rules {
-		return rule.Host, nil
-	}
 	return "", fmt.Errorf("couldn't find any host in loft ingress '%s/loft-ingress', please make sure you have not changed any deployed resources")
 }
 
@@ -584,6 +593,11 @@ func EnsureAdminPassword(kubeClient kubernetes.Interface, restConfig *rest.Confi
 }
 
 func IsLoftInstalledLocally(kubeClient kubernetes.Interface, namespace string) bool {
-	_, err := kubeClient.NetworkingV1beta1().Ingresses(namespace).Get(context.TODO(), "loft-ingress", metav1.GetOptions{})
+	_, err := kubeClient.NetworkingV1().Ingresses(namespace).Get(context.TODO(), "loft-ingress", metav1.GetOptions{})
+	if err != nil && kerrors.IsNotFound(err) == false {
+		_, err = kubeClient.NetworkingV1beta1().Ingresses(namespace).Get(context.TODO(), "loft-ingress", metav1.GetOptions{})
+		return kerrors.IsNotFound(err)
+	}
+
 	return kerrors.IsNotFound(err)
 }
