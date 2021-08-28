@@ -272,7 +272,7 @@ func (cmd *VirtualClusterCmd) Run(cobraCmd *cobra.Command, args []string) error 
 	if len(vClusterApps) > 0 {
 		// wait until virtual cluster is reachable
 		cmd.Log.StartWait("Waiting for virtual cluster to be reachable...")
-		err = wait.PollImmediate(time.Second, time.Minute*5, func() (bool, error) {
+		err = wait.PollImmediate(time.Second, time.Minute*10, func() (bool, error) {
 			_, err := vClusterClient.CoreV1().Namespaces().List(context.TODO(), metav1.ListOptions{})
 			if err != nil {
 				return false, nil
