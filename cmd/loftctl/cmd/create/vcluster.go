@@ -24,6 +24,7 @@ import (
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"os"
+	"os/signal"
 	"strconv"
 	"strings"
 )
@@ -257,6 +258,15 @@ func (cmd *VirtualClusterCmd) Run(cobraCmd *cobra.Command, args []string) error 
 			_ = clusterClient.Agent().StorageV1().VirtualClusters(cmd.Space).Delete(ctx, vCluster.Name, metav1.DeleteOptions{})
 		}
 	}
+
+	// cleanup on ctrl+c
+	c := make(chan os.Signal, 1)
+	signal.Notify(c, os.Interrupt)
+	go func(){
+		<-c
+		cleanup()
+		os.Exit(1)
+	}()
 	
 	// create a vcluster client
 	vClusterClient, err := baseClient.VirtualCluster(cmd.Cluster, cmd.Space, virtualClusterName)

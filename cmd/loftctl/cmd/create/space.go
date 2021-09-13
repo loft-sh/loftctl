@@ -8,6 +8,8 @@ import (
 	"github.com/loft-sh/loftctl/cmd/loftctl/cmd/use"
 	"github.com/loft-sh/loftctl/pkg/kube"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
+	"os"
+	"os/signal"
 	"strconv"
 
 	"github.com/loft-sh/agentapi/pkg/apis/kiosk/config/v1alpha1"
@@ -209,6 +211,15 @@ func (cmd *SpaceCmd) Run(cobraCmd *cobra.Command, args []string) error {
 	if err != nil {
 		return errors.Wrap(err, "create space")
 	}
+
+	// cleanup on ctrl+c
+	c := make(chan os.Signal, 1)
+	signal.Notify(c, os.Interrupt)
+	go func(){
+		<-c
+		_ = clusterClient.Kiosk().TenancyV1alpha1().Spaces().Delete(context.TODO(), spaceName, metav1.DeleteOptions{})
+		os.Exit(1)
+	}()
 	
 	// check if we should deploy apps
 	if len(apps) > 0 {
