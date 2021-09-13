@@ -11,7 +11,7 @@ require (
 	github.com/docker/docker-credential-helpers v0.6.4 // indirect
 	github.com/evanphx/json-patch v4.11.0+incompatible
 	github.com/k0kubun/go-ansi v0.0.0-20180517002512-3bf9e2903213
-	github.com/loft-sh/api v1.15.0-beta.3
+	github.com/loft-sh/api v1.15.0-rc.1
 	github.com/loft-sh/apimachinery v0.0.0
 	github.com/mgutz/ansi v0.0.0-20200706080929-d51e80ef957d
 	github.com/mitchellh/go-homedir v1.1.0
