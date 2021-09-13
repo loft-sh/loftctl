@@ -112,7 +112,7 @@ func (cmd *VirtualClusterCmd) Run(cobraCmd *cobra.Command, args []string) error 
 			return err
 		}
 
-		cmd.log.Infof("Found vCluster pod %s in namespace %s", podName, cmd.Namespace)
+		cmd.log.Infof("Found vcluster pod %s in namespace %s", podName, cmd.Namespace)
 	}
 
 	// get the kube config from the container

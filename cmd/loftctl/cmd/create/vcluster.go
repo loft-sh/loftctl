@@ -3,32 +3,29 @@ package create
 import (
 	"context"
 	"fmt"
+	tenancyv1alpha1 "github.com/loft-sh/agentapi/pkg/apis/kiosk/tenancy/v1alpha1"
 	agentstoragev1 "github.com/loft-sh/agentapi/pkg/apis/loft/storage/v1"
 	v1 "github.com/loft-sh/api/pkg/apis/management/v1"
 	storagev1 "github.com/loft-sh/api/pkg/apis/storage/v1"
 	virtualclusterv1 "github.com/loft-sh/api/pkg/apis/virtualcluster/v1"
 	"github.com/loft-sh/loftctl/cmd/loftctl/cmd/use"
-	"github.com/loft-sh/loftctl/pkg/kube"
-	"io"
-	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/util/wait"
-	"os"
-	"strconv"
-	"strings"
-	"time"
-
-	tenancyv1alpha1 "github.com/loft-sh/agentapi/pkg/apis/kiosk/tenancy/v1alpha1"
 	"github.com/loft-sh/loftctl/cmd/loftctl/flags"
 	"github.com/loft-sh/loftctl/pkg/client"
 	"github.com/loft-sh/loftctl/pkg/client/helper"
+	"github.com/loft-sh/loftctl/pkg/kube"
 	"github.com/loft-sh/loftctl/pkg/kubeconfig"
 	"github.com/loft-sh/loftctl/pkg/log"
 	"github.com/loft-sh/loftctl/pkg/upgrade"
 	"github.com/mgutz/ansi"
 	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
+	"io"
+	corev1 "k8s.io/api/core/v1"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"os"
+	"strconv"
+	"strings"
 )
 
 // VirtualClusterCmd holds the cmd flags
@@ -272,14 +269,7 @@ func (cmd *VirtualClusterCmd) Run(cobraCmd *cobra.Command, args []string) error 
 	if len(vClusterApps) > 0 {
 		// wait until virtual cluster is reachable
 		cmd.Log.StartWait("Waiting for virtual cluster to be reachable...")
-		err = wait.PollImmediate(time.Second, time.Minute*10, func() (bool, error) {
-			_, err := vClusterClient.CoreV1().Namespaces().List(context.TODO(), metav1.ListOptions{})
-			if err != nil {
-				return false, nil
-			}
-
-			return true, nil
-		})
+		err = use.WaitForVCluster(baseClient, cmd.Cluster, cmd.Space, virtualClusterName)
 		cmd.Log.StopWait()
 		if err != nil {
 			cleanup()
@@ -319,14 +309,7 @@ func (cmd *VirtualClusterCmd) Run(cobraCmd *cobra.Command, args []string) error 
 	if cmd.CreateContext || cmd.Print {
 		// wait until virtual cluster is reachable
 		cmd.Log.StartWait("Waiting for virtual cluster to be reachable...")
-		err = wait.PollImmediate(time.Second, time.Minute*5, func() (bool, error) {
-			_, err := vClusterClient.CoreV1().Namespaces().List(context.TODO(), metav1.ListOptions{})
-			if err != nil {
-				return false, nil
-			}
-
-			return true, nil
-		})
+		err = use.WaitForVCluster(baseClient, cmd.Cluster, cmd.Space, virtualClusterName)
 		cmd.Log.StopWait()
 		if err != nil {
 			cleanup()
@@ -443,6 +426,7 @@ func (cmd *VirtualClusterCmd) createSpace(ctx context.Context, baseClient client
 			}
 		}
 		cmd.Log.Donef("Successfully created space %s in cluster %s", ansi.Color(space.Name, "white+b"), ansi.Color(cluster.Name, "white+b"))
+		return true, nil
 	}
 	
 	return false, nil

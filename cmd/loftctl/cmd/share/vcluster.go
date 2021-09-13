@@ -104,11 +104,11 @@ func (cmd *VClusterCmd) Run(cobraCmd *cobra.Command, args []string) error {
 	}
 
 	if userOrTeam.Team == false {
-		cmd.Log.Donef("Successfully granted user %s access to vCluster %s", ansi.Color(userOrTeam.ClusterMember.Info.Name, "white+b"), ansi.Color(vClusterName, "white+b"))
-		cmd.Log.Infof("The user can access the vCluster now via: %s", ansi.Color(fmt.Sprintf("loft use vcluster %s --space %s --cluster %s", vClusterName, spaceName, clusterName), "white+b"))
+		cmd.Log.Donef("Successfully granted user %s access to vcluster %s", ansi.Color(userOrTeam.ClusterMember.Info.Name, "white+b"), ansi.Color(vClusterName, "white+b"))
+		cmd.Log.Infof("The user can access the vcluster now via: %s", ansi.Color(fmt.Sprintf("loft use vcluster %s --space %s --cluster %s", vClusterName, spaceName, clusterName), "white+b"))
 	} else {
-		cmd.Log.Donef("Successfully granted team %s access to vCluster %s", ansi.Color(userOrTeam.ClusterMember.Info.Name, "white+b"), ansi.Color(vClusterName, "white+b"))
-		cmd.Log.Infof("The team can access the vCluster now via: %s", ansi.Color(fmt.Sprintf("loft use vcluster %s --space %s --cluster %s", vClusterName, spaceName, clusterName), "white+b"))
+		cmd.Log.Donef("Successfully granted team %s access to vcluster %s", ansi.Color(userOrTeam.ClusterMember.Info.Name, "white+b"), ansi.Color(vClusterName, "white+b"))
+		cmd.Log.Infof("The team can access the vcluster now via: %s", ansi.Color(fmt.Sprintf("loft use vcluster %s --space %s --cluster %s", vClusterName, spaceName, clusterName), "white+b"))
 	}
 
 	return nil
