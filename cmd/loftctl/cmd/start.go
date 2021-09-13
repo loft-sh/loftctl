@@ -38,6 +38,7 @@ type StartCmd struct {
 	Password    string
 	Values      string
 	ReuseValues bool
+	Upgrade     bool
 
 	// Will be filled later
 	KubeClient kubernetes.Interface
@@ -87,6 +88,7 @@ before running this command:
 	startCmd.Flags().StringVar(&cmd.Version, "version", "", "The loft version to install")
 	startCmd.Flags().StringVar(&cmd.Values, "values", "", "Path to a file for extra loft helm chart values")
 	startCmd.Flags().BoolVar(&cmd.ReuseValues, "reuse-values", true, "Reuse previous Loft helm values on upgrade")
+	startCmd.Flags().BoolVar(&cmd.Upgrade, "upgrade", false, "If true, Loft will try to upgrade the release")
 	startCmd.Flags().BoolVar(&cmd.Reset, "reset", false, "If true, an existing loft instance will be deleted before installing loft")
 	return startCmd
 }
@@ -280,6 +282,7 @@ func (cmd *StartCmd) prepare() error {
 
 func (cmd *StartCmd) handleAlreadyExistingInstallation() error {
 	cmd.Log.Info("Found an existing loft installation, if you want to reinstall loft run 'loft start --reset'")
+	cmd.Log.Info("Found an existing loft installation, if you want to upgrade loft run 'loft start --upgrade'")
 
 	// get default password
 	password := cmd.Password
@@ -294,7 +297,7 @@ func (cmd *StartCmd) handleAlreadyExistingInstallation() error {
 
 	// check if we should upgrade Loft
 	isLocal := clihelper.IsLoftInstalledLocally(cmd.KubeClient, cmd.Namespace)
-	if cmd.Version != "" || cmd.Values != "" {
+	if cmd.Upgrade {
 		extraArgs := []string{}
 		if cmd.ReuseValues {
 			extraArgs = append(extraArgs, "--reuse-values")
@@ -351,11 +354,12 @@ func (cmd *StartCmd) handleAlreadyExistingInstallation() error {
 
 	// check if local or remote installation
 	if isLocal {
-		err = clihelper.StartPortForwarding(cmd.Context, cmd.Namespace, loftPod.Name, cmd.LocalPort, cmd.Log)
+		stopChan, err := clihelper.StartPortForwarding(cmd.RestConfig, cmd.KubeClient, loftPod, cmd.LocalPort, cmd.Log)
 		if err != nil {
 			return err
 		}
 
+		go cmd.restartPortForwarding(stopChan)
 		return cmd.successLocal(password)
 	}
 
@@ -388,11 +392,12 @@ func (cmd *StartCmd) handleAlreadyExistingInstallation() error {
 		}
 
 		if answer == YesOption {
-			err := clihelper.StartPortForwarding(cmd.Context, cmd.Namespace, loftPod.Name, cmd.LocalPort, cmd.Log)
+			stopChan, err := clihelper.StartPortForwarding(cmd.RestConfig, cmd.KubeClient, loftPod, cmd.LocalPort, cmd.Log)
 			if err != nil {
 				return err
 			}
 
+			go cmd.restartPortForwarding(stopChan)
 			return cmd.successLocal(password)
 		}
 	}
@@ -404,6 +409,15 @@ func (cmd *StartCmd) waitForLoft(password string) (*corev1.Pod, error) {
 	// wait for loft pod to start
 	cmd.Log.StartWait("Waiting until loft pod has been started...")
 	loftPod, err := clihelper.WaitForReadyLoftPod(cmd.KubeClient, cmd.Namespace, cmd.Log)
+	cmd.Log.StopWait()
+	cmd.Log.Donef("Loft pod successfully started")
+	if err != nil {
+		return nil, err
+	}
+
+	// wait for loft pod to start
+	cmd.Log.StartWait("Waiting until loft agent has been started...")
+	err = clihelper.WaitForReadyLoftAgentPod(cmd.KubeClient, cmd.Namespace, cmd.Log)
 	cmd.Log.StopWait()
 	if err != nil {
 		return nil, err
@@ -494,12 +508,36 @@ func (cmd *StartCmd) installLocal(email string) error {
 		return err
 	}
 
-	err = clihelper.StartPortForwarding(cmd.Context, cmd.Namespace, loftPod.Name, cmd.LocalPort, cmd.Log)
+	stopChan, err := clihelper.StartPortForwarding(cmd.RestConfig, cmd.KubeClient, loftPod, cmd.LocalPort, cmd.Log)
 	if err != nil {
 		return err
 	}
-
+	go cmd.restartPortForwarding(stopChan)
+	
 	return cmd.successLocal(password)
+}
+
+func (cmd *StartCmd) restartPortForwarding(stopChan chan struct{}) {
+	for {
+		<- stopChan
+		cmd.Log.Info("Restart port forwarding")
+
+		// wait for loft pod to start
+		cmd.Log.StartWait("Waiting until loft pod has been started...")
+		loftPod, err := clihelper.WaitForReadyLoftPod(cmd.KubeClient, cmd.Namespace, cmd.Log)
+		cmd.Log.StopWait()
+		if err != nil {
+			cmd.Log.Fatalf("Error waiting for ready loft pod: %v", err)
+		}
+
+		// restart port forwarding
+		stopChan, err = clihelper.StartPortForwarding(cmd.RestConfig, cmd.KubeClient, loftPod, cmd.LocalPort, cmd.Log)
+		if err != nil {
+			cmd.Log.Fatalf("Error starting port forwarding: %v", err)
+		}
+		
+		cmd.Log.Donef("Successfully restarted port forwarding")
+	}
 }
 
 func (cmd *StartCmd) successRemote(host string, password string) error {

@@ -1,7 +1,6 @@
 package clihelper
 
 import (
-	"bytes"
 	"context"
 	"crypto/sha256"
 	"crypto/tls"
@@ -9,6 +8,7 @@ import (
 	"fmt"
 	jsonpatch "github.com/evanphx/json-patch"
 	loftclientset "github.com/loft-sh/api/pkg/client/clientset_generated/clientset"
+	"github.com/loft-sh/apimachinery/pkg/portforward"
 	"github.com/loft-sh/loftctl/pkg/log"
 	"github.com/loft-sh/loftctl/pkg/survey"
 	"github.com/pkg/errors"
@@ -20,12 +20,14 @@ import (
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
+	"k8s.io/client-go/transport/spdy"
 	"k8s.io/kube-aggregator/pkg/client/clientset_generated/clientset"
 	"net"
 	"net/http"
 	"net/url"
 	"os/exec"
 	"sort"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -50,6 +52,47 @@ func GetLoftIngressHost(kubeClient kubernetes.Interface, namespace string) (stri
 	}
 
 	return "", fmt.Errorf("couldn't find any host in loft ingress '%s/loft-ingress', please make sure you have not changed any deployed resources")
+}
+
+func WaitForReadyLoftAgentPod(kubeClient kubernetes.Interface, namespace string, log log.Logger) error {
+	// wait until we have a running loft pod
+	err := wait.Poll(time.Second*2, time.Minute*10, func() (bool, error) {
+		pods, err := kubeClient.CoreV1().Pods(namespace).List(context.TODO(), metav1.ListOptions{
+			LabelSelector: "app=loft-agent",
+		})
+		if err != nil {
+			log.Warnf("Error trying to retrieve loft agent pod: %v", err)
+			return false, nil
+		} else if len(pods.Items) == 0 {
+			// we stop here because the local cluster might be not selected
+			return true, nil
+		}
+
+		sort.Slice(pods.Items, func(i, j int) bool {
+			return pods.Items[i].CreationTimestamp.After(pods.Items[j].CreationTimestamp.Time)
+		})
+
+		loftPod := &pods.Items[0]
+		found := false
+		for _, containerStatus := range loftPod.Status.ContainerStatuses {
+			if containerStatus.State.Running != nil && containerStatus.Ready {
+				if containerStatus.Name == "agent" {
+					found = true
+				}
+
+				continue
+			}
+
+			return false, nil
+		}
+
+		return found, nil
+	})
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
 
 func WaitForReadyLoftPod(kubeClient kubernetes.Interface, namespace string, log log.Logger) (*corev1.Pod, error) {
@@ -111,38 +154,60 @@ func WaitForReadyLoftPod(kubeClient kubernetes.Interface, namespace string, log 
 	return pod, nil
 }
 
-func StartPortForwarding(kubeContext, namespace string, pod, localPort string, log log.Logger) error {
-	log.WriteString("\n")
-	log.Info("Loft will now start port-forwarding to the loft pod")
-	args := []string{
-		"port-forward",
-		pod,
-		"--context",
-		kubeContext,
-		"--namespace",
-		namespace,
-		localPort + ":443",
-	}
-	log.Infof("Starting command: kubectl %s", strings.Join(args, " "))
+func StartPortForwarding(config *rest.Config, client kubernetes.Interface, pod *corev1.Pod, localPort string, log log.Logger) (chan struct{}, error) {
+	log.Info("Starting port-forwarding to the loft pod")
+	execRequest := client.CoreV1().RESTClient().Post().
+		Resource("pods").
+		Name(pod.Name).
+		Namespace(pod.Namespace).
+		SubResource("portforward")
 
-	buffer := &bytes.Buffer{}
-	c := exec.Command("kubectl", args...)
-	c.Stderr = buffer
-	// c.Stdout = os.Stdout
-
-	err := c.Start()
+	t, upgrader, err := spdy.RoundTripperFor(config)
 	if err != nil {
-		return fmt.Errorf("error starting kubectl command: %v", err)
+		return nil, err
 	}
+
+	dialer := spdy.NewDialer(upgrader, &http.Client{Transport: t}, "POST", execRequest.URL())
+	errChan := make(chan error)
+	readyChan := make(chan struct{})
+	stopChan := make(chan struct{})
+	forwarder, err := portforward.New(dialer, []string{localPort + ":" + strconv.Itoa(443)}, stopChan, readyChan, errChan, ioutil.Discard, ioutil.Discard)
+	if err != nil {
+		return nil, err
+	}
+
 	go func() {
-		err := c.Wait()
+		err := forwarder.ForwardPorts()
 		if err != nil {
-			log.Fatalf("Port-Forwarding has unexpectedly ended. Please restart the command via 'loft start'. Error: %s", buffer.String())
+			errChan <- err
+		}
+	}()
+
+	// wait till ready
+	select {
+	case err = <-errChan:
+		return nil, err
+	case <-readyChan:
+	case <-stopChan:
+		return nil, fmt.Errorf("stopped before ready")
+	}
+
+	// start watcher
+	go func() {
+		for {
+			select {
+			case <-stopChan:
+				return
+			case err = <-errChan:
+				log.Infof("error during port forwarder: %v", err)
+				close(stopChan)
+				return
+			}
 		}
 	}()
 
 	// wait until loft is reachable at the given url
-	client := &http.Client{
+	httpClient := &http.Client{
 		Transport: &http.Transport{
 			TLSClientConfig: &tls.Config{
 				InsecureSkipVerify: true,
@@ -151,14 +216,19 @@ func StartPortForwarding(kubeContext, namespace string, pod, localPort string, l
 	}
 
 	log.Infof("Waiting until loft is reachable at https://localhost:%s", localPort)
-	return wait.PollImmediate(time.Second, time.Minute*10, func() (bool, error) {
-		resp, err := client.Get("https://localhost:" + localPort + "/version")
+	err = wait.PollImmediate(time.Second, time.Minute*10, func() (bool, error) {
+		resp, err := httpClient.Get("https://localhost:" + localPort + "/version")
 		if err != nil {
 			return false, nil
 		}
 
 		return resp.StatusCode == http.StatusOK, nil
 	})
+	if err != nil {
+		return nil, err
+	}
+
+	return stopChan, nil
 }
 
 func GetLoftDefaultPassword(kubeClient kubernetes.Interface, namespace string) (string, error) {
