@@ -206,28 +206,6 @@ func StartPortForwarding(config *rest.Config, client kubernetes.Interface, pod *
 		}
 	}()
 
-	// wait until loft is reachable at the given url
-	httpClient := &http.Client{
-		Transport: &http.Transport{
-			TLSClientConfig: &tls.Config{
-				InsecureSkipVerify: true,
-			},
-		},
-	}
-
-	log.Infof("Waiting until loft is reachable at https://localhost:%s", localPort)
-	err = wait.PollImmediate(time.Second, time.Minute*10, func() (bool, error) {
-		resp, err := httpClient.Get("https://localhost:" + localPort + "/version")
-		if err != nil {
-			return false, nil
-		}
-
-		return resp.StatusCode == http.StatusOK, nil
-	})
-	if err != nil {
-		return nil, err
-	}
-
 	return stopChan, nil
 }
 

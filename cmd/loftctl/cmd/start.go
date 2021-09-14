@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"context"
+	"crypto/tls"
 	"fmt"
 	"github.com/loft-sh/loftctl/pkg/clihelper"
 	"github.com/loft-sh/loftctl/pkg/printhelper"
@@ -9,6 +10,7 @@ import (
 	"github.com/pkg/errors"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/client-go/rest"
+	"net/http"
 	"os/exec"
 	"regexp"
 	"time"
@@ -354,12 +356,11 @@ func (cmd *StartCmd) handleAlreadyExistingInstallation() error {
 
 	// check if local or remote installation
 	if isLocal {
-		stopChan, err := clihelper.StartPortForwarding(cmd.RestConfig, cmd.KubeClient, loftPod, cmd.LocalPort, cmd.Log)
+		err = cmd.startPortForwarding(loftPod)
 		if err != nil {
 			return err
 		}
 
-		go cmd.restartPortForwarding(stopChan)
 		return cmd.successLocal(password)
 	}
 
@@ -392,12 +393,11 @@ func (cmd *StartCmd) handleAlreadyExistingInstallation() error {
 		}
 
 		if answer == YesOption {
-			stopChan, err := clihelper.StartPortForwarding(cmd.RestConfig, cmd.KubeClient, loftPod, cmd.LocalPort, cmd.Log)
+			err = cmd.startPortForwarding(loftPod)
 			if err != nil {
 				return err
 			}
 
-			go cmd.restartPortForwarding(stopChan)
 			return cmd.successLocal(password)
 		}
 	}
@@ -508,13 +508,43 @@ func (cmd *StartCmd) installLocal(email string) error {
 		return err
 	}
 
+	err = cmd.startPortForwarding(loftPod)
+	if err != nil {
+		return err
+	}
+	
+	return cmd.successLocal(password)
+}
+
+func (cmd *StartCmd) startPortForwarding(loftPod *corev1.Pod) error {
 	stopChan, err := clihelper.StartPortForwarding(cmd.RestConfig, cmd.KubeClient, loftPod, cmd.LocalPort, cmd.Log)
 	if err != nil {
 		return err
 	}
 	go cmd.restartPortForwarding(stopChan)
+
+	// wait until loft is reachable at the given url
+	httpClient := &http.Client{
+		Transport: &http.Transport{
+			TLSClientConfig: &tls.Config{
+				InsecureSkipVerify: true,
+			},
+		},
+	}
+	cmd.Log.Infof("Waiting until loft is reachable at https://localhost:%s", cmd.LocalPort)
+	err = wait.PollImmediate(time.Second, time.Minute*10, func() (bool, error) {
+		resp, err := httpClient.Get("https://localhost:" + cmd.LocalPort + "/version")
+		if err != nil {
+			return false, nil
+		}
+
+		return resp.StatusCode == http.StatusOK, nil
+	})
+	if err != nil {
+		return err
+	}
 	
-	return cmd.successLocal(password)
+	return nil 
 }
 
 func (cmd *StartCmd) restartPortForwarding(stopChan chan struct{}) {
