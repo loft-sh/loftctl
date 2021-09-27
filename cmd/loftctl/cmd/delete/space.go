@@ -41,7 +41,6 @@ func NewSpaceCmd(globalFlags *flags.GlobalFlags) *cobra.Command {
 Deletes a space from a cluster
 
 Example:
-loft delete space 
 loft delete space myspace
 loft delete space myspace --cluster mycluster
 #######################################################
@@ -54,17 +53,16 @@ loft delete space myspace --cluster mycluster
 Deletes a space from a cluster
 
 Example:
-devspace delete space 
 devspace delete space myspace
 devspace delete space myspace --cluster mycluster
 #######################################################
 	`
 	}
 	c := &cobra.Command{
-		Use:   "space",
+		Use:   "space [name]",
 		Short: "Deletes a space from a cluster",
 		Long:  description,
-		Args:  cobra.MaximumNArgs(1),
+		Args:  cobra.ExactArgs(1),
 		RunE: func(cobraCmd *cobra.Command, args []string) error {
 			// Check for newer version
 			upgrade.PrintNewerVersionWarning()

@@ -62,10 +62,10 @@ devspace delete vcluster myvirtualcluster --space myspace --cluster mycluster
 	`
 	}
 	c := &cobra.Command{
-		Use:   "vcluster",
+		Use:   "vcluster [name]",
 		Short: "Deletes a virtual cluster from a cluster",
 		Long:  description,
-		Args:  cobra.MaximumNArgs(1),
+		Args:  cobra.ExactArgs(1),
 		RunE: func(cobraCmd *cobra.Command, args []string) error {
 			// Check for newer version
 			upgrade.PrintNewerVersionWarning()
