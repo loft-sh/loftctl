@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/tls"
 	"fmt"
+	loftclient "github.com/loft-sh/api/pkg/client/clientset_generated/clientset"
 	"github.com/loft-sh/loftctl/pkg/clihelper"
 	"github.com/loft-sh/loftctl/pkg/printhelper"
 	"github.com/loft-sh/loftctl/pkg/upgrade"
@@ -197,12 +198,30 @@ func (cmd *StartCmd) Run(cobraCmd *cobra.Command, args []string) error {
 	if err != nil {
 		return err
 	}
+	
+	// make sure we are ready for installing
+	err = cmd.prepareInstall()
+	if err != nil {
+		return err
+	}
 
 	if installLocally || remoteHost == "" {
 		return cmd.installLocal(userEmail)
 	}
 
 	return cmd.installRemote(userEmail, remoteHost)
+}
+
+func (cmd *StartCmd) prepareInstall() error {
+	// delete admin user & secret
+	loftClient, err := loftclient.NewForConfig(cmd.RestConfig)
+	if err != nil {
+		return err
+	}
+	
+	_ = loftClient.StorageV1().Users().Delete(context.Background(), "admin", metav1.DeleteOptions{})
+	_ = cmd.KubeClient.CoreV1().Secrets(cmd.Namespace).Delete(context.Background(), "loft-user-secret-admin", metav1.DeleteOptions{})
+	return nil
 }
 
 func (cmd *StartCmd) prepare() error {
