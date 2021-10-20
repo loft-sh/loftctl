@@ -246,7 +246,7 @@ func (cmd *StartCmd) prepare() error {
 		contextToLoad = cmd.Context
 	} else if loftConfig.LastInstallContext != "" && loftConfig.LastInstallContext != contextToLoad {
 		contextToLoad, err = cmd.Log.Question(&survey.QuestionOptions{
-			Question:     "Seems like you try to use 'loft start' with a different kubernetes context than before. Please choose which kubernetes context you want to use",
+			Question:     "Seems like you tried to use 'loft start' with a different kubernetes context than before. Please choose which kubernetes context you want to use",
 			DefaultValue: contextToLoad,
 			Options:      []string{contextToLoad, loftConfig.LastInstallContext},
 		})
