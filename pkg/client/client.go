@@ -5,10 +5,7 @@ import (
 	"crypto/x509"
 	"encoding/json"
 	"fmt"
-	managementv1 "github.com/loft-sh/api/pkg/apis/management/v1"
-	storagev1 "github.com/loft-sh/api/pkg/apis/storage/v1"
 	"io/ioutil"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"net/http"
 	"net/url"
 	"os"
@@ -17,8 +14,14 @@ import (
 	"sync"
 	"time"
 
+	managementv1 "github.com/loft-sh/api/pkg/apis/management/v1"
+	storagev1 "github.com/loft-sh/api/pkg/apis/storage/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
+	"github.com/loft-sh/loftctl/pkg/constants"
 	"github.com/loft-sh/loftctl/pkg/kube"
 	"github.com/loft-sh/loftctl/pkg/log"
+	"github.com/loft-sh/loftctl/pkg/upgrade"
 	"github.com/mitchellh/go-homedir"
 	"github.com/pkg/errors"
 	"github.com/skratchdot/open-golang/open"
@@ -349,6 +352,7 @@ func getRestConfig(host, token string, insecure bool) (*rest.Config, error) {
 	if err != nil {
 		return nil, err
 	}
+	config.UserAgent = constants.LoftctlUserAgentPrefix + upgrade.GetVersion()
 
 	return config, nil
 }

@@ -10,7 +10,9 @@ require (
 	github.com/docker/docker v0.7.3-0.20190327010347-be7ac8be2ae0
 	github.com/docker/docker-credential-helpers v0.6.4 // indirect
 	github.com/evanphx/json-patch v4.11.0+incompatible
+	github.com/ghodss/yaml v1.0.0
 	github.com/k0kubun/go-ansi v0.0.0-20180517002512-3bf9e2903213
+	github.com/loft-sh/agentapi v0.0.0
 	github.com/loft-sh/api v1.15.1-beta.0
 	github.com/loft-sh/apimachinery v0.0.0
 	github.com/mgutz/ansi v0.0.0-20200706080929-d51e80ef957d
@@ -39,8 +41,8 @@ replace (
 	github.com/go-openapi/swag => github.com/go-openapi/swag v0.19.5
 	github.com/googleapis/gnostic => github.com/googleapis/gnostic v0.4.1
 	github.com/kubernetes-incubator/reference-docs => github.com/kubernetes-sigs/reference-docs v0.0.0-20170929004150-fcf65347b256
-	github.com/loft-sh/api => ../api
 	github.com/loft-sh/agentapi => ../agentapi
+	github.com/loft-sh/api => ../api
 	github.com/loft-sh/apimachinery => ../apimachinery
 	github.com/markbates/inflect => github.com/markbates/inflect v1.0.4
 	k8s.io/kube-openapi => k8s.io/kube-openapi v0.0.0-20210305001622-591a79e4bda7

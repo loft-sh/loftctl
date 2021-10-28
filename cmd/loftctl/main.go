@@ -1,14 +1,15 @@
 package main
 
 import (
+	"os"
+
 	"github.com/loft-sh/loftctl/cmd/loftctl/cmd"
 	"github.com/loft-sh/loftctl/pkg/upgrade"
-	"os"
 
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
 )
 
-var version string
+var version string = "v99.0.0"
 
 func main() {
 	upgrade.SetVersion(version)

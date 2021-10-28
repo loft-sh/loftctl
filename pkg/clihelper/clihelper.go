@@ -6,13 +6,22 @@ import (
 	"crypto/tls"
 	"encoding/json"
 	"fmt"
+	"io/ioutil"
+	"net"
+	"net/http"
+	"net/url"
+	"os/exec"
+	"sort"
+	"strconv"
+	"strings"
+	"time"
+
 	jsonpatch "github.com/evanphx/json-patch"
 	loftclientset "github.com/loft-sh/api/pkg/client/clientset_generated/clientset"
 	"github.com/loft-sh/apimachinery/pkg/portforward"
 	"github.com/loft-sh/loftctl/pkg/log"
 	"github.com/loft-sh/loftctl/pkg/survey"
 	"github.com/pkg/errors"
-	"io/ioutil"
 	corev1 "k8s.io/api/core/v1"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -22,14 +31,6 @@ import (
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/transport/spdy"
 	"k8s.io/kube-aggregator/pkg/client/clientset_generated/clientset"
-	"net"
-	"net/http"
-	"net/url"
-	"os/exec"
-	"sort"
-	"strconv"
-	"strings"
-	"time"
 )
 
 func GetLoftIngressHost(kubeClient kubernetes.Interface, namespace string) (string, error) {
@@ -51,7 +52,7 @@ func GetLoftIngressHost(kubeClient kubernetes.Interface, namespace string) (stri
 		}
 	}
 
-	return "", fmt.Errorf("couldn't find any host in loft ingress '%s/loft-ingress', please make sure you have not changed any deployed resources")
+	return "", fmt.Errorf("couldn't find any host in loft ingress '%s/loft-ingress', please make sure you have not changed any deployed resources", namespace)
 }
 
 func WaitForReadyLoftAgentPod(kubeClient kubernetes.Interface, namespace string, log log.Logger) error {
