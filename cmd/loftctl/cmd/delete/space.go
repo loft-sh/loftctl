@@ -67,7 +67,7 @@ devspace delete space myspace --cluster mycluster
 			// Check for newer version
 			upgrade.PrintNewerVersionWarning()
 
-			return cmd.Run(cobraCmd, args)
+			return cmd.Run(args)
 		},
 	}
 
@@ -78,7 +78,7 @@ devspace delete space myspace --cluster mycluster
 }
 
 // Run executes the command
-func (cmd *SpaceCmd) Run(cobraCmd *cobra.Command, args []string) error {
+func (cmd *SpaceCmd) Run(args []string) error {
 	baseClient, err := client.NewClientFromPath(cmd.Config)
 	if err != nil {
 		return err
@@ -100,7 +100,7 @@ func (cmd *SpaceCmd) Run(cobraCmd *cobra.Command, args []string) error {
 	}
 
 	gracePeriod := int64(0)
-	err = clusterClient.Kiosk().TenancyV1alpha1().Spaces().Delete(context.TODO(), spaceName, metav1.DeleteOptions{GracePeriodSeconds: &gracePeriod})
+	err = clusterClient.Agent().ClusterV1().Spaces().Delete(context.TODO(), spaceName, metav1.DeleteOptions{GracePeriodSeconds: &gracePeriod})
 	if err != nil {
 		return errors.Wrap(err, "delete space")
 	}
@@ -131,6 +131,6 @@ func (cmd *SpaceCmd) Run(cobraCmd *cobra.Command, args []string) error {
 }
 
 func isSpaceStillThere(clusterClient kube.Interface, spaceName string) bool {
-	_, err := clusterClient.Kiosk().TenancyV1alpha1().Spaces().Get(context.TODO(), spaceName, metav1.GetOptions{})
+	_, err := clusterClient.Agent().ClusterV1().Spaces().Get(context.TODO(), spaceName, metav1.GetOptions{})
 	return err == nil
 }

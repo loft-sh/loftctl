@@ -71,7 +71,7 @@ devspace use space myspace --cluster mycluster
 				upgrade.PrintNewerVersionWarning()
 			}
 
-			return cmd.Run(cobraCmd, args)
+			return cmd.Run(args)
 		},
 	}
 
@@ -82,7 +82,7 @@ devspace use space myspace --cluster mycluster
 }
 
 // Run executes the command
-func (cmd *SpaceCmd) Run(cobraCmd *cobra.Command, args []string) error {
+func (cmd *SpaceCmd) Run(args []string) error {
 	baseClient, err := client.NewClientFromPath(cmd.Config)
 	if err != nil {
 		return err

@@ -3,28 +3,27 @@ package create
 import (
 	"context"
 	"fmt"
-	tenancyv1alpha1 "github.com/loft-sh/agentapi/pkg/apis/kiosk/tenancy/v1alpha1"
 	agentstoragev1 "github.com/loft-sh/agentapi/pkg/apis/loft/storage/v1"
 	v1 "github.com/loft-sh/api/pkg/apis/management/v1"
 	storagev1 "github.com/loft-sh/api/pkg/apis/storage/v1"
-	virtualclusterv1 "github.com/loft-sh/api/pkg/apis/virtualcluster/v1"
 	"github.com/loft-sh/loftctl/cmd/loftctl/cmd/use"
 	"github.com/loft-sh/loftctl/cmd/loftctl/flags"
 	"github.com/loft-sh/loftctl/pkg/client"
 	"github.com/loft-sh/loftctl/pkg/client/helper"
+	"github.com/loft-sh/loftctl/pkg/clihelper"
 	"github.com/loft-sh/loftctl/pkg/kube"
 	"github.com/loft-sh/loftctl/pkg/kubeconfig"
 	"github.com/loft-sh/loftctl/pkg/log"
+	"github.com/loft-sh/loftctl/pkg/parameters"
+	"github.com/loft-sh/loftctl/pkg/task"
 	"github.com/loft-sh/loftctl/pkg/upgrade"
 	"github.com/mgutz/ansi"
 	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
 	"io"
-	corev1 "k8s.io/api/core/v1"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"os"
-	"os/signal"
 	"strconv"
 	"strings"
 )
@@ -33,16 +32,19 @@ import (
 type VirtualClusterCmd struct {
 	*flags.GlobalFlags
 
-	SleepAfter    int64
-	DeleteAfter   int64
-	Image         string
-	Cluster       string
-	Space         string
-	Account       string
-	Template      string
-	CreateContext bool
-	SwitchContext bool
-	Print         bool
+	SleepAfter     int64
+	DeleteAfter    int64
+	Image          string
+	Cluster        string
+	Space          string
+	Template       string
+	CreateContext  bool
+	SwitchContext  bool
+	Print          bool
+	ParametersFile string
+
+	User string
+	Team string
 
 	DisableDirectClusterEndpoint bool
 
@@ -96,25 +98,27 @@ devspace create vcluster test --cluster mycluster --space myspace
 			// Check for newer version
 			upgrade.PrintNewerVersionWarning()
 
-			return cmd.Run(cobraCmd, args)
+			return cmd.Run(args)
 		},
 	}
 
 	c.Flags().StringVar(&cmd.Cluster, "cluster", "", "The cluster to create the virtual cluster in")
 	c.Flags().StringVar(&cmd.Space, "space", "", "The space to create the virtual cluster in")
-	c.Flags().StringVar(&cmd.Account, "account", "", "The cluster account to create the space with if it doesn't exist")
+	c.Flags().StringVar(&cmd.User, "user", "", "The user to create the space for")
+	c.Flags().StringVar(&cmd.Team, "team", "", "The team to create the space for")
 	c.Flags().BoolVar(&cmd.Print, "print", false, "If enabled, prints the context to the console")
 	c.Flags().Int64Var(&cmd.SleepAfter, "sleep-after", 0, "If set to non zero, will tell the space to sleep after specified seconds of inactivity")
 	c.Flags().Int64Var(&cmd.DeleteAfter, "delete-after", 0, "If set to non zero, will tell loft to delete the space after specified seconds of inactivity")
 	c.Flags().BoolVar(&cmd.CreateContext, "create-context", true, "If loft should create a kube context for the space")
 	c.Flags().BoolVar(&cmd.SwitchContext, "switch-context", true, "If loft should switch the current context to the new context")
 	c.Flags().StringVar(&cmd.Template, "template", "", "The virtual cluster template to use to create the virtual cluster")
+	c.Flags().StringVar(&cmd.ParametersFile, "parameters", "", "The file where the parameter values for the apps are specified")
 	c.Flags().BoolVar(&cmd.DisableDirectClusterEndpoint, "disable-direct-cluster-endpoint", false, "When enabled does not use an available direct cluster endpoint to connect to the vcluster")
 	return c
 }
 
 // Run executes the command
-func (cmd *VirtualClusterCmd) Run(cobraCmd *cobra.Command, args []string) error {
+func (cmd *VirtualClusterCmd) Run(args []string) error {
 	ctx := context.Background()
 	virtualClusterName := args[0]
 	baseClient, err := client.NewClientFromPath(cmd.Config)
@@ -145,12 +149,19 @@ func (cmd *VirtualClusterCmd) Run(cobraCmd *cobra.Command, args []string) error 
 	if err != nil {
 		return err
 	}
-	
+
+	// get current user / team
+	userName, teamName, err := helper.GetCurrentUser(context.TODO(), managementClient)
+	if err != nil {
+		return err
+	}
+
 	var (
-		vClusterValues string
-		vClusterVersion string
-		vClusterTemplate *storagev1.VirtualClusterTemplateSpec
-		vClusterTemplateName string
+		vClusterValues              string
+		vClusterVersion             string
+		vClusterTemplate            *storagev1.VirtualClusterTemplateSpec
+		vClusterTemplateName        string
+		vClusterTemplateDisplayName string
 	)
 	if cmd.Template == "" {
 		defaults, err := managementClient.Loft().ManagementV1().Clusters().ListVirtualClusterDefaults(ctx, cmd.Cluster, metav1.GetOptions{})
@@ -163,12 +174,13 @@ func (cmd *VirtualClusterCmd) Run(cobraCmd *cobra.Command, args []string) error 
 				cmd.Log.Warn(w)
 			}
 		}
-		
+
 		vClusterValues = defaults.Values
 		vClusterVersion = defaults.LatestVersion
 		if defaults.DefaultTemplate != nil {
 			vClusterTemplate = &defaults.DefaultTemplate.Spec
 			vClusterTemplateName = defaults.DefaultTemplate.Name
+			vClusterTemplateDisplayName = clihelper.GetDisplayName(defaults.DefaultTemplate.Name, defaults.DefaultTemplate.Spec.DisplayName)
 		}
 	} else {
 		virtualClusterTemplate, err := managementClient.Loft().ManagementV1().VirtualClusterTemplates().Get(ctx, cmd.Template, metav1.GetOptions{})
@@ -181,14 +193,57 @@ func (cmd *VirtualClusterCmd) Run(cobraCmd *cobra.Command, args []string) error 
 		}
 		vClusterTemplate = &virtualClusterTemplate.Spec.VirtualClusterTemplateSpec
 		vClusterTemplateName = virtualClusterTemplate.Name
+		vClusterTemplateDisplayName = clihelper.GetDisplayName(virtualClusterTemplate.Name, virtualClusterTemplate.Spec.DisplayName)
 	}
-	
-	// resolve apps
-	var vClusterApps []namespacedApp
-	if vClusterTemplate != nil && len(vClusterTemplate.Template.Apps) > 0 {
-		vClusterApps, err = resolveVClusterApps(managementClient, vClusterTemplate.Template.Apps)
-		if err != nil {
-			return errors.Wrap(err, "resolve virtual cluster template apps")
+
+	// create the task
+	createTask := &v1.Task{
+		ObjectMeta: metav1.ObjectMeta{
+			GenerateName: "create-vcluster-",
+		},
+		Spec: v1.TaskSpec{
+			TaskSpec: storagev1.TaskSpec{
+				DisplayName: "Create Virtual Cluster " + virtualClusterName,
+				Target: storagev1.Target{
+					Cluster: &storagev1.TargetCluster{
+						Cluster: cmd.Cluster,
+					},
+				},
+				Task: storagev1.TaskDefinition{
+					VirtualClusterCreationTask: &storagev1.VirtualClusterCreationTask{
+						Metadata: metav1.ObjectMeta{
+							Name:      virtualClusterName,
+							Namespace: cmd.Space,
+						},
+						HelmRelease: &agentstoragev1.VirtualClusterHelmRelease{
+							Chart: agentstoragev1.VirtualClusterHelmChart{
+								Version: vClusterVersion,
+							},
+							Values: vClusterValues,
+						},
+						Wait:              true,
+						Apps:              nil,
+						SpaceCreationTask: nil,
+					},
+				},
+			},
+		},
+	}
+	if userName != nil {
+		createTask.Spec.Access = []storagev1.Access{
+			{
+				Verbs:        []string{"*"},
+				Subresources: []string{"*"},
+				Users:        []string{userName.Name},
+			},
+		}
+	} else if teamName != nil {
+		createTask.Spec.Access = []storagev1.Access{
+			{
+				Verbs:        []string{"*"},
+				Subresources: []string{"*"},
+				Teams:        []string{teamName.Name},
+			},
 		}
 	}
 
@@ -203,129 +258,53 @@ func (cmd *VirtualClusterCmd) Run(cobraCmd *cobra.Command, args []string) error 
 	}
 
 	// create space if it does not exist
-	spaceCreated, err := cmd.createSpace(ctx, baseClient, clusterClient, managementClient, vClusterTemplate, cluster)
+	err = cmd.createSpace(ctx, baseClient, clusterClient, managementClient, vClusterTemplate, cluster, createTask)
 	if err != nil {
 		return errors.Wrap(err, "create space")
 	}
-	
+
 	// create the object
-	secretName := "vc-" + virtualClusterName
-	vCluster := &agentstoragev1.VirtualCluster{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      virtualClusterName,
-			Namespace: cmd.Space,
-		},
-		Spec: agentstoragev1.VirtualClusterSpec{
-			HelmRelease: &agentstoragev1.VirtualClusterHelmRelease{
-				Chart: agentstoragev1.VirtualClusterHelmChart{
-					Version: vClusterVersion,
-				},
-				Values: vClusterValues,
-			},
-			Pod: &agentstoragev1.PodSelector{
-				Selector: metav1.LabelSelector{
-					MatchLabels: map[string]string{
-						"release": virtualClusterName,
-					},
-				},
-			},
-			KubeConfigRef: &agentstoragev1.SecretRef{
-				SecretName:      secretName,
-				SecretNamespace: cmd.Space,
-				Key:             "config",
-			},
-		},
-	}
 	if vClusterTemplate != nil {
-		cmd.Log.Infof("Using virtual cluster template %s", vClusterTemplateName)
-		vCluster.Annotations = vClusterTemplate.Template.Metadata.Annotations
-		vCluster.Labels = vClusterTemplate.Template.Metadata.Labels
+		cmd.Log.Infof("Using virtual cluster template %s", vClusterTemplateDisplayName)
+		createTask.Spec.Task.VirtualClusterCreationTask.Metadata.Annotations = vClusterTemplate.Template.Metadata.Annotations
+		createTask.Spec.Task.VirtualClusterCreationTask.Metadata.Labels = vClusterTemplate.Template.Metadata.Labels
+		if createTask.Spec.Task.VirtualClusterCreationTask.Metadata.Annotations == nil {
+			createTask.Spec.Task.VirtualClusterCreationTask.Metadata.Annotations = map[string]string{}
+		}
+		createTask.Spec.Task.VirtualClusterCreationTask.Metadata.Annotations["loft.sh/virtual-cluster-template"] = vClusterTemplateName
 	}
 
-	// create the virtual cluster
-	_, err = clusterClient.Agent().StorageV1().VirtualClusters(cmd.Space).Create(ctx, vCluster, metav1.CreateOptions{})
-	if err != nil {
-		if spaceCreated {
-			_ = clusterClient.Kiosk().TenancyV1alpha1().Spaces().Delete(context.TODO(), cmd.Space, metav1.DeleteOptions{})
-		}
-		
-		return errors.Wrap(err, "create virtual cluster")
-	}
-	cleanup := func() {
-		if spaceCreated {
-			_ = clusterClient.Kiosk().TenancyV1alpha1().Spaces().Delete(context.TODO(), cmd.Space, metav1.DeleteOptions{})
-		} else {
-			_ = clusterClient.Agent().StorageV1().VirtualClusters(cmd.Space).Delete(ctx, vCluster.Name, metav1.DeleteOptions{})
-		}
-	}
-
-	// cleanup on ctrl+c
-	c := make(chan os.Signal, 1)
-	signal.Notify(c, os.Interrupt)
-	go func(){
-		<-c
-		cleanup()
-		os.Exit(1)
-	}()
-	
-	// create a vcluster client
-	vClusterClient, err := baseClient.VirtualCluster(cmd.Cluster, cmd.Space, virtualClusterName)
-	if err != nil {
-		cleanup()
-		return err
-	}
-	
-	// create the virtual cluster template instances
-	if len(vClusterApps) > 0 {
-		// wait until virtual cluster is reachable
-		cmd.Log.StartWait("Waiting for virtual cluster to be reachable...")
-		err = use.WaitForVCluster(baseClient, cmd.Cluster, cmd.Space, virtualClusterName)
-		cmd.Log.StopWait()
+	// resolve apps
+	if vClusterTemplate != nil && len(vClusterTemplate.Template.Apps) > 0 {
+		vClusterApps, err := resolveVClusterApps(managementClient, vClusterTemplate.Template.Apps)
 		if err != nil {
-			cleanup()
-			return errors.Wrap(err, "waiting for virtual cluster to become reachable")
+			return errors.Wrap(err, "resolve virtual cluster template apps")
 		}
-		
-		// deploy the apps
-		for _, app := range vClusterApps {
-			cmd.Log.Infof("Deploying app %s into virtual cluster namespace %s...", app.App.Name, app.Namespace)
-			_, err := vClusterClient.CoreV1().Namespaces().Create(ctx, &corev1.Namespace{
-				ObjectMeta: metav1.ObjectMeta{Name: app.Namespace},
-			}, metav1.CreateOptions{})
-			if err != nil && kerrors.IsAlreadyExists(err) == false {
-				cleanup()
-				return errors.Wrap(err, "create namespace")
-			}
 
-			release := convertAppToHelmRelease(app.App)
-			vRelease := &virtualclusterv1.HelmRelease{
-				ObjectMeta: release.ObjectMeta,
-				Spec: virtualclusterv1.HelmReleaseSpec{
-					HelmReleaseSpec: release.Spec,
-				},
-			}
-			
-			_, err = vClusterClient.Loft().VirtualclusterV1().HelmReleases(app.Namespace).Create(context.TODO(), vRelease, metav1.CreateOptions{})
-			if err != nil {
-				cleanup()
-				return errors.Wrap(err, "deploy app " + app.App.Name)
-			}
+		appsWithParameters, err := parameters.ResolveAppParameters(vClusterApps, cmd.ParametersFile, cmd.Log)
+		if err != nil {
+			return err
 		}
+
+		for _, appWithParameter := range appsWithParameters {
+			createTask.Spec.Task.VirtualClusterCreationTask.Apps = append(createTask.Spec.Task.VirtualClusterCreationTask.Apps, storagev1.VirtualClusterCreationAppReference{
+				Name:       appWithParameter.App.Name,
+				Namespace:  appWithParameter.Namespace,
+				Parameters: appWithParameter.Parameters,
+			})
+		}
+	}
+
+	// create the task and stream
+	err = task.StreamTask(context.TODO(), managementClient, createTask, os.Stdout, cmd.Log)
+	if err != nil {
+		return err
 	}
 
 	cmd.Log.Donef("Successfully created the virtual cluster %s in cluster %s and space %s", ansi.Color(virtualClusterName, "white+b"), ansi.Color(cmd.Cluster, "white+b"), ansi.Color(cmd.Space, "white+b"))
 
 	// should we create a kube context for the virtual context
 	if cmd.CreateContext || cmd.Print {
-		// wait until virtual cluster is reachable
-		cmd.Log.StartWait("Waiting for virtual cluster to be reachable...")
-		err = use.WaitForVCluster(baseClient, cmd.Cluster, cmd.Space, virtualClusterName)
-		cmd.Log.StopWait()
-		if err != nil {
-			cleanup()
-			return err
-		}
-
 		// create kube context options
 		contextOptions, err := use.CreateVClusterContextOptions(baseClient, cmd.Config, cluster, cmd.Space, virtualClusterName, cmd.DisableDirectClusterEndpoint, cmd.SwitchContext, cmd.Log)
 		if err != nil {
@@ -355,26 +334,23 @@ func (cmd *VirtualClusterCmd) Run(cobraCmd *cobra.Command, args []string) error 
 	return nil
 }
 
-func (cmd *VirtualClusterCmd) createSpace(ctx context.Context, baseClient client.Client, clusterClient kube.Interface, managementClient kube.Interface, vClusterTemplate *storagev1.VirtualClusterTemplateSpec, cluster *v1.Cluster) (bool, error) {
-	_, err := clusterClient.Kiosk().TenancyV1alpha1().Spaces().Get(ctx, cmd.Space, metav1.GetOptions{})
+func (cmd *VirtualClusterCmd) createSpace(ctx context.Context, baseClient client.Client, clusterClient kube.Interface, managementClient kube.Interface, vClusterTemplate *storagev1.VirtualClusterTemplateSpec, cluster *v1.Cluster, task *v1.Task) error {
+	_, err := clusterClient.Agent().ClusterV1().Spaces().Get(ctx, cmd.Space, metav1.GetOptions{})
 	if err != nil {
 		if kerrors.IsNotFound(err) == false {
-			return false, err
+			return err
 		}
 
-		// determine account name
-		accountName := cmd.Account
-		if accountName == "" {
-			accountName, err = helper.SelectAccount(baseClient, cmd.Cluster, cmd.Log)
+		// determine user or team name
+		if cmd.User == "" && cmd.Team == "" {
+			user, team, err := helper.SelectUserOrTeam(baseClient, cmd.Cluster, cmd.Log)
 			if err != nil {
-				return false, err
+				return err
+			} else if user != nil {
+				cmd.User = user.Name
+			} else if team != nil {
+				cmd.Team = team.Name
 			}
-		}
-
-		// get owner references
-		ownerReferences, err := getOwnerReferences(managementClient, cmd.Cluster, accountName)
-		if err != nil {
-			return false, err
 		}
 
 		// resolve space template
@@ -386,74 +362,63 @@ func (cmd *VirtualClusterCmd) createSpace(ctx context.Context, baseClient client
 		// get space template
 		spaceTemplate, err := resolveSpaceTemplate(managementClient, cluster, template)
 		if err != nil {
-			return false, errors.Wrap(err, "resolve space template")
+			return errors.Wrap(err, "resolve space template")
 		} else if spaceTemplate != nil {
-			cmd.Log.Infof("Using space template %s to create space %s", spaceTemplate.Name, cmd.Space)
+			cmd.Log.Infof("Using space template %s to create space %s", clihelper.GetDisplayName(spaceTemplate.Name, spaceTemplate.Spec.DisplayName), cmd.Space)
 		}
 
-		// space object
-		space := &tenancyv1alpha1.Space{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:            cmd.Space,
-				Annotations:     map[string]string{},
-				OwnerReferences: ownerReferences,
+		// add to task
+		task.Spec.Task.VirtualClusterCreationTask.SpaceCreationTask = &storagev1.SpaceCreationTask{
+			Metadata: metav1.ObjectMeta{
+				Name:        cmd.Space,
+				Annotations: map[string]string{},
 			},
-			Spec: tenancyv1alpha1.SpaceSpec{
-				Account: accountName,
+			Owner: &storagev1.UserOrTeam{
+				User: cmd.User,
+				Team: cmd.Team,
 			},
+			Apps: nil,
 		}
 		if spaceTemplate != nil {
-			space.Annotations = spaceTemplate.Spec.Template.Metadata.Annotations
-			space.Labels = spaceTemplate.Spec.Template.Metadata.Labels
+			task.Spec.Task.VirtualClusterCreationTask.SpaceCreationTask.Metadata.Annotations = spaceTemplate.Spec.Template.Metadata.Annotations
+			task.Spec.Task.VirtualClusterCreationTask.SpaceCreationTask.Metadata.Labels = spaceTemplate.Spec.Template.Metadata.Labels
+			if task.Spec.Task.VirtualClusterCreationTask.SpaceCreationTask.Metadata.Annotations == nil {
+				task.Spec.Task.VirtualClusterCreationTask.SpaceCreationTask.Metadata.Annotations = map[string]string{}
+			}
+			task.Spec.Task.VirtualClusterCreationTask.SpaceCreationTask.Metadata.Annotations["loft.sh/space-template"] = spaceTemplate.Name
 		}
 		if cmd.SleepAfter > 0 {
-			space.Annotations["sleepmode.loft.sh/sleep-after"] = strconv.FormatInt(cmd.SleepAfter, 10)
+			task.Spec.Task.VirtualClusterCreationTask.SpaceCreationTask.Metadata.Annotations["sleepmode.loft.sh/sleep-after"] = strconv.FormatInt(cmd.SleepAfter, 10)
 		}
 		if cmd.DeleteAfter > 0 {
-			space.Annotations["sleepmode.loft.sh/delete-after"] = strconv.FormatInt(cmd.DeleteAfter, 10)
+			task.Spec.Task.VirtualClusterCreationTask.SpaceCreationTask.Metadata.Annotations["sleepmode.loft.sh/delete-after"] = strconv.FormatInt(cmd.DeleteAfter, 10)
 		}
 
 		// resolve the space apps
-		var apps []v1.App
 		if spaceTemplate != nil && len(spaceTemplate.Spec.Template.Apps) > 0 {
-			apps, err = resolveApps(managementClient, spaceTemplate.Spec.Template.Apps)
+			apps, err := resolveApps(managementClient, spaceTemplate.Spec.Template.Apps)
 			if err != nil {
-				return false, errors.Wrap(err, "resolve space template apps")
+				return errors.Wrap(err, "resolve space template apps")
+			}
+
+			for _, appWithoutParameters := range apps {
+				task.Spec.Task.VirtualClusterCreationTask.SpaceCreationTask.Apps = append(task.Spec.Task.VirtualClusterCreationTask.SpaceCreationTask.Apps, storagev1.SpaceCreationAppReference{
+					Name: appWithoutParameters.App.Name,
+				})
 			}
 		}
-
-		// create the space
-		_, err = clusterClient.Kiosk().TenancyV1alpha1().Spaces().Create(ctx, space, metav1.CreateOptions{})
-		if err != nil {
-			return false, errors.Wrap(err, "create space")
-		}
-
-		// check if we should deploy apps
-		if len(apps) > 0 {
-			err = deploySpaceApps(clusterClient, space.Name, apps, cmd.Log)
-			if err != nil {
-				return false, err
-			}
-		}
-		cmd.Log.Donef("Successfully created space %s in cluster %s", ansi.Color(space.Name, "white+b"), ansi.Color(cluster.Name, "white+b"))
-		return true, nil
 	}
-	
-	return false, nil
+
+	return nil
 }
 
-type namespacedApp struct {
-	App v1.App
-	Namespace string
-}
-
-func resolveVClusterApps(managementClient kube.Interface, apps []storagev1.VirtualClusterAppReference) ([]namespacedApp, error) {
+func resolveVClusterApps(managementClient kube.Interface, apps []storagev1.VirtualClusterAppReference) ([]parameters.NamespacedApp, error) {
 	appsList, err := managementClient.Loft().ManagementV1().Apps().List(context.TODO(), metav1.ListOptions{})
 	if err != nil {
 		return nil, err
 	}
 
-	retApps := []namespacedApp{}
+	retApps := []parameters.NamespacedApp{}
 	for _, a := range apps {
 		found := false
 		for _, ma := range appsList.Items {
@@ -462,9 +427,10 @@ func resolveVClusterApps(managementClient kube.Interface, apps []storagev1.Virtu
 				if a.Namespace != "" {
 					namespace = a.Namespace
 				}
-				
-				retApps = append(retApps, namespacedApp{
-					App:       ma,
+
+				m := ma
+				retApps = append(retApps, parameters.NamespacedApp{
+					App:       &m,
 					Namespace: namespace,
 				})
 				found = true

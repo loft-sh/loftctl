@@ -70,7 +70,7 @@ devspace delete vcluster myvirtualcluster --space myspace --cluster mycluster
 			// Check for newer version
 			upgrade.PrintNewerVersionWarning()
 
-			return cmd.Run(cobraCmd, args)
+			return cmd.Run(args)
 		},
 	}
 
@@ -83,7 +83,7 @@ devspace delete vcluster myvirtualcluster --space myspace --cluster mycluster
 }
 
 // Run executes the command
-func (cmd *VirtualClusterCmd) Run(cobraCmd *cobra.Command, args []string) error {
+func (cmd *VirtualClusterCmd) Run(args []string) error {
 	baseClient, err := client.NewClientFromPath(cmd.Config)
 	if err != nil {
 		return err
@@ -124,7 +124,7 @@ func (cmd *VirtualClusterCmd) Run(cobraCmd *cobra.Command, args []string) error 
 
 	// delete space
 	if cmd.DeleteSpace {
-		err = clusterClient.CoreV1().Namespaces().Delete(context.TODO(), spaceName, metav1.DeleteOptions{})
+		err = clusterClient.Agent().ClusterV1().Spaces().Delete(context.TODO(), spaceName, metav1.DeleteOptions{})
 		if err != nil {
 			return err
 		}

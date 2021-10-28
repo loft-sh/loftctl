@@ -58,7 +58,7 @@ devspace get secret test-secret.key
 		Long:  description,
 		Args:  cobra.MaximumNArgs(1),
 		RunE: func(cobraCmd *cobra.Command, args []string) error {
-			return cmd.Run(cobraCmd, args)
+			return cmd.Run(args)
 		},
 	}
 
@@ -67,7 +67,7 @@ devspace get secret test-secret.key
 }
 
 // RunUsers executes the functionality
-func (cmd *SharedSecretCmd) Run(cobraCmd *cobra.Command, args []string) error {
+func (cmd *SharedSecretCmd) Run(args []string) error {
 	baseClient, err := client.NewClientFromPath(cmd.Config)
 	if err != nil {
 		return err

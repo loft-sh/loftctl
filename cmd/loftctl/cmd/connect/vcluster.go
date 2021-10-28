@@ -69,7 +69,7 @@ devspace connect vcluster test --namespace test
 		Long:  description,
 		Args:  cobra.MaximumNArgs(1),
 		RunE: func(cobraCmd *cobra.Command, args []string) error {
-			return cmd.Run(cobraCmd, args)
+			return cmd.Run(args)
 		},
 	}
 
@@ -81,7 +81,7 @@ devspace connect vcluster test --namespace test
 }
 
 // Run executes the command
-func (cmd *VirtualClusterCmd) Run(cobraCmd *cobra.Command, args []string) error {
+func (cmd *VirtualClusterCmd) Run(args []string) error {
 	kubeConfigLoader := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(clientcmd.NewDefaultClientConfigLoadingRules(), &clientcmd.ConfigOverrides{})
 	config, err := kubeConfigLoader.ClientConfig()
 	if err != nil {

@@ -20,6 +20,7 @@ type ContextOptions struct {
 	InsecureSkipTLSVerify        bool
 	DirectClusterEndpointEnabled bool
 
+	Token            string
 	CurrentNamespace string
 	SetActive        bool
 }
@@ -192,24 +193,28 @@ func createContext(options ContextOptions) (string, *api.Cluster, *api.AuthInfo,
 	cluster.CertificateAuthorityData = options.CaData
 	cluster.InsecureSkipTLSVerify = options.InsecureSkipTLSVerify
 
-	command, err := os.Executable()
-	if err != nil {
-		return "", nil, nil, err
-	}
-
-	absConfigPath, err := filepath.Abs(options.ConfigPath)
-	if err != nil {
-		return "", nil, nil, err
-	}
-
 	authInfo := api.NewAuthInfo()
-	authInfo.Exec = &api.ExecConfig{
-		APIVersion: v1alpha1.SchemeGroupVersion.String(),
-		Command:    command,
-		Args:       []string{"token", "--silent", "--config", absConfigPath},
-	}
-	if options.DirectClusterEndpointEnabled {
-		authInfo.Exec.Args = append(authInfo.Exec.Args, "--direct-cluster-endpoint")
+	if options.Token != "" {
+		authInfo.Token = options.Token
+	} else {
+		command, err := os.Executable()
+		if err != nil {
+			return "", nil, nil, err
+		}
+
+		absConfigPath, err := filepath.Abs(options.ConfigPath)
+		if err != nil {
+			return "", nil, nil, err
+		}
+
+		authInfo.Exec = &api.ExecConfig{
+			APIVersion: v1alpha1.SchemeGroupVersion.String(),
+			Command:    command,
+			Args:       []string{"token", "--silent", "--config", absConfigPath},
+		}
+		if options.DirectClusterEndpointEnabled {
+			authInfo.Exec.Args = append(authInfo.Exec.Args, "--direct-cluster-endpoint")
+		}
 	}
 
 	return contextName, cluster, authInfo, nil

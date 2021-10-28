@@ -10,6 +10,7 @@ import (
 	"github.com/loft-sh/loftctl/cmd/loftctl/flags"
 	"github.com/loft-sh/loftctl/pkg/client"
 	"github.com/loft-sh/loftctl/pkg/client/helper"
+	"github.com/loft-sh/loftctl/pkg/clihelper"
 	"github.com/loft-sh/loftctl/pkg/docker"
 	"github.com/loft-sh/loftctl/pkg/kube"
 	"github.com/loft-sh/loftctl/pkg/log"
@@ -25,7 +26,6 @@ import (
 type LoginCmd struct {
 	*flags.GlobalFlags
 
-	Username  string
 	AccessKey string
 	Insecure  bool
 
@@ -73,11 +73,10 @@ devspace login https://my-loft.com --access-key myaccesskey
 			// Check for newer version
 			upgrade.PrintNewerVersionWarning()
 
-			return cmd.RunLogin(cobraCmd, args)
+			return cmd.RunLogin(args)
 		},
 	}
 
-	loginCmd.Flags().StringVar(&cmd.Username, "username", "", "DEPRECATED DO NOT USE ANYMORE")
 	loginCmd.Flags().StringVar(&cmd.AccessKey, "access-key", "", "The access key to use")
 	loginCmd.Flags().BoolVar(&cmd.Insecure, "insecure", false, "Allow login into an insecure loft instance")
 	loginCmd.Flags().BoolVar(&cmd.DockerLogin, "docker-login", true, "If true, will log into the docker image registries the user has image pull secrets for")
@@ -85,11 +84,7 @@ devspace login https://my-loft.com --access-key myaccesskey
 }
 
 // RunLogin executes the functionality "loft login"
-func (cmd *LoginCmd) RunLogin(cobraCmd *cobra.Command, args []string) error {
-	if cmd.Username != "" {
-		cmd.Log.Warnf("--username is deprecated, please do not use anymore and only use --access-key")
-	}
-
+func (cmd *LoginCmd) RunLogin(args []string) error {
 	loader, err := client.NewClientFromPath(cmd.Config)
 	if err != nil {
 		return err
@@ -113,10 +108,10 @@ func (cmd *LoginCmd) RunLogin(cobraCmd *cobra.Command, args []string) error {
 			return err
 		}
 
-		if userName != "" {
-			cmd.Log.Infof("Logged into %s as user %s", config.Host, userName)
+		if userName != nil {
+			cmd.Log.Infof("Logged into %s as user %s", config.Host, clihelper.DisplayName(&userName.EntityInfo))
 		} else {
-			cmd.Log.Infof("Logged into %s as team %s", config.Host, teamName)
+			cmd.Log.Infof("Logged into %s as team %s", config.Host, clihelper.DisplayName(teamName))
 		}
 
 		return nil
@@ -166,25 +161,29 @@ func dockerLogin(loader client.Client, log log.Logger) error {
 
 	// collect image pull secrets from team or user
 	dockerConfigs := []*configfile.ConfigFile{}
-	if userName != "" {
-		// get image pull secrets from teams
-		teams, err := managementClient.Loft().ManagementV1().Users().ListTeams(context.TODO(), userName, metav1.GetOptions{})
-		if err != nil {
-			return err
-		}
-		for _, team := range teams.Teams {
-			dockerConfigs = append(dockerConfigs, collectImagePullSecrets(context.TODO(), managementClient, team.Spec.ImagePullSecrets, log)...)
-		}
-
+	if userName != nil {
 		// get image pull secrets from user
-		user, err := managementClient.Loft().ManagementV1().Users().Get(context.TODO(), userName, metav1.GetOptions{})
+		user, err := managementClient.Loft().ManagementV1().Users().Get(context.TODO(), userName.Name, metav1.GetOptions{})
 		if err != nil {
 			return err
 		}
 		dockerConfigs = append(dockerConfigs, collectImagePullSecrets(context.TODO(), managementClient, user.Spec.ImagePullSecrets, log)...)
-	} else {
+
+		// get image pull secrets from teams
+		if err != nil {
+			return err
+		}
+		for _, teamName := range user.Status.Teams {
+			team, err := managementClient.Loft().ManagementV1().Teams().Get(context.TODO(), teamName, metav1.GetOptions{})
+			if err != nil {
+				return err
+			}
+
+			dockerConfigs = append(dockerConfigs, collectImagePullSecrets(context.TODO(), managementClient, team.Spec.ImagePullSecrets, log)...)
+		}
+	} else if teamName != nil {
 		// get image pull secrets from team
-		team, err := managementClient.Loft().ManagementV1().Teams().Get(context.TODO(), teamName, metav1.GetOptions{})
+		team, err := managementClient.Loft().ManagementV1().Teams().Get(context.TODO(), teamName.Name, metav1.GetOptions{})
 		if err != nil {
 			return err
 		}

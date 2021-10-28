@@ -19,11 +19,10 @@ import (
 type SpaceCmd struct {
 	*flags.GlobalFlags
 
-	Cluster         string
-	ClusterRole     string
-	User            string
-	Team            string
-	AllowDuplicates bool
+	Cluster     string
+	ClusterRole string
+	User        string
+	Team        string
 
 	Log log.Logger
 }
@@ -76,10 +75,9 @@ devspace share space myspace --cluster mycluster --user admin
 	}
 
 	c.Flags().StringVar(&cmd.Cluster, "cluster", "", "The cluster to use")
-	c.Flags().StringVar(&cmd.ClusterRole, "cluster-role", "loft-cluster-space-default", "The cluster role which is assigned to the user or team for that space")
+	c.Flags().StringVar(&cmd.ClusterRole, "cluster-role", "loft-cluster-space-admin", "The cluster role which is assigned to the user or team for that space")
 	c.Flags().StringVar(&cmd.User, "user", "", "The user to share the space with. The user needs to have access to the cluster")
 	c.Flags().StringVar(&cmd.Team, "team", "", "The team to share the space with. The team needs to have access to the cluster")
-	c.Flags().BoolVar(&cmd.AllowDuplicates, "allow-duplicates", false, "If true multiple rolebindings are allowed for an user or team in a space")
 	return c
 }
 
@@ -100,7 +98,7 @@ func (cmd *SpaceCmd) Run(cobraCmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	userOrTeam, err := createRoleBinding(baseClient, clusterName, spaceName, cmd.User, cmd.Team, cmd.ClusterRole, cmd.AllowDuplicates, cmd.Log)
+	userOrTeam, err := createRoleBinding(baseClient, clusterName, spaceName, cmd.User, cmd.Team, cmd.ClusterRole, cmd.Log)
 	if err != nil {
 		return err
 	}
@@ -116,7 +114,7 @@ func (cmd *SpaceCmd) Run(cobraCmd *cobra.Command, args []string) error {
 	return nil
 }
 
-func createRoleBinding(baseClient client.Client, clusterName, spaceName, userName, teamName, clusterRole string, allowDuplicates bool, log log.Logger) (*helper.ClusterUserOrTeam, error) {
+func createRoleBinding(baseClient client.Client, clusterName, spaceName, userName, teamName, clusterRole string, log log.Logger) (*helper.ClusterUserOrTeam, error) {
 	userOrTeam, err := helper.SelectClusterUserOrTeam(baseClient, clusterName, userName, teamName, log)
 	if err != nil {
 		return nil, err
@@ -128,31 +126,29 @@ func createRoleBinding(baseClient client.Client, clusterName, spaceName, userNam
 	}
 
 	// check if there is already a role binding for this user or team already
-	if allowDuplicates == false {
-		roleBindings, err := clusterClient.RbacV1().RoleBindings(spaceName).List(context.TODO(), metav1.ListOptions{})
-		if err != nil {
-			return nil, err
-		}
+	roleBindings, err := clusterClient.RbacV1().RoleBindings(spaceName).List(context.TODO(), metav1.ListOptions{})
+	if err != nil {
+		return nil, err
+	}
 
-		for _, roleBinding := range roleBindings.Items {
-			for _, ownerReference := range roleBinding.OwnerReferences {
-				if ownerReference.APIVersion == userOrTeam.ClusterMember.Account.APIVersion && ownerReference.Kind == "Account" && ownerReference.Name == userOrTeam.ClusterMember.Account.Name {
-					return nil, fmt.Errorf("%s already has access to space %s. Run with --allow-duplicates to disable this check and create the rolebinding anyway", userOrTeam.ClusterMember.Info.Name, spaceName)
+	subjectString := ""
+	if userOrTeam.Team {
+		subjectString = "loft:team:"+userOrTeam.ClusterMember.Info.Name
+	} else {
+		subjectString = "loft:user:"+userOrTeam.ClusterMember.Info.Name
+	}
+	
+	// check if there is already a role binding
+	for _, roleBinding := range roleBindings.Items {
+		if roleBinding.RoleRef.Kind == "ClusterRole" && roleBinding.RoleRef.Name == clusterRole {
+			for _, subject := range roleBinding.Subjects {
+				if subject.Kind == "Group" || subject.Kind == "User" {
+					if subject.Name == subjectString {
+						return nil, nil
+					}
 				}
 			}
 		}
-	}
-
-	// get owner references
-	t := true
-	ownerReferences := []metav1.OwnerReference{
-		{
-			APIVersion: userOrTeam.ClusterMember.Account.APIVersion,
-			Kind:       userOrTeam.ClusterMember.Account.Kind,
-			Controller: &t,
-			Name:       userOrTeam.ClusterMember.Account.Name,
-			UID:        userOrTeam.ClusterMember.Account.UID,
-		},
 	}
 
 	roleBindingName := "loft-user-" + userOrTeam.ClusterMember.Info.Name
@@ -167,12 +163,18 @@ func createRoleBinding(baseClient client.Client, clusterName, spaceName, userNam
 	_, err = clusterClient.RbacV1().RoleBindings(spaceName).Create(context.TODO(), &rbacv1.RoleBinding{
 		ObjectMeta: metav1.ObjectMeta{
 			GenerateName:    roleBindingName + "-",
-			OwnerReferences: ownerReferences,
 		},
 		RoleRef: rbacv1.RoleRef{
 			APIGroup: rbacv1.SchemeGroupVersion.Group,
 			Kind:     "ClusterRole",
 			Name:     clusterRole,
+		},
+		Subjects: []rbacv1.Subject{
+			{
+				Kind: "Group",
+				APIGroup: rbacv1.GroupName,
+				Name: subjectString,
+			},
 		},
 	}, metav1.CreateOptions{})
 	if err != nil {

@@ -31,7 +31,7 @@ func NewVirtualClustersCmd(globalFlags *flags.GlobalFlags) *cobra.Command {
 List the loft virtual clusters you have access to
 
 Example:
-loft list vcluster
+loft list vclusters
 #######################################################
 	`
 	if upgrade.IsPlugin == "true" {
@@ -42,7 +42,7 @@ loft list vcluster
 List the loft virtual clusters you have access to
 
 Example:
-devspace list vcluster
+devspace list vclusters
 #######################################################
 	`
 	}
@@ -52,7 +52,7 @@ devspace list vcluster
 		Long:  description,
 		Args:  cobra.NoArgs,
 		RunE: func(cobraCmd *cobra.Command, args []string) error {
-			return cmd.Run(cobraCmd, args)
+			return cmd.Run()
 		},
 	}
 
@@ -60,7 +60,7 @@ devspace list vcluster
 }
 
 // Run executes the functionality
-func (cmd *VirtualClustersCmd) Run(cobraCmd *cobra.Command, args []string) error {
+func (cmd *VirtualClustersCmd) Run() error {
 	baseClient, err := client.NewClientFromPath(cmd.Config)
 	if err != nil {
 		return err

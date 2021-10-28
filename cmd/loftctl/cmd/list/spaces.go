@@ -52,15 +52,15 @@ devspace list spaces
 		Long:  description,
 		Args:  cobra.NoArgs,
 		RunE: func(cobraCmd *cobra.Command, args []string) error {
-			return cmd.RunSpaces(cobraCmd, args)
+			return cmd.RunSpaces()
 		},
 	}
 
 	return loginCmd
 }
 
-// RunUsers executes the functionality "loft list users"
-func (cmd *SpacesCmd) RunSpaces(cobraCmd *cobra.Command, args []string) error {
+// RunSpaces executes the functionality
+func (cmd *SpacesCmd) RunSpaces() error {
 	baseClient, err := client.NewClientFromPath(cmd.Config)
 	if err != nil {
 		return err
@@ -80,14 +80,14 @@ func (cmd *SpacesCmd) RunSpaces(cobraCmd *cobra.Command, args []string) error {
 	}
 	values := [][]string{}
 	for _, space := range spaces {
-		sleepModeConfig := space.SleepModeConfig
+		sleepModeConfig := space.Status.SleepModeConfig
 		sleeping := "false"
 		if sleepModeConfig.Status.SleepingSince != 0 {
 			sleeping = duration.HumanDuration(time.Now().Sub(time.Unix(sleepModeConfig.Status.SleepingSince, 0)))
 		}
 
 		values = append(values, []string{
-			space.Space.Name,
+			space.Name,
 			space.Cluster,
 			sleeping,
 			string(space.Space.Status.Phase),

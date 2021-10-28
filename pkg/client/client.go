@@ -60,6 +60,7 @@ type Client interface {
 
 	Login(host string, insecure bool, log log.Logger) error
 	LoginWithAccessKey(host, accessKey string, insecure bool) error
+	LoginRaw(host, accessKey string, insecure bool) error
 
 	Config() *Config
 	DirectClusterEndpointToken(forceRefresh bool) (string, error)
@@ -262,6 +263,19 @@ func (c *client) Login(host string, insecure bool, log log.Logger) error {
 
 	close(keyChannel)
 	return c.LoginWithAccessKey(host, key.Key, insecure)
+}
+
+func (c *client) LoginRaw(host, accessKey string, insecure bool) error {
+	if c.config.Host == host && c.config.AccessKey == accessKey {
+		return nil
+	}
+
+	c.config.Host = host
+	c.config.Insecure = insecure
+	c.config.AccessKey = accessKey
+	c.config.DirectClusterEndpointToken = ""
+	c.config.DirectClusterEndpointTokenRequested = nil
+	return c.Save()
 }
 
 func (c *client) LoginWithAccessKey(host, accessKey string, insecure bool) error {

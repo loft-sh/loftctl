@@ -61,7 +61,7 @@ devspace wakeup myspace --cluster mycluster
 		Long:  description,
 		Args:  cobra.MaximumNArgs(1),
 		RunE: func(cobraCmd *cobra.Command, args []string) error {
-			return cmd.Run(cobraCmd, args)
+			return cmd.Run(args)
 		},
 	}
 
@@ -70,7 +70,7 @@ devspace wakeup myspace --cluster mycluster
 }
 
 // Run executes the functionality
-func (cmd *WakeUpCmd) Run(cobraCmd *cobra.Command, args []string) error {
+func (cmd *WakeUpCmd) Run(args []string) error {
 	baseClient, err := client.NewClientFromPath(cmd.Config)
 	if err != nil {
 		return err

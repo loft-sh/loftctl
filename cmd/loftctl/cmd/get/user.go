@@ -9,9 +9,6 @@ import (
 	"github.com/loft-sh/loftctl/pkg/upgrade"
 	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/util/duration"
-	"time"
 )
 
 // UserCmd holds the lags
@@ -55,7 +52,7 @@ devspace get user
 		Long:  description,
 		Args:  cobra.NoArgs,
 		RunE: func(cobraCmd *cobra.Command, args []string) error {
-			return cmd.Run(cobraCmd, args)
+			return cmd.Run()
 		},
 	}
 
@@ -63,7 +60,7 @@ devspace get user
 }
 
 // RunUsers executes the functionality
-func (cmd *UserCmd) Run(cobraCmd *cobra.Command, args []string) error {
+func (cmd *UserCmd) Run() error {
 	baseClient, err := client.NewClientFromPath(cmd.Config)
 	if err != nil {
 		return err
@@ -77,27 +74,22 @@ func (cmd *UserCmd) Run(cobraCmd *cobra.Command, args []string) error {
 	userName, teamName, err := helper.GetCurrentUser(context.TODO(), client)
 	if err != nil {
 		return err
-	} else if teamName != "" {
+	} else if teamName != nil {
 		return errors.New("logged in with a team and not a user")
-	}
-
-	user, err := client.Loft().ManagementV1().Users().Get(context.TODO(), userName, metav1.GetOptions{})
-	if err != nil {
-		return errors.Wrap(err, "list users")
 	}
 
 	header := []string{
 		"Username",
 		"Kubernetes Name",
+		"Display Name",
 		"Email",
-		"Age",
 	}
 	values := [][]string{}
 	values = append(values, []string{
-		user.Spec.Username,
-		user.Name,
-		user.Spec.Email,
-		duration.HumanDuration(time.Now().Sub(user.CreationTimestamp.Time)),
+		userName.Username,
+		userName.Name,
+		userName.DisplayName,
+		userName.Email,
 	})
 
 	log.PrintTable(cmd.log, header, values)

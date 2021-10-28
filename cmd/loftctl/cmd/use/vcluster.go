@@ -10,15 +10,13 @@ import (
 	"github.com/loft-sh/loftctl/pkg/kubeconfig"
 	"github.com/loft-sh/loftctl/pkg/log"
 	"github.com/loft-sh/loftctl/pkg/upgrade"
+	"github.com/loft-sh/loftctl/pkg/vcluster"
 	"github.com/mgutz/ansi"
-	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
 	"io"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/util/wait"
 	"os"
-	"time"
 )
 
 // VirtualClusterCmd holds the cmd flags
@@ -129,7 +127,7 @@ func (cmd *VirtualClusterCmd) Run(cobraCmd *cobra.Command, args []string) error 
 	if cmd.Print == false && cmd.PrintToken == false {
 		cmd.Log.StartWait("Waiting for virtual cluster to become ready...")
 	}
-	err = WaitForVCluster(baseClient, clusterName, spaceName, virtualClusterName)
+	err = vcluster.WaitForVCluster(context.TODO(), baseClient, clusterName, spaceName, virtualClusterName, cmd.Log)
 	cmd.Log.StopWait()
 	if err != nil {
 		return err
@@ -158,31 +156,6 @@ func (cmd *VirtualClusterCmd) Run(cobraCmd *cobra.Command, args []string) error 
 	}
 
 	return nil
-}
-
-func WaitForVCluster(baseClient client.Client, clusterName, spaceName, virtualClusterName string) error {
-	clusterClient, err := baseClient.Cluster(clusterName)
-	if err != nil {
-		return errors.Wrap(err, "cluster client")
-	}
-	
-	return wait.PollImmediate(time.Second, time.Minute*5, func() (bool, error) {
-		vCluster, err := clusterClient.Agent().StorageV1().VirtualClusters(spaceName).Get(context.TODO(), virtualClusterName, metav1.GetOptions{})
-		if err != nil {
-			return false, err
-		} else if vCluster.Status.HelmRelease != nil {
-			// ping the vcluster if its the old version
-			vClusterClient, err := baseClient.VirtualCluster(clusterName, spaceName, virtualClusterName)
-			if err != nil {
-				return false, err
-			}
-			
-			_, err = vClusterClient.CoreV1().ServiceAccounts("default").Get(context.TODO(), "default", metav1.GetOptions{})
-			return err == nil, nil
-		}
-
-		return vCluster.Status.ControlPlaneReady == true, nil
-	})
 }
 
 func CreateVClusterContextOptions(baseClient client.Client, config string, cluster *managementv1.Cluster, spaceName, virtualClusterName string, disableClusterGateway, setActive bool, log log.Logger) (kubeconfig.ContextOptions, error) {

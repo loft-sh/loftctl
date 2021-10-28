@@ -6,6 +6,7 @@ import (
 	"crypto/tls"
 	"encoding/json"
 	"fmt"
+	clusterv1 "github.com/loft-sh/agentapi/pkg/apis/loft/cluster/v1"
 	"io/ioutil"
 	"net"
 	"net/http"
@@ -32,6 +33,26 @@ import (
 	"k8s.io/client-go/transport/spdy"
 	"k8s.io/kube-aggregator/pkg/client/clientset_generated/clientset"
 )
+
+func GetDisplayName(name string, displayName string) string {
+	if displayName != "" {
+		return displayName
+	}
+
+	return name
+}
+
+func DisplayName(entityInfo *clusterv1.EntityInfo) string {
+	if entityInfo == nil {
+		return ""
+	} else if entityInfo.DisplayName != "" {
+		return entityInfo.DisplayName
+	} else if entityInfo.Username != "" {
+		return entityInfo.Username
+	}
+
+	return entityInfo.Name
+}
 
 func GetLoftIngressHost(kubeClient kubernetes.Interface, namespace string) (string, error) {
 	ingress, err := kubeClient.NetworkingV1().Ingresses(namespace).Get(context.TODO(), "loft-ingress", metav1.GetOptions{})

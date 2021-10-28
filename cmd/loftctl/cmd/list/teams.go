@@ -5,14 +5,11 @@ import (
 	"github.com/loft-sh/loftctl/cmd/loftctl/flags"
 	"github.com/loft-sh/loftctl/pkg/client"
 	"github.com/loft-sh/loftctl/pkg/client/helper"
+	"github.com/loft-sh/loftctl/pkg/clihelper"
 	"github.com/loft-sh/loftctl/pkg/log"
 	"github.com/loft-sh/loftctl/pkg/upgrade"
 	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/util/duration"
-	"strconv"
-	"time"
 )
 
 // TeamsCmd holds the cmd flags
@@ -56,7 +53,7 @@ devspace list teams
 		Long:  description,
 		Args:  cobra.NoArgs,
 		RunE: func(cobraCmd *cobra.Command, args []string) error {
-			return cmd.Run(cobraCmd, args)
+			return cmd.Run()
 		},
 	}
 
@@ -64,7 +61,7 @@ devspace list teams
 }
 
 // RunUsers executes the functionality "loft list users"
-func (cmd *TeamsCmd) Run(cobraCmd *cobra.Command, args []string) error {
+func (cmd *TeamsCmd) Run() error {
 	baseClient, err := client.NewClientFromPath(cmd.Config)
 	if err != nil {
 		return err
@@ -78,28 +75,17 @@ func (cmd *TeamsCmd) Run(cobraCmd *cobra.Command, args []string) error {
 	userName, teamName, err := helper.GetCurrentUser(context.TODO(), client)
 	if err != nil {
 		return err
-	} else if teamName != "" {
+	} else if teamName != nil {
 		return errors.New("logged in as a team")
-	}
-
-	teams, err := client.Loft().ManagementV1().Users().ListTeams(context.TODO(), userName, metav1.GetOptions{})
-	if err != nil {
-		return err
 	}
 
 	header := []string{
 		"Name",
-		"Users",
-		"Groups",
-		"Age",
 	}
 	values := [][]string{}
-	for _, team := range teams.Teams {
+	for _, team := range userName.Teams {
 		values = append(values, []string{
-			team.Name,
-			strconv.Itoa(len(team.Spec.Users)),
-			strconv.Itoa(len(team.Spec.Groups)),
-			duration.HumanDuration(time.Now().Sub(team.CreationTimestamp.Time)),
+			clihelper.DisplayName(team),
 		})
 	}
 

@@ -83,7 +83,7 @@ devspace use cluster mycluster
 				upgrade.PrintNewerVersionWarning()
 			}
 
-			return cmd.Run(cobraCmd, args)
+			return cmd.Run(args)
 		},
 	}
 
@@ -93,7 +93,7 @@ devspace use cluster mycluster
 }
 
 // Run executes the command
-func (cmd *ClusterCmd) Run(cobraCmd *cobra.Command, args []string) error {
+func (cmd *ClusterCmd) Run(args []string) error {
 	baseClient, err := client.NewClientFromPath(cmd.Config)
 	if err != nil {
 		return err
