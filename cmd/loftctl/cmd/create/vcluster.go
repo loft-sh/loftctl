@@ -6,6 +6,8 @@ import (
 	agentstoragev1 "github.com/loft-sh/agentapi/pkg/apis/loft/storage/v1"
 	v1 "github.com/loft-sh/api/pkg/apis/management/v1"
 	storagev1 "github.com/loft-sh/api/pkg/apis/storage/v1"
+	"github.com/loft-sh/apimachinery/pkg/random"
+	"github.com/loft-sh/apimachinery/pkg/sleepmode"
 	"github.com/loft-sh/loftctl/cmd/loftctl/cmd/use"
 	"github.com/loft-sh/loftctl/cmd/loftctl/flags"
 	"github.com/loft-sh/loftctl/pkg/client"
@@ -26,6 +28,7 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"time"
 )
 
 // VirtualClusterCmd holds the cmd flags
@@ -136,7 +139,7 @@ func (cmd *VirtualClusterCmd) Run(args []string) error {
 
 	// determine space name
 	if cmd.Space == "" {
-		cmd.Space = "vcluster-" + virtualClusterName
+		cmd.Space = "vcluster-" + virtualClusterName + "-" + random.RandomString(5)
 	}
 
 	// create a cluster client
@@ -388,11 +391,13 @@ func (cmd *VirtualClusterCmd) createSpace(ctx context.Context, baseClient client
 			task.Spec.Task.VirtualClusterCreationTask.SpaceCreationTask.Metadata.Annotations["loft.sh/space-template"] = spaceTemplate.Name
 		}
 		if cmd.SleepAfter > 0 {
-			task.Spec.Task.VirtualClusterCreationTask.SpaceCreationTask.Metadata.Annotations["sleepmode.loft.sh/sleep-after"] = strconv.FormatInt(cmd.SleepAfter, 10)
+			task.Spec.Task.VirtualClusterCreationTask.SpaceCreationTask.Metadata.Annotations[sleepmode.SleepModeSleepAfterAnnotation] = strconv.FormatInt(cmd.SleepAfter, 10)
 		}
 		if cmd.DeleteAfter > 0 {
-			task.Spec.Task.VirtualClusterCreationTask.SpaceCreationTask.Metadata.Annotations["sleepmode.loft.sh/delete-after"] = strconv.FormatInt(cmd.DeleteAfter, 10)
+			task.Spec.Task.VirtualClusterCreationTask.SpaceCreationTask.Metadata.Annotations[sleepmode.SleepModeDeleteAfterAnnotation] = strconv.FormatInt(cmd.DeleteAfter, 10)
 		}
+		zone, offset := time.Now().Zone()
+		task.Spec.Task.VirtualClusterCreationTask.SpaceCreationTask.Metadata.Annotations[sleepmode.SleepModeTimezoneAnnotation] = zone + "#" + strconv.Itoa(offset)
 
 		// resolve the space apps
 		if spaceTemplate != nil && len(spaceTemplate.Spec.Template.Apps) > 0 {

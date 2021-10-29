@@ -3,6 +3,8 @@ package cmd
 import (
 	"context"
 	"fmt"
+	managementv1 "github.com/loft-sh/api/pkg/apis/management/v1"
+	"github.com/pkg/errors"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"time"
 
@@ -89,6 +91,19 @@ func (cmd *WakeUpCmd) Run(args []string) error {
 	clusterClient, err := baseClient.Cluster(clusterName)
 	if err != nil {
 		return err
+	}
+
+	managementClient, err := baseClient.Management()
+	if err != nil {
+		return err
+	}
+
+	// get current user / team
+	self, err := managementClient.Loft().ManagementV1().Selves().Create(context.TODO(), &managementv1.Self{}, metav1.CreateOptions{})
+	if err != nil {
+		return errors.Wrap(err, "get self")
+	} else if self.Status.User == nil && self.Status.Team == nil {
+		return fmt.Errorf("no user or team name returned")
 	}
 
 	configs, err := clusterClient.Agent().ClusterV1().SleepModeConfigs(spaceName).List(context.TODO(), metav1.ListOptions{})

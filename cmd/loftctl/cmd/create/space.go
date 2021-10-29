@@ -5,6 +5,7 @@ import (
 	"fmt"
 	clusterv1 "github.com/loft-sh/agentapi/pkg/apis/loft/cluster/v1"
 	storagev1 "github.com/loft-sh/api/pkg/apis/storage/v1"
+	"github.com/loft-sh/apimachinery/pkg/sleepmode"
 	"github.com/loft-sh/loftctl/cmd/loftctl/cmd/use"
 	"github.com/loft-sh/loftctl/pkg/app"
 	"github.com/loft-sh/loftctl/pkg/clihelper"
@@ -14,6 +15,7 @@ import (
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	"os"
 	"strconv"
+	"time"
 
 	v1 "github.com/loft-sh/api/pkg/apis/management/v1"
 	"github.com/loft-sh/loftctl/cmd/loftctl/flags"
@@ -191,11 +193,13 @@ func (cmd *SpaceCmd) Run(args []string) error {
 		space.Annotations["loft.sh/space-template"] = spaceTemplate.Name
 	}
 	if cmd.SleepAfter > 0 {
-		space.Annotations["sleepmode.loft.sh/sleep-after"] = strconv.FormatInt(cmd.SleepAfter, 10)
+		space.Annotations[sleepmode.SleepModeSleepAfterAnnotation] = strconv.FormatInt(cmd.SleepAfter, 10)
 	}
 	if cmd.DeleteAfter > 0 {
-		space.Annotations["sleepmode.loft.sh/delete-after"] = strconv.FormatInt(cmd.DeleteAfter, 10)
+		space.Annotations[sleepmode.SleepModeDeleteAfterAnnotation] = strconv.FormatInt(cmd.DeleteAfter, 10)
 	}
+	zone, offset := time.Now().Zone()
+	space.Annotations[sleepmode.SleepModeTimezoneAnnotation] = zone + "#" + strconv.Itoa(offset)
 
 	if spaceTemplate != nil && len(spaceTemplate.Spec.Template.Apps) > 0 {
 		createTask := &v1.Task{
