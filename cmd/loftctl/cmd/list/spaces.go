@@ -66,7 +66,7 @@ func (cmd *SpacesCmd) RunSpaces() error {
 		return err
 	}
 
-	spaces, err := helper.GetSpaces(baseClient)
+	spaces, err := helper.GetSpaces(baseClient, cmd.log)
 	if err != nil {
 		return err
 	}

@@ -13,6 +13,7 @@ import (
 	"github.com/loft-sh/loftctl/pkg/survey"
 	"github.com/mgutz/ansi"
 	"github.com/pkg/errors"
+	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 	"sort"
@@ -244,7 +245,7 @@ type ClusterSpace struct {
 }
 
 // GetSpaces returns all spaces accessible by the user or team
-func GetSpaces(baseClient client.Client) ([]ClusterSpace, error) {
+func GetSpaces(baseClient client.Client, log log.Logger) ([]ClusterSpace, error) {
 	managementClient, err := baseClient.Management()
 	if err != nil {
 		return nil, err
@@ -264,7 +265,12 @@ func GetSpaces(baseClient client.Client) ([]ClusterSpace, error) {
 
 		spaces, err := clusterClient.Agent().ClusterV1().Spaces().List(context.TODO(), metav1.ListOptions{})
 		if err != nil {
-			return nil, err
+			if kerrors.IsForbidden(err) {
+				continue
+			}
+
+			log.Warnf("Error retrieving spaces from cluster %s: %v", clihelper.GetDisplayName(cluster.Name, cluster.Spec.DisplayName), err)
+			continue
 		}
 
 		for _, space := range spaces.Items {
@@ -287,7 +293,7 @@ type ClusterVirtualCluster struct {
 }
 
 // GetVirtualClusters returns all virtual clusters the user has access to
-func GetVirtualClusters(baseClient client.Client) ([]ClusterVirtualCluster, error) {
+func GetVirtualClusters(baseClient client.Client, log log.Logger) ([]ClusterVirtualCluster, error) {
 	managementClient, err := baseClient.Management()
 	if err != nil {
 		return nil, err
@@ -307,7 +313,12 @@ func GetVirtualClusters(baseClient client.Client) ([]ClusterVirtualCluster, erro
 
 		virtualClusters, err := clusterClient.Agent().ClusterV1().VirtualClusters("").List(context.TODO(), metav1.ListOptions{})
 		if err != nil {
-			return nil, err
+			if kerrors.IsForbidden(err) {
+				continue
+			}
+
+			log.Warnf("Error retrieving virtual clusters from cluster %s: %v", clihelper.GetDisplayName(cluster.Name, cluster.Spec.DisplayName), err)
+			continue
 		}
 
 		for _, virtualCluster := range virtualClusters.Items {
@@ -326,7 +337,7 @@ func GetVirtualClusters(baseClient client.Client) ([]ClusterVirtualCluster, erro
 
 // SelectSpaceAndClusterName selects a space and cluster name
 func SelectSpaceAndClusterName(baseClient client.Client, spaceName, clusterName string, log log.Logger) (string, string, error) {
-	spaces, err := GetSpaces(baseClient)
+	spaces, err := GetSpaces(baseClient, log)
 	if err != nil {
 		return "", "", err
 	}
@@ -400,7 +411,7 @@ func GetCurrentUser(ctx context.Context, managementClient kube.Interface) (*mana
 }
 
 func SelectVirtualClusterAndSpaceAndClusterName(baseClient client.Client, virtualClusterName, spaceName, clusterName string, log log.Logger) (string, string, string, error) {
-	virtualClusters, err := GetVirtualClusters(baseClient)
+	virtualClusters, err := GetVirtualClusters(baseClient, log)
 	if err != nil {
 		return "", "", "", err
 	}

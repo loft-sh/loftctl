@@ -66,7 +66,7 @@ func (cmd *VirtualClustersCmd) Run() error {
 		return err
 	}
 
-	virtualClusters, err := helper.GetVirtualClusters(baseClient)
+	virtualClusters, err := helper.GetVirtualClusters(baseClient, cmd.log)
 	if err != nil {
 		return err
 	}

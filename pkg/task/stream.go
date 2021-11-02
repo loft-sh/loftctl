@@ -13,12 +13,28 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
+	"os"
+	"os/signal"
+	"syscall"
 	"time"
 
 	_ "github.com/loft-sh/api/pkg/apis/management/install" // Install the management group
 )
 
-func StreamTask(ctx context.Context, managementClient kube.Interface, task *managementv1.Task, out io.Writer, log log.Logger) error {
+func StreamTask(ctx context.Context, managementClient kube.Interface, task *managementv1.Task, out io.Writer, log log.Logger) (err error) {
+	// cleanup on ctrl+c
+	c := make(chan os.Signal, 1)
+	signal.Notify(c, os.Interrupt, os.Kill, syscall.SIGTERM)
+	go func() {
+		<-c
+		_ = managementClient.Loft().ManagementV1().Tasks().Delete(context.TODO(), task.Name, metav1.DeleteOptions{})
+		os.Exit(1)
+	}()
+
+	defer func() {
+		signal.Stop(c)
+	}()
+
 	log.Infof("Waiting for task to start...")
 	createdTask, err := managementClient.Loft().ManagementV1().Tasks().Create(ctx, task, metav1.CreateOptions{})
 	if err != nil {

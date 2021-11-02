@@ -1,7 +1,6 @@
 package app
 
 import (
-	clusterv1 "github.com/loft-sh/agentapi/pkg/apis/loft/cluster/v1"
 	managementv1 "github.com/loft-sh/api/pkg/apis/management/v1"
 	storagev1 "github.com/loft-sh/api/pkg/apis/storage/v1"
 	"strconv"
@@ -30,29 +29,15 @@ func ConvertAppToHelmTask(app *managementv1.App, namespace string) *storagev1.He
 			Labels: map[string]string{
 				LoftHelmReleaseAppLabel: "true",
 			},
-			Annotations: map[string]string{
-				LoftHelmReleaseAppNameAnnotation:       app.Name,
-				LoftHelmReleaseAppGenerationAnnotation: strconv.FormatInt(app.Generation, 10),
-			},
+			Config: app.Spec.Config,
 		},
-		Helm: storagev1.HelmTaskTemplate{
-			Manifests: app.Spec.Manifests,
-		},
+		StreamContainer: app.Spec.StreamContainer,
 	}
-	if app.Spec.ReleaseName != "" {
-		helmTask.Release.Name = app.Spec.ReleaseName
+	if helmTask.Release.Config.Annotations == nil {
+		helmTask.Release.Config.Annotations = map[string]string{}
 	}
-	if app.Spec.Helm != nil {
-		helmTask.Helm.Chart = clusterv1.Chart{
-			Name:     app.Spec.Helm.Name,
-			Version:  app.Spec.Helm.Version,
-			RepoURL:  app.Spec.Helm.RepoURL,
-			Username: app.Spec.Helm.Username,
-			Password: string(app.Spec.Helm.Password),
-		}
-		helmTask.Helm.Config = app.Spec.Helm.Values
-		helmTask.Helm.InsecureSkipTlsVerify = app.Spec.Helm.Insecure
-	}
+	helmTask.Release.Config.Annotations[LoftHelmReleaseAppNameAnnotation] = app.Name
+	helmTask.Release.Config.Annotations[LoftHelmReleaseAppGenerationAnnotation] = strconv.FormatInt(app.Generation, 10)
 	if app.Spec.Wait {
 		helmTask.Args = append(helmTask.Args, "--wait")
 	}
