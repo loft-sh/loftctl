@@ -1,6 +1,7 @@
 package survey
 
 import (
+	"fmt"
 	"os"
 	"regexp"
 
@@ -105,6 +106,7 @@ func (s *survey) Question(params *QuestionOptions) (string, error) {
 
 	err := surveypkg.Ask(question, &answers)
 	if err != nil {
+		fmt.Println(err)
 		// Keyboard interrupt
 		os.Exit(0)
 	}

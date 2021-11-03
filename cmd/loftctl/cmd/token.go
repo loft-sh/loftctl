@@ -59,7 +59,7 @@ devspace token
 		Long:  description,
 		Args:  cobra.NoArgs,
 		RunE: func(cobraCmd *cobra.Command, args []string) error {
-			return cmd.Run(cobraCmd, args)
+			return cmd.Run()
 		},
 	}
 
@@ -68,7 +68,7 @@ devspace token
 }
 
 // Run executes the command
-func (cmd *TokenCmd) Run(cobraCmd *cobra.Command, args []string) error {
+func (cmd *TokenCmd) Run() error {
 	baseClient, err := client.NewClientFromPath(cmd.Config)
 	if err != nil {
 		return err

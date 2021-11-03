@@ -133,7 +133,7 @@ func ResolveAppParameters(apps []NamespacedApp, appFilename string, log log.Logg
 			continue
 		}
 
-		log.WriteString("\n\n")
+		log.WriteString("\n")
 		if app.Namespace != "" {
 			log.Infof("Please specify parameters for app %s in namespace %s", clihelper.GetDisplayName(app.App.Name, app.App.Spec.DisplayName), app.Namespace)
 		} else {
@@ -142,7 +142,7 @@ func ResolveAppParameters(apps []NamespacedApp, appFilename string, log log.Logg
 
 		parameters := map[string]interface{}{}
 		for _, parameter := range app.App.Spec.Parameters {
-			question := fmt.Sprintf("Parameter %s", parameter.Label)
+			question := fmt.Sprintf("%s", parameter.Label)
 			if parameter.Required {
 				question += " (Required)"
 			}
@@ -185,9 +185,9 @@ func ResolveAppParameters(apps []NamespacedApp, appFilename string, log log.Logg
 
 func verifyValue(value string, parameter storagev1.AppParameter) (interface{}, error) {
 	switch parameter.Type {
-	case "password":
+	case "":
 		fallthrough
-	case "enum":
+	case "password":
 		fallthrough
 	case "string":
 		fallthrough
@@ -270,7 +270,7 @@ func verifyValue(value string, parameter storagev1.AppParameter) (interface{}, e
 		return num, nil
 	}
 
-	return nil, fmt.Errorf("unrecognized type for paramter %s (%s): %s", parameter.Label, parameter.Variable, parameter.Type)
+	return nil, fmt.Errorf("unrecognized type %s for parameter %s (%s)", parameter.Type, parameter.Label, parameter.Variable)
 }
 
 func getParametersInAppFile(appObj *managementv1.App, appFile *AppFile) (string, error) {

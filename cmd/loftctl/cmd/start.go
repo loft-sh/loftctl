@@ -80,7 +80,7 @@ before running this command:
 			// Check for newer version
 			upgrade.PrintNewerVersionWarning()
 
-			return cmd.Run(cobraCmd, args)
+			return cmd.Run()
 		},
 	}
 
@@ -97,7 +97,7 @@ before running this command:
 }
 
 // Run executes the functionality "loft start"
-func (cmd *StartCmd) Run(cobraCmd *cobra.Command, args []string) error {
+func (cmd *StartCmd) Run() error {
 	err := cmd.prepare()
 	if err != nil {
 		return err
@@ -198,7 +198,7 @@ func (cmd *StartCmd) Run(cobraCmd *cobra.Command, args []string) error {
 	if err != nil {
 		return err
 	}
-	
+
 	// make sure we are ready for installing
 	err = cmd.prepareInstall()
 	if err != nil {
@@ -218,7 +218,8 @@ func (cmd *StartCmd) prepareInstall() error {
 	if err != nil {
 		return err
 	}
-	
+
+	_ = cmd.KubeClient.AdmissionregistrationV1().ValidatingWebhookConfigurations().Delete(context.Background(), "loft", metav1.DeleteOptions{})
 	_ = loftClient.StorageV1().Users().Delete(context.Background(), "admin", metav1.DeleteOptions{})
 	_ = cmd.KubeClient.CoreV1().Secrets(cmd.Namespace).Delete(context.Background(), "loft-user-secret-admin", metav1.DeleteOptions{})
 	return nil
@@ -531,7 +532,7 @@ func (cmd *StartCmd) installLocal(email string) error {
 	if err != nil {
 		return err
 	}
-	
+
 	return cmd.successLocal(password)
 }
 
@@ -562,13 +563,13 @@ func (cmd *StartCmd) startPortForwarding(loftPod *corev1.Pod) error {
 	if err != nil {
 		return err
 	}
-	
-	return nil 
+
+	return nil
 }
 
 func (cmd *StartCmd) restartPortForwarding(stopChan chan struct{}) {
 	for {
-		<- stopChan
+		<-stopChan
 		cmd.Log.Info("Restart port forwarding")
 
 		// wait for loft pod to start
@@ -584,7 +585,7 @@ func (cmd *StartCmd) restartPortForwarding(stopChan chan struct{}) {
 		if err != nil {
 			cmd.Log.Fatalf("Error starting port forwarding: %v", err)
 		}
-		
+
 		cmd.Log.Donef("Successfully restarted port forwarding")
 	}
 }

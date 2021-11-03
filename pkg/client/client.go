@@ -89,12 +89,6 @@ type client struct {
 func (c *client) initConfig() error {
 	var retErr error
 	c.configOnce.Do(func() {
-		err := os.MkdirAll(filepath.Dir(c.configPath), 0755)
-		if err != nil {
-			retErr = err
-			return
-		}
-
 		// load the config or create new one if not found
 		content, err := ioutil.ReadFile(c.configPath)
 		if err != nil {
@@ -167,6 +161,11 @@ func (c *client) Save() error {
 	}
 	if c.config.TypeMeta.APIVersion == "" {
 		c.config.TypeMeta.APIVersion = "storage.loft.sh/v1"
+	}
+
+	err := os.MkdirAll(filepath.Dir(c.configPath), 0755)
+	if err != nil {
+		return err
 	}
 
 	out, err := json.Marshal(c.config)

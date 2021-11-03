@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"fmt"
 	clusterv1 "github.com/loft-sh/agentapi/pkg/apis/loft/cluster/v1"
+	storagev1 "github.com/loft-sh/api/pkg/apis/storage/v1"
 	"io/ioutil"
 	"net"
 	"net/http"
@@ -627,7 +628,27 @@ func EnsureAdminPassword(kubeClient kubernetes.Interface, restConfig *rest.Confi
 	admin, err := loftClient.StorageV1().Users().Get(context.TODO(), "admin", metav1.GetOptions{})
 	if err != nil && kerrors.IsNotFound(err) == false {
 		return err
-	} else if admin == nil || admin.Spec.PasswordRef == nil || admin.Spec.PasswordRef.SecretName == "" || admin.Spec.PasswordRef.SecretNamespace == "" {
+	} else if admin == nil {
+		admin, err = loftClient.StorageV1().Users().Create(context.TODO(), &storagev1.User{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "admin",
+			},
+			Spec: storagev1.UserSpec{
+				Username: "admin",
+				Email:    "test@test.de",
+				Subject:  "admin",
+				Groups:   []string{"system:masters"},
+				PasswordRef: &storagev1.SecretRef{
+					SecretName:      "loft-user-secret-admin",
+					SecretNamespace: "loft",
+					Key:             "password",
+				},
+			},
+		}, metav1.CreateOptions{})
+		if err != nil {
+			return err
+		}
+	} else if admin.Spec.PasswordRef == nil || admin.Spec.PasswordRef.SecretName == "" || admin.Spec.PasswordRef.SecretNamespace == "" {
 		return nil
 	}
 
