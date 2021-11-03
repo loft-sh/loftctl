@@ -4,7 +4,6 @@ import (
 	"context"
 	"crypto/tls"
 	"fmt"
-	loftclient "github.com/loft-sh/api/pkg/client/clientset_generated/clientset"
 	"github.com/loft-sh/loftctl/pkg/clihelper"
 	"github.com/loft-sh/loftctl/pkg/printhelper"
 	"github.com/loft-sh/loftctl/pkg/upgrade"
@@ -214,15 +213,7 @@ func (cmd *StartCmd) Run() error {
 
 func (cmd *StartCmd) prepareInstall() error {
 	// delete admin user & secret
-	loftClient, err := loftclient.NewForConfig(cmd.RestConfig)
-	if err != nil {
-		return err
-	}
-
-	_ = cmd.KubeClient.AdmissionregistrationV1().ValidatingWebhookConfigurations().Delete(context.Background(), "loft", metav1.DeleteOptions{})
-	_ = loftClient.StorageV1().Users().Delete(context.Background(), "admin", metav1.DeleteOptions{})
-	_ = cmd.KubeClient.CoreV1().Secrets(cmd.Namespace).Delete(context.Background(), "loft-user-secret-admin", metav1.DeleteOptions{})
-	return nil
+	return clihelper.UninstallLoft(cmd.KubeClient, cmd.RestConfig, cmd.Context, cmd.Namespace, log.Discard)
 }
 
 func (cmd *StartCmd) prepare() error {

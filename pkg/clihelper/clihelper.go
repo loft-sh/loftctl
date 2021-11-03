@@ -389,14 +389,14 @@ func UninstallLoft(kubeClient kubernetes.Interface, restConfig *rest.Config, kub
 	log.StartWait("Uninstalling loft...")
 	defer log.StopWait()
 
+	releaseName := "loft"
 	deploy, err := kubeClient.AppsV1().Deployments(namespace).Get(context.TODO(), "loft", metav1.GetOptions{})
-	if err != nil {
+	if err != nil && kerrors.IsNotFound(err) == false {
 		return err
-	} else if deploy.Labels == nil || deploy.Labels["release"] == "" {
-		return fmt.Errorf("loft was not installed via helm, cannot delete it then")
+	} else if deploy != nil && deploy.Labels != nil && deploy.Labels["release"] != "" {
+		releaseName = deploy.Labels["release"]
 	}
 
-	releaseName := deploy.Labels["release"]
 	args := []string{
 		"uninstall",
 		releaseName,
@@ -409,20 +409,7 @@ func UninstallLoft(kubeClient kubernetes.Interface, restConfig *rest.Config, kub
 	log.Infof("Executing command: helm %s\n", strings.Join(args, " "))
 	output, err := exec.Command("helm", args...).CombinedOutput()
 	if err != nil {
-		return fmt.Errorf("error during helm command: %s (%v)", string(output), err)
-	}
-
-	// wait for the loft pods to terminate
-	err = wait.Poll(time.Second, time.Minute*10, func() (bool, error) {
-		list, err := kubeClient.CoreV1().Pods(namespace).List(context.TODO(), metav1.ListOptions{LabelSelector: "app=loft"})
-		if err != nil {
-			return false, err
-		}
-
-		return len(list.Items) == 0, nil
-	})
-	if err != nil {
-		return err
+		log.Errorf("error during helm command: %s (%v)", string(output), err)
 	}
 
 	// we also cleanup the validating webhook configuration and apiservice
@@ -441,18 +428,85 @@ func UninstallLoft(kubeClient kubernetes.Interface, restConfig *rest.Config, kub
 		return err
 	}
 
-	loftClient, err := loftclientset.NewForConfig(restConfig)
+	err = deleteUser(restConfig, "admin")
 	if err != nil {
 		return err
 	}
 
-	err = loftClient.StorageV1().Users().Delete(context.TODO(), "admin", metav1.DeleteOptions{})
+	err = kubeClient.CoreV1().Secrets(namespace).Delete(context.Background(), "loft-user-secret-admin", metav1.DeleteOptions{})
+	if err != nil && kerrors.IsNotFound(err) == false {
+		return err
+	}
+
+	// uninstall agent
+	releaseName = "loft-agent"
+	args = []string{
+		"uninstall",
+		releaseName,
+		"--kube-context",
+		kubeContext,
+		"--namespace",
+		namespace,
+	}
+	log.WriteString("\n")
+	log.Infof("Executing command: helm %s\n", strings.Join(args, " "))
+	output, err = exec.Command("helm", args...).CombinedOutput()
+	if err != nil {
+		log.Errorf("error during helm command: %s (%v)", string(output), err)
+	}
+
+	// we also cleanup the validating webhook configuration and apiservice
+	err = kubeClient.AdmissionregistrationV1().ValidatingWebhookConfigurations().Delete(context.TODO(), "loft-agent", metav1.DeleteOptions{})
+	if err != nil && kerrors.IsNotFound(err) == false {
+		return err
+	}
+
+	err = apiRegistrationClient.ApiregistrationV1().APIServices().Delete(context.TODO(), "v1alpha1.tenancy.kiosk.sh", metav1.DeleteOptions{})
+	if err != nil && kerrors.IsNotFound(err) == false {
+		return err
+	}
+
+	err = apiRegistrationClient.ApiregistrationV1().APIServices().Delete(context.TODO(), "v1.cluster.loft.sh", metav1.DeleteOptions{})
+	if err != nil && kerrors.IsNotFound(err) == false {
+		return err
+	}
+
+	err = kubeClient.CoreV1().ConfigMaps(namespace).Delete(context.TODO(), "loft-agent-controller", metav1.DeleteOptions{})
 	if err != nil && kerrors.IsNotFound(err) == false {
 		return err
 	}
 
 	log.StopWait()
 	log.Done("Successfully uninstalled loft")
+	return nil
+}
+
+func deleteUser(restConfig *rest.Config, name string) error {
+	loftClient, err := loftclientset.NewForConfig(restConfig)
+	if err != nil {
+		return err
+	}
+
+	user, err := loftClient.StorageV1().Users().Get(context.TODO(), name, metav1.GetOptions{})
+	if err != nil {
+		return nil
+	} else if len(user.Finalizers) > 0 {
+		user.Finalizers = nil
+		_, err = loftClient.StorageV1().Users().Update(context.TODO(), user, metav1.UpdateOptions{})
+		if err != nil {
+			if kerrors.IsConflict(err) {
+				return deleteUser(restConfig, name)
+			}
+
+			return err
+		}
+	}
+
+	err = loftClient.StorageV1().Users().Delete(context.TODO(), name, metav1.DeleteOptions{})
+	if err != nil && kerrors.IsNotFound(err) == false {
+		return err
+	}
+
 	return nil
 }
 
@@ -575,10 +629,6 @@ func UpgradeLoft(kubeContext, namespace string, extraArgs []string, log log.Logg
 func defaultHelmValues(password, email, version, values string, extraArgs []string) []string {
 	// now we install loft
 	args := []string{
-		"--set",
-		"certIssuer.create=false",
-		"--set",
-		"cluster.connect.local=true",
 		"--set",
 		"admin.password=" + password,
 		"--set",
