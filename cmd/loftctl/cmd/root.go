@@ -7,6 +7,7 @@ import (
 	"github.com/loft-sh/loftctl/cmd/loftctl/cmd/generate"
 	"github.com/loft-sh/loftctl/cmd/loftctl/cmd/get"
 	"github.com/loft-sh/loftctl/cmd/loftctl/cmd/list"
+	"github.com/loft-sh/loftctl/cmd/loftctl/cmd/reset"
 	"github.com/loft-sh/loftctl/cmd/loftctl/cmd/set"
 	"github.com/loft-sh/loftctl/cmd/loftctl/cmd/share"
 	"github.com/loft-sh/loftctl/cmd/loftctl/cmd/use"
@@ -83,6 +84,7 @@ func BuildRoot(log log.Logger) *cobra.Command {
 	rootCmd.AddCommand(vars.NewVarsCmd(globalFlags))
 	rootCmd.AddCommand(share.NewShareCmd(globalFlags))
 	rootCmd.AddCommand(set.NewSetCmd(globalFlags))
+	rootCmd.AddCommand(reset.NewResetCmd(globalFlags))
 
 	return rootCmd
 }

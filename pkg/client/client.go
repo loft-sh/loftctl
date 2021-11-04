@@ -5,11 +5,13 @@ import (
 	"crypto/x509"
 	"encoding/json"
 	"fmt"
+	"github.com/loft-sh/api/pkg/auth"
 	"io/ioutil"
 	"net/http"
 	"net/url"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -36,6 +38,7 @@ var cacheFolder = ".loft"
 var DefaultCacheConfig = "config.json"
 
 const (
+	VersionPath   = "%s/version"
 	LoginPath     = "%s/login?cli=true"
 	RedirectPath  = "%s/spaces"
 	AccessKeyPath = "%s/profile/access-keys"
@@ -62,6 +65,7 @@ type Client interface {
 	LoginWithAccessKey(host, accessKey string, insecure bool) error
 	LoginRaw(host, accessKey string, insecure bool) error
 
+	Version() (*auth.Version, error)
 	Config() *Config
 	DirectClusterEndpointToken(forceRefresh bool) (string, error)
 	Save() error
@@ -231,6 +235,31 @@ func verifyHost(host string) error {
 	return nil
 }
 
+func (c *client) Version() (*auth.Version, error) {
+	restConfig, err := c.restConfig("")
+	if err != nil {
+		return nil, err
+	}
+
+	restClient, err := kube.NewForConfig(restConfig)
+	if err != nil {
+		return nil, err
+	}
+
+	raw, err := restClient.CoreV1().RESTClient().Get().RequestURI("/version").DoRaw(context.Background())
+	if err != nil {
+		return nil, err
+	}
+
+	version := &auth.Version{}
+	err = json.Unmarshal(raw, version)
+	if err != nil {
+		return nil, errors.Wrap(err, "parse version response")
+	}
+
+	return version, nil
+}
+
 func (c *client) Login(host string, insecure bool, log log.Logger) error {
 	var (
 		loginUrl   = fmt.Sprintf(LoginPath, host)
@@ -303,6 +332,12 @@ func (c *client) LoginWithAccessKey(host, accessKey string, insecure bool) error
 	c.config.DirectClusterEndpointToken = ""
 	c.config.DirectClusterEndpointTokenRequested = nil
 
+	// verify version
+	err = VerifyVersion(c)
+	if err != nil {
+		return err
+	}
+
 	// verify the connection works
 	managementClient, err := c.Management()
 	if err != nil {
@@ -322,6 +357,23 @@ func (c *client) LoginWithAccessKey(host, accessKey string, insecure bool) error
 	}
 
 	return c.Save()
+}
+
+// VerifyVersion checks if the Loft version is compatible with this CLI version
+func VerifyVersion(baseClient Client) error {
+	v, err := baseClient.Version()
+	if err != nil {
+		return err
+	}
+
+	major, err := strconv.Atoi(v.Major)
+	if err != nil {
+		return errors.Wrap(err, "parse major version string")
+	} else if major == 1 {
+		return fmt.Errorf("unsupported Loft version %s. Please downgrade your CLI to below v2.0.0 to support this version, as Loft v2.0.0 and newer versions are incompatible with v1.x.x", v.Version)
+	}
+
+	return nil
 }
 
 func (c *client) restConfig(hostSuffix string) (*rest.Config, error) {

@@ -117,6 +117,11 @@ func (cmd *SpaceCmd) Run(args []string) error {
 		return err
 	}
 
+	err = client.VerifyVersion(baseClient)
+	if err != nil {
+		return err
+	}
+
 	// determine cluster name
 	if cmd.Cluster == "" {
 		cmd.Cluster, err = helper.SelectCluster(baseClient, cmd.Log)

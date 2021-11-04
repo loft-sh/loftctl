@@ -80,7 +80,7 @@ devspace use vcluster myvcluster --cluster mycluster --space myspace
 				upgrade.PrintNewerVersionWarning()
 			}
 
-			return cmd.Run(cobraCmd, args)
+			return cmd.Run(args)
 		},
 	}
 
@@ -92,8 +92,13 @@ devspace use vcluster myvcluster --cluster mycluster --space myspace
 }
 
 // Run executes the command
-func (cmd *VirtualClusterCmd) Run(cobraCmd *cobra.Command, args []string) error {
+func (cmd *VirtualClusterCmd) Run(args []string) error {
 	baseClient, err := client.NewClientFromPath(cmd.Config)
+	if err != nil {
+		return err
+	}
+
+	err = client.VerifyVersion(baseClient)
 	if err != nil {
 		return err
 	}

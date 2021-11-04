@@ -38,6 +38,8 @@ func PrintSuccessMessageLocalInstall(password, localPort string, log log.Logger)
 Username: ` + ansi.Color("admin", "green+b") + `
 Password: ` + ansi.Color(password, "green+b") + `
 
+If you cannot login with this password, run ` + ansi.Color("loft reset password --user admin", "white+b") + `
+
 Login via UI:  ` + ansi.Color(url, "green+b") + `
 Login via CLI: ` + ansi.Color(`loft login --insecure `+url, "green+b") + `
 
@@ -61,6 +63,8 @@ func PrintSuccessMessageRemoteInstall(host, password string, log log.Logger) {
 
 Username: ` + ansi.Color("admin", "green+b") + `
 Password: ` + ansi.Color(password, "green+b") + `
+
+If you cannot login with this password, run ` + ansi.Color("loft reset password --user admin", "white+b") + `
 
 Login via UI:  ` + ansi.Color(url, "green+b") + `
 Login via CLI: ` + ansi.Color(`loft login --insecure `+url, "green+b") + `

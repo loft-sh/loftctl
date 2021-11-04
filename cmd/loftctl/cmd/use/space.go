@@ -88,6 +88,11 @@ func (cmd *SpaceCmd) Run(args []string) error {
 		return err
 	}
 
+	err = client.VerifyVersion(baseClient)
+	if err != nil {
+		return err
+	}
+
 	managementClient, err := baseClient.Management()
 	if err != nil {
 		return err
