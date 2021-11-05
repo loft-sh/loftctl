@@ -17,18 +17,18 @@ func WaitForVCluster(ctx context.Context, baseClient client.Client, clusterName,
 	if err != nil {
 		return err
 	}
-	
+
 	now := time.Now()
 	warnOnce := sync.Once{}
 	return wait.PollImmediate(time.Second, time.Minute*6, func() (bool, error) {
 		_, err = vClusterClient.CoreV1().ServiceAccounts("default").Get(ctx, "default", metav1.GetOptions{})
 		if err != nil && time.Since(now) > waitWarningAfter {
 			warnOnce.Do(func() {
-				log.Warnf("Cannot reach virtual cluster because: %v\n Will continue waiting, but this operation may timeout")
+				log.Warnf("Cannot reach virtual cluster because: %v\n Will continue waiting, but this operation may timeout", err)
 			})
 			return false, nil
 		}
-		
+
 		return err == nil, nil
 	})
 }
