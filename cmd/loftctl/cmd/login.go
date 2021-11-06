@@ -78,7 +78,7 @@ devspace login https://my-loft.com --access-key myaccesskey
 	}
 
 	loginCmd.Flags().StringVar(&cmd.AccessKey, "access-key", "", "The access key to use")
-	loginCmd.Flags().BoolVar(&cmd.Insecure, "insecure", false, "Allow login into an insecure loft instance")
+	loginCmd.Flags().BoolVar(&cmd.Insecure, "insecure", false, "Allow login into an insecure Loft instance")
 	loginCmd.Flags().BoolVar(&cmd.DockerLogin, "docker-login", true, "If true, will log into the docker image registries the user has image pull secrets for")
 	return loginCmd
 }
@@ -132,7 +132,7 @@ func (cmd *LoginCmd) RunLogin(args []string) error {
 	if err != nil {
 		return err
 	}
-	cmd.Log.Donef("Successfully logged into loft at %s", ansi.Color(url, "white+b"))
+	cmd.Log.Donef("Successfully logged into Loft instance %s", ansi.Color(url, "white+b"))
 
 	// skip log into docker registries?
 	if cmd.DockerLogin == false {

@@ -5,7 +5,6 @@ import (
 	"crypto/x509"
 	"encoding/json"
 	"fmt"
-	"github.com/loft-sh/api/pkg/auth"
 	"io/ioutil"
 	"net/http"
 	"net/url"
@@ -15,6 +14,8 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/loft-sh/api/pkg/auth"
 
 	managementv1 "github.com/loft-sh/api/pkg/apis/management/v1"
 	storagev1 "github.com/loft-sh/api/pkg/apis/storage/v1"

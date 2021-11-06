@@ -4,6 +4,8 @@ import (
 	"context"
 	"crypto/sha256"
 	"fmt"
+	"strings"
+
 	storagev1 "github.com/loft-sh/api/pkg/apis/storage/v1"
 	"github.com/loft-sh/apimachinery/pkg/random"
 	"github.com/loft-sh/loftctl/cmd/loftctl/flags"
@@ -17,7 +19,6 @@ import (
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
-	"strings"
 )
 
 // PasswordCmd holds the lags

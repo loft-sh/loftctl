@@ -2,11 +2,12 @@ package upgrade
 
 import (
 	"fmt"
-	"github.com/pkg/errors"
-	"k8s.io/klog"
 	"os"
 	"regexp"
 	"sync"
+
+	"github.com/pkg/errors"
+	"k8s.io/klog"
 
 	"github.com/blang/semver"
 	"github.com/loft-sh/loftctl/pkg/log"
@@ -40,9 +41,9 @@ func PrintNewerVersionWarning() {
 		latestVersion := NewerVersionAvailable()
 		if latestVersion != "" {
 			if IsPlugin == "true" {
-				log.GetInstance().Warnf("There is a newer version of the loft devspace plugin: v%s. Run `devspace update plugin loft` to upgrade to the newest version.\n", latestVersion)
+				log.GetInstance().Warnf("There is a newer version of the Loft DevSpace plugin: v%s. Run `devspace update plugin loft` to upgrade to the newest version.\n", latestVersion)
 			} else {
-				log.GetInstance().Warnf("There is a newer version of loft: v%s. Run `loft upgrade` to upgrade to the newest version.\n", latestVersion)
+				log.GetInstance().Warnf("There is a newer version of Loft: v%s. Run `loft upgrade` to upgrade to the newest version.\n", latestVersion)
 			}
 		}
 	}
@@ -138,10 +139,10 @@ func Upgrade(flagVersion string, log log.Logger) error {
 			return err
 		}
 
-		log.Donef("Successfully updated loft to version %s", flagVersion)
+		log.Donef("Successfully updated Loft to version %s", flagVersion)
 		return nil
 	}
-	
+
 	newerVersion, err := CheckForNewerVersion()
 	if err != nil {
 		return err

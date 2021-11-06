@@ -5,6 +5,8 @@ import (
 	"github.com/mgutz/ansi"
 )
 
+const passwordChangedHint = "(has been changed)"
+
 func PrintDNSConfiguration(host string, log log.Logger) {
 	log.WriteString(`
 
@@ -31,14 +33,17 @@ by running 'loft start' again.
 
 func PrintSuccessMessageLocalInstall(password, localPort string, log log.Logger) {
 	url := "https://localhost:" + localPort
+
+	if password == "" {
+		password = passwordChangedHint
+	}
+
 	log.WriteString(`
 
 ##########################   LOGIN   ############################
 
 Username: ` + ansi.Color("admin", "green+b") + `
-Password: ` + ansi.Color(password, "green+b") + `
-
-If you cannot login with this password, run ` + ansi.Color("loft reset password --user admin", "white+b") + `
+Password: ` + ansi.Color(password, "green+b") + `  # Change via UI or via: ` + ansi.Color("loft reset password", "green+b") + `
 
 Login via UI:  ` + ansi.Color(url, "green+b") + `
 Login via CLI: ` + ansi.Color(`loft login --insecure `+url, "green+b") + `
@@ -56,15 +61,18 @@ Thanks for using loft!
 
 func PrintSuccessMessageRemoteInstall(host, password string, log log.Logger) {
 	url := "https://" + host
+
+	if password == "" {
+		password = passwordChangedHint
+	}
+
 	log.WriteString(`
 
 
 ##########################   LOGIN   ############################
 
 Username: ` + ansi.Color("admin", "green+b") + `
-Password: ` + ansi.Color(password, "green+b") + `
-
-If you cannot login with this password, run ` + ansi.Color("loft reset password --user admin", "white+b") + `
+Password: ` + ansi.Color(password, "green+b") + `  # Change via UI or via: ` + ansi.Color("loft reset password", "green+b") + `
 
 Login via UI:  ` + ansi.Color(url, "green+b") + `
 Login via CLI: ` + ansi.Color(`loft login --insecure `+url, "green+b") + `

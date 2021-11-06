@@ -6,8 +6,6 @@ import (
 	"crypto/tls"
 	"encoding/json"
 	"fmt"
-	clusterv1 "github.com/loft-sh/agentapi/pkg/apis/loft/cluster/v1"
-	storagev1 "github.com/loft-sh/api/pkg/apis/storage/v1"
 	"io/ioutil"
 	"net"
 	"net/http"
@@ -17,6 +15,9 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	clusterv1 "github.com/loft-sh/agentapi/pkg/apis/loft/cluster/v1"
+	storagev1 "github.com/loft-sh/api/pkg/apis/storage/v1"
 
 	jsonpatch "github.com/evanphx/json-patch"
 	loftclientset "github.com/loft-sh/api/pkg/client/clientset_generated/clientset"
@@ -84,7 +85,7 @@ func WaitForReadyLoftAgentPod(kubeClient kubernetes.Interface, namespace string,
 			LabelSelector: "app=loft-agent",
 		})
 		if err != nil {
-			log.Warnf("Error trying to retrieve loft agent pod: %v", err)
+			log.Warnf("Error trying to retrieve Loft Agent pod: %v", err)
 			return false, nil
 		} else if len(pods.Items) == 0 {
 			// we stop here because the local cluster might be not selected
@@ -128,7 +129,7 @@ func WaitForReadyLoftPod(kubeClient kubernetes.Interface, namespace string, log 
 			LabelSelector: "app=loft",
 		})
 		if err != nil {
-			log.Warnf("Error trying to retrieve loft pod: %v", err)
+			log.Warnf("Error trying to retrieve Loft pod: %v", err)
 			return false, nil
 		} else if len(pods.Items) == 0 {
 			return false, nil
@@ -155,12 +156,12 @@ func WaitForReadyLoftPod(kubeClient kubernetes.Interface, namespace string, log 
 					return false, fmt.Errorf("There seems to be an issue with loft starting up. Please reach out to our support at https://loft.sh/")
 				}
 				if strings.Contains(string(out), "register instance: Post \"https://license.loft.sh/register\": dial tcp") {
-					return false, fmt.Errorf("Loft logs: \n%v \nThere seems to be an issue with loft starting up. Looks like you try to install Loft into an air-gapped environment, please reach out to our support at https://loft.sh/ for an offline license and take a look at the air-gapped installation guide https://loft.sh/docs/guides/administration/air-gapped-installation", string(out))
+					return false, fmt.Errorf("Loft logs: \n%v \nThere seems to be an issue with Loft starting up. Looks like you try to install Loft into an air-gapped environment, please reach out to our support at https://loft.sh/ for an offline license and take a look at the air-gapped installation guide https://loft.sh/docs/guides/administration/air-gapped-installation", string(out))
 				}
 
 				return false, fmt.Errorf("Loft logs: \n%v \nThere seems to be an issue with loft starting up. Please reach out to our support at https://loft.sh/", string(out))
 			} else if containerStatus.State.Waiting != nil && time.Now().After(now.Add(time.Minute*3)) && warningPrinted == false {
-				log.Warnf("There might be an issue with loft starting up. The container is still waiting, because of %s (%s). Please reach out to our support at https://loft.sh/", containerStatus.State.Waiting.Message, containerStatus.State.Waiting.Reason)
+				log.Warnf("There might be an issue with Loft starting up. The container is still waiting, because of %s (%s). Please reach out to our support at https://loft.sh/", containerStatus.State.Waiting.Message, containerStatus.State.Waiting.Reason)
 				warningPrinted = true
 			}
 
@@ -178,7 +179,8 @@ func WaitForReadyLoftPod(kubeClient kubernetes.Interface, namespace string, log 
 }
 
 func StartPortForwarding(config *rest.Config, client kubernetes.Interface, pod *corev1.Pod, localPort string, log log.Logger) (chan struct{}, error) {
-	log.Info("Starting port-forwarding to the loft pod")
+	log.WriteString("\n")
+	log.Info("Starting port-forwarding to the Loft pod")
 	execRequest := client.CoreV1().RESTClient().Post().
 		Resource("pods").
 		Name(pod.Name).
@@ -342,7 +344,7 @@ func IsPrivateIP(ip net.IP) bool {
 func AskForHost(log log.Logger) (string, error) {
 	ingressAccess := "via ingress (you will need to configure DNS)"
 	answer, err := log.Question(&survey.QuestionOptions{
-		Question: "How do you want to access loft?",
+		Question: "How do you want to access Loft?",
 		Options: []string{
 			"via port-forwarding (no other configuration needed)",
 			ingressAccess,
@@ -361,7 +363,7 @@ func AskForHost(log log.Logger) (string, error) {
 
 func EnterHostNameQuestion(log log.Logger) (string, error) {
 	return log.Question(&survey.QuestionOptions{
-		Question: "Enter a hostname for your loft instance (e.g. loft.my-domain.tld): \n",
+		Question: "Enter a hostname for your Loft instance (e.g. loft.my-domain.tld): \n ",
 		ValidationFunc: func(answer string) error {
 			u, err := url.Parse("https://" + answer)
 			if err != nil || u.Path != "" || u.Port() != "" || len(strings.Split(answer, ".")) < 2 {
@@ -405,8 +407,7 @@ func UninstallLoft(kubeClient kubernetes.Interface, restConfig *rest.Config, kub
 		"--namespace",
 		namespace,
 	}
-	log.WriteString("\n")
-	log.Infof("Executing command: helm %s\n", strings.Join(args, " "))
+	log.Infof("Executing command: helm %s", strings.Join(args, " "))
 	output, err := exec.Command("helm", args...).CombinedOutput()
 	if err != nil {
 		log.Errorf("error during helm command: %s (%v)", string(output), err)
@@ -449,7 +450,7 @@ func UninstallLoft(kubeClient kubernetes.Interface, restConfig *rest.Config, kub
 		namespace,
 	}
 	log.WriteString("\n")
-	log.Infof("Executing command: helm %s\n", strings.Join(args, " "))
+	log.Infof("Executing command: helm %s", strings.Join(args, " "))
 	output, err = exec.Command("helm", args...).CombinedOutput()
 	if err != nil {
 		log.Errorf("error during helm command: %s (%v)", string(output), err)
@@ -477,7 +478,10 @@ func UninstallLoft(kubeClient kubernetes.Interface, restConfig *rest.Config, kub
 	}
 
 	log.StopWait()
-	log.Done("Successfully uninstalled loft")
+	log.WriteString("\n")
+	log.Done("Successfully uninstalled Loft")
+	log.WriteString("\n")
+
 	return nil
 }
 
@@ -510,11 +514,11 @@ func deleteUser(restConfig *rest.Config, name string) error {
 	return nil
 }
 
-func InstallIngressController(kubeClient kubernetes.Interface, kubeContext string, log log.Logger) error {
+func EnsureIngressController(kubeClient kubernetes.Interface, kubeContext string, log log.Logger) error {
 	// first create an ingress controller
 	const (
 		YesOption = "Yes"
-		NoOption  = "No, I already have an ingress controller installed"
+		NoOption  = "No, I already have an ingress controller installed."
 	)
 
 	answer, err := log.Question(&survey.QuestionOptions{
@@ -528,6 +532,7 @@ func InstallIngressController(kubeClient kubernetes.Interface, kubeContext strin
 	if err != nil {
 		return err
 	}
+
 	if answer == YesOption {
 		args := []string{
 			"install",
@@ -601,6 +606,7 @@ func UpgradeLoft(kubeContext, namespace string, extraArgs []string, log log.Logg
 		"loft",
 		"loft",
 		"--install",
+		"--reuse-values",
 		"--create-namespace",
 		"--repository-config=''",
 		"--repo",
@@ -621,63 +627,43 @@ func UpgradeLoft(kubeContext, namespace string, extraArgs []string, log log.Logg
 		return fmt.Errorf("error during helm command: %s (%v)", string(output), err)
 	}
 
-	log.Done("Successfully deployed loft to your kubernetes cluster!")
-	log.WriteString("\n")
+	log.Done("Loft has been deployed to your cluster!")
 	return nil
 }
 
-func defaultHelmValues(password, email, version, values string, extraArgs []string) []string {
-	// now we install loft
+func GetLoftManifests(kubeContext, namespace string, extraArgs []string, log log.Logger) (string, error) {
 	args := []string{
-		"--set",
-		"admin.password=" + password,
-		"--set",
-		"admin.email=" + email,
-	}
-	if version != "" {
-		args = append(args, "--version", version)
-	}
-	if values != "" {
-		args = append(args, "--values", values)
+		"template",
+		"loft",
+		"loft",
+		"--repository-config=''",
+		"--repo",
+		"https://charts.loft.sh/",
+		"--kube-context",
+		kubeContext,
+		"--namespace",
+		namespace,
 	}
 	args = append(args, extraArgs...)
-	return args
+
+	output, err := exec.Command("helm", args...).CombinedOutput()
+	if err != nil {
+		return "", fmt.Errorf("error during helm command: %s (%v)", string(output), err)
+	}
+	return string(output), nil
 }
 
-func InstallLoftRemote(kubeContext, namespace, password, email, version, values, host string, log log.Logger) error {
-	extraArgs := defaultHelmValues(password, email, version, values, []string{
-		"--set",
-		"ingress.enabled=true",
-		"--set",
-		"ingress.host=" + host,
-	})
-
-	return UpgradeLoft(kubeContext, namespace, extraArgs, log)
-}
-
-func InstallLoftLocally(kubeContext, namespace, password, email, version, values string, log log.Logger) error {
-	log.WriteString("\n")
-	log.Info("This will install loft without an externally reachable URL and instead use port-forwarding to connect to loft")
-	log.WriteString("\n")
-
-	// deploy loft into the cluster
-	extraArgs := defaultHelmValues(password, email, version, values, []string{
-		"--set",
-		"ingress.enabled=false",
-	})
-
-	return UpgradeLoft(kubeContext, namespace, extraArgs, log)
-}
-
-func EnsureAdminPassword(kubeClient kubernetes.Interface, restConfig *rest.Config, password string, log log.Logger) error {
+// Makes sure that admin user and password secret exists
+// Returns (true, nil) if everything is correct but password is different from parameter `password`
+func EnsureAdminPassword(kubeClient kubernetes.Interface, restConfig *rest.Config, password string, log log.Logger) (bool, error) {
 	loftClient, err := loftclientset.NewForConfig(restConfig)
 	if err != nil {
-		return err
+		return false, err
 	}
 
 	admin, err := loftClient.StorageV1().Users().Get(context.TODO(), "admin", metav1.GetOptions{})
 	if err != nil && kerrors.IsNotFound(err) == false {
-		return err
+		return false, err
 	} else if admin == nil {
 		admin, err = loftClient.StorageV1().Users().Create(context.TODO(), &storagev1.User{
 			ObjectMeta: metav1.ObjectMeta{
@@ -696,17 +682,10 @@ func EnsureAdminPassword(kubeClient kubernetes.Interface, restConfig *rest.Confi
 			},
 		}, metav1.CreateOptions{})
 		if err != nil {
-			return err
+			return false, err
 		}
 	} else if admin.Spec.PasswordRef == nil || admin.Spec.PasswordRef.SecretName == "" || admin.Spec.PasswordRef.SecretNamespace == "" {
-		return nil
-	}
-
-	_, err = kubeClient.CoreV1().Secrets(admin.Spec.PasswordRef.SecretNamespace).Get(context.TODO(), admin.Spec.PasswordRef.SecretName, metav1.GetOptions{})
-	if err != nil && kerrors.IsNotFound(err) == false {
-		return err
-	} else if err == nil {
-		return nil
+		return false, nil
 	}
 
 	key := admin.Spec.PasswordRef.Key
@@ -714,23 +693,42 @@ func EnsureAdminPassword(kubeClient kubernetes.Interface, restConfig *rest.Confi
 		key = "password"
 	}
 
+	passwordHash := fmt.Sprintf("%x", sha256.Sum256([]byte(password)))
+
+	secret, err := kubeClient.CoreV1().Secrets(admin.Spec.PasswordRef.SecretNamespace).Get(context.TODO(), admin.Spec.PasswordRef.SecretName, metav1.GetOptions{})
+	if err != nil && kerrors.IsNotFound(err) == false {
+		return false, err
+	} else if err == nil {
+		existingPasswordHash, keyExists := secret.Data[key]
+		if keyExists {
+			return (string(existingPasswordHash) != passwordHash), nil
+		}
+
+		secret.Data[key] = []byte(passwordHash)
+		_, err = kubeClient.CoreV1().Secrets(secret.Namespace).Update(context.TODO(), secret, metav1.UpdateOptions{})
+		if err != nil {
+			return false, errors.Wrap(err, "update admin password secret")
+		}
+		return false, nil
+	}
+
 	// create the password secret if it was not found, this can happen if you delete the loft namespace without deleting the admin user
-	secret := &corev1.Secret{
+	secret = &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      admin.Spec.PasswordRef.SecretName,
 			Namespace: admin.Spec.PasswordRef.SecretNamespace,
 		},
 		Data: map[string][]byte{
-			key: []byte(fmt.Sprintf("%x", sha256.Sum256([]byte(password)))),
+			key: []byte(passwordHash),
 		},
 	}
 	_, err = kubeClient.CoreV1().Secrets(secret.Namespace).Create(context.TODO(), secret, metav1.CreateOptions{})
 	if err != nil {
-		return errors.Wrap(err, "create admin password secret")
+		return false, errors.Wrap(err, "create admin password secret")
 	}
 
 	log.Info("Successfully recreated admin password secret")
-	return nil
+	return false, nil
 }
 
 func IsLoftInstalledLocally(kubeClient kubernetes.Interface, namespace string) bool {
