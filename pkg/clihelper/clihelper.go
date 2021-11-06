@@ -722,7 +722,7 @@ func EnsureAdminPassword(kubeClient kubernetes.Interface, restConfig *rest.Confi
 			},
 			Spec: storagev1.UserSpec{
 				Username: "admin",
-				Email:    "test@test.de",
+				Email:    "test@domain.tld",
 				Subject:  "admin",
 				Groups:   []string{"system:masters"},
 				PasswordRef: &storagev1.SecretRef{
