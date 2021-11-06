@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"regexp"
 	"time"
 
@@ -391,7 +392,11 @@ func (cmd *StartCmd) upgradeLoft(email string) error {
 	}
 
 	if cmd.Values != "" {
-		extraArgs = append(extraArgs, "--values", cmd.Values)
+		absValuesPath, err := filepath.Abs(cmd.Values)
+		if err != nil {
+			return err
+		}
+		extraArgs = append(extraArgs, "--values", absValuesPath)
 	}
 
 	err := clihelper.UpgradeLoft(cmd.Context, cmd.Namespace, extraArgs, cmd.Log)

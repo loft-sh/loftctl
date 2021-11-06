@@ -10,7 +10,9 @@ import (
 	"net"
 	"net/http"
 	"net/url"
+	"os"
 	"os/exec"
+	"path"
 	"sort"
 	"strconv"
 	"strings"
@@ -35,6 +37,10 @@ import (
 	"k8s.io/client-go/transport/spdy"
 	"k8s.io/kube-aggregator/pkg/client/clientset_generated/clientset"
 )
+
+const chartName = "loft"
+const repoURL = "https://charts.loft.sh/"
+const defaultReleaseName = "loft"
 
 func GetDisplayName(name string, displayName string) string {
 	if displayName != "" {
@@ -391,7 +397,7 @@ func UninstallLoft(kubeClient kubernetes.Interface, restConfig *rest.Config, kub
 	log.StartWait("Uninstalling loft...")
 	defer log.StopWait()
 
-	releaseName := "loft"
+	releaseName := defaultReleaseName
 	deploy, err := kubeClient.AppsV1().Deployments(namespace).Get(context.TODO(), "loft", metav1.GetOptions{})
 	if err != nil && kerrors.IsNotFound(err) == false {
 		return err
@@ -553,7 +559,14 @@ func EnsureIngressController(kubeClient kubernetes.Interface, kubeContext string
 		log.WriteString("\n")
 		log.Infof("Executing command: helm %s\n", strings.Join(args, " "))
 		log.StartWait("Waiting for ingress controller deployment, this can take several minutes...")
-		output, err := exec.Command("helm", args...).CombinedOutput()
+		helmCmd := exec.Command("helm", args...)
+		helmWorkDir, err := getHelmWorkdir(chartName)
+		if err != nil {
+			return err
+		}
+
+		helmCmd.Dir = helmWorkDir
+		output, err := helmCmd.CombinedOutput()
 		log.StopWait()
 		if err != nil {
 			return fmt.Errorf("error during helm command: %s (%v)", string(output), err)
@@ -603,14 +616,14 @@ func UpgradeLoft(kubeContext, namespace string, extraArgs []string, log log.Logg
 	// now we install loft
 	args := []string{
 		"upgrade",
-		"loft",
-		"loft",
+		defaultReleaseName,
+		chartName,
 		"--install",
 		"--reuse-values",
 		"--create-namespace",
 		"--repository-config=''",
 		"--repo",
-		"https://charts.loft.sh/",
+		repoURL,
 		"--kube-context",
 		kubeContext,
 		"--namespace",
@@ -621,7 +634,14 @@ func UpgradeLoft(kubeContext, namespace string, extraArgs []string, log log.Logg
 	log.WriteString("\n")
 	log.Infof("Executing command: helm %s\n", strings.Join(args, " "))
 	log.StartWait("Waiting for helm command, this can take up to several minutes...")
-	output, err := exec.Command("helm", args...).CombinedOutput()
+	helmCmd := exec.Command("helm", args...)
+	helmWorkDir, err := getHelmWorkdir(chartName)
+	if err != nil {
+		return err
+	}
+
+	helmCmd.Dir = helmWorkDir
+	output, err := helmCmd.CombinedOutput()
 	log.StopWait()
 	if err != nil {
 		return fmt.Errorf("error during helm command: %s (%v)", string(output), err)
@@ -634,11 +654,11 @@ func UpgradeLoft(kubeContext, namespace string, extraArgs []string, log log.Logg
 func GetLoftManifests(kubeContext, namespace string, extraArgs []string, log log.Logger) (string, error) {
 	args := []string{
 		"template",
-		"loft",
-		"loft",
+		defaultReleaseName,
+		chartName,
 		"--repository-config=''",
 		"--repo",
-		"https://charts.loft.sh/",
+		repoURL,
 		"--kube-context",
 		kubeContext,
 		"--namespace",
@@ -646,11 +666,42 @@ func GetLoftManifests(kubeContext, namespace string, extraArgs []string, log log
 	}
 	args = append(args, extraArgs...)
 
-	output, err := exec.Command("helm", args...).CombinedOutput()
+	helmCmd := exec.Command("helm", args...)
+	helmWorkDir, err := getHelmWorkdir(chartName)
+	if err != nil {
+		return "", err
+	}
+
+	helmCmd.Dir = helmWorkDir
+	output, err := helmCmd.CombinedOutput()
 	if err != nil {
 		return "", fmt.Errorf("error during helm command: %s (%v)", string(output), err)
 	}
 	return string(output), nil
+}
+
+// Return the directory where the `helm` commands s h ould be e x ecuted or error if none can be found/created
+// Uses current workdir by default unless it contains a folder with the chart name
+func getHelmWorkdir(chartName string) (string, error) {
+	// If chartName folder exists, check temp dir next
+	if _, err := os.Stat(chartName); err == nil {
+		tempDir := os.TempDir()
+
+		// If tempDir/chartName folder exists, create temp folder
+		if _, err := os.Stat(path.Join(tempDir, chartName)); err == nil {
+			tempDir, err = os.MkdirTemp(tempDir, chartName)
+
+			if err != nil {
+				return "", errors.New("problematic directory `" + chartName + "` found: please execute command in a different folder")
+			}
+		}
+
+		// Use tempDir
+		return tempDir, nil
+	}
+
+	// Use current workdir
+	return "", nil
 }
 
 // Makes sure that admin user and password secret exists
