@@ -55,7 +55,7 @@ Login via CLI: ` + ansi.Color(`loft login --insecure `+url, "green+b") + `
 Loft was successfully installed and port-forwarding has been started.
 If you stop this command, run 'loft start' again to restart port-forwarding.
 
-Thanks for using loft!
+Thanks for using Loft!
 `)
 }
 
@@ -85,6 +85,6 @@ Follow this guide to add a valid certificate: https://loft.sh/docs/administratio
 
 Loft was successfully installed and can now be reached at: ` + url + `
 
-Thanks for using loft!
+Thanks for using Loft!
 `)
 }
