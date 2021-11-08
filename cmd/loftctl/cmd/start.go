@@ -253,11 +253,11 @@ func (cmd *StartCmd) prepare() error {
 }
 
 func (cmd *StartCmd) handleAlreadyExistingInstallation() error {
+	enableIngress := false
+
 	// Only ask if ingress should be enabled if --upgrade flag is not provided
 	if cmd.Upgrade == false {
 		cmd.Log.Info("Existing Loft instance found.")
-
-		enableIngress := false
 
 		// Check if Loft is installed in a local cluster
 		isLocal := clihelper.IsLoftInstalledLocally(cmd.KubeClient, cmd.Namespace)
@@ -359,9 +359,12 @@ func (cmd *StartCmd) handleAlreadyExistingInstallation() error {
 		}
 	}
 
-	err := cmd.upgradeLoft("")
-	if err != nil {
-		return err
+	// Only upgrade if --upgrade flag is present or user decided to enable ingress
+	if cmd.Upgrade || enableIngress {
+		err := cmd.upgradeLoft("")
+		if err != nil {
+			return err
+		}
 	}
 
 	return cmd.success()
