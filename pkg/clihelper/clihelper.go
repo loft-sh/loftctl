@@ -483,6 +483,11 @@ func UninstallLoft(kubeClient kubernetes.Interface, restConfig *rest.Config, kub
 		return err
 	}
 
+	err = kubeClient.CoreV1().ConfigMaps(namespace).Delete(context.TODO(), "loft-applied-defaults", metav1.DeleteOptions{})
+	if err != nil && kerrors.IsNotFound(err) == false {
+		return err
+	}
+
 	log.StopWait()
 	log.WriteString("\n")
 	log.Done("Successfully uninstalled Loft")
