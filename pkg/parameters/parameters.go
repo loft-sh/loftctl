@@ -317,5 +317,5 @@ func getParametersInAppFile(appObj *managementv1.App, appFile *AppFile) (string,
 		}
 	}
 
-	return "", fmt.Errorf("couldn't find app %s in provided parameters file", clihelper.GetDisplayName(appObj.Name, appObj.Spec.DisplayName))
+	return "", fmt.Errorf("couldn't find app %s (%s) in provided parameters file", clihelper.GetDisplayName(appObj.Name, appObj.Spec.DisplayName), appObj.Name)
 }
