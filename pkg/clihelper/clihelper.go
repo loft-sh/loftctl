@@ -94,8 +94,7 @@ func WaitForReadyLoftAgentPod(kubeClient kubernetes.Interface, namespace string,
 			log.Warnf("Error trying to retrieve Loft Agent pod: %v", err)
 			return false, nil
 		} else if len(pods.Items) == 0 {
-			// we stop here because the local cluster might be not selected
-			return true, nil
+			return false, nil
 		}
 
 		sort.Slice(pods.Items, func(i, j int) bool {
