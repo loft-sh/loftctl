@@ -249,7 +249,7 @@ func (c *client) Version() (*auth.Version, error) {
 
 	raw, err := restClient.CoreV1().RESTClient().Get().RequestURI("/version").DoRaw(context.Background())
 	if err != nil {
-		return nil, err
+		return nil, errors.New(fmt.Sprintf("%s\n\nYou may need to login again via `%s login %s --insecure` to allow self-signed certificates\n", os.Args[0], restConfig.Host, err.Error()))
 	}
 
 	version := &auth.Version{}

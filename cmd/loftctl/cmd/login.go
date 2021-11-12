@@ -3,6 +3,10 @@ package cmd
 import (
 	"bytes"
 	"context"
+	"fmt"
+	"os"
+	"strings"
+
 	dockerconfig "github.com/docker/cli/cli/config"
 	"github.com/docker/cli/cli/config/configfile"
 	managementv1 "github.com/loft-sh/api/pkg/apis/management/v1"
@@ -19,7 +23,6 @@ import (
 	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"strings"
 )
 
 // LoginCmd holds the login cmd flags
@@ -93,26 +96,17 @@ func (cmd *LoginCmd) RunLogin(args []string) error {
 	// Print login information
 	if len(args) == 0 {
 		config := loader.Config()
-		if config.Host == "" {
-			cmd.Log.Info("Not logged in")
-			return nil
+		insecureFlag := ""
+		if config.Insecure {
+			insecureFlag = "--insecure"
 		}
 
-		managementClient, err := loader.Management()
+		err := cmd.printLoginDetails(loader, config)
 		if err != nil {
-			return err
+			cmd.Log.Fatalf("%s\n\nYou may need to log in again via: %s login %s %s\n", err.Error(), os.Args[0], config.Host, insecureFlag)
 		}
 
-		userName, teamName, err := helper.GetCurrentUser(context.TODO(), managementClient)
-		if err != nil {
-			return err
-		}
-
-		if userName != nil {
-			cmd.Log.Infof("Logged into %s as user %s", config.Host, clihelper.DisplayName(&userName.EntityInfo))
-		} else {
-			cmd.Log.Infof("Logged into %s as team %s", config.Host, clihelper.DisplayName(teamName))
-		}
+		cmd.Log.WriteString(fmt.Sprintf("\nTo log in as a different user, run: %s login %s %s\n\n", os.Args[0], config.Host, insecureFlag))
 
 		return nil
 	}
@@ -144,6 +138,30 @@ func (cmd *LoginCmd) RunLogin(args []string) error {
 		return err
 	}
 
+	return nil
+}
+
+func (cmd *LoginCmd) printLoginDetails(loader client.Client, config *client.Config) error {
+	if config.Host == "" {
+		cmd.Log.Info("Not logged in")
+		return nil
+	}
+
+	managementClient, err := loader.Management()
+	if err != nil {
+		return err
+	}
+
+	userName, teamName, err := helper.GetCurrentUser(context.TODO(), managementClient)
+	if err != nil {
+		return err
+	}
+
+	if userName != nil {
+		cmd.Log.Infof("Logged into %s as user: %s", config.Host, clihelper.DisplayName(&userName.EntityInfo))
+	} else {
+		cmd.Log.Infof("Logged into %s as team: %s", config.Host, clihelper.DisplayName(teamName))
+	}
 	return nil
 }
 
