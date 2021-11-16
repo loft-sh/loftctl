@@ -109,27 +109,27 @@ func (cmd *BackupCmd) Run(cobraCmd *cobra.Command, args []string) error {
 		}
 		objects = append(objects, clusterAccountTemplates...)
 	}
-	if contains(cmd.Skip, "globalclusterroletemplates") == false {
-		cmd.Log.Info("Backing up globalclusterroletemplates...")
-		users, err := backupGlobalClusterRoles(kubeConfig)
+	if contains(cmd.Skip, "clusterroletemplates") == false {
+		cmd.Log.Info("Backing up clusterroletemplates...")
+		users, err := backupClusterRoles(kubeConfig)
 		if err != nil {
-			return errors.Wrap(err, "backup globalclusterroletemplates")
+			return errors.Wrap(err, "backup clusterroletemplates")
 		}
 		objects = append(objects, users...)
 	}
-	if contains(cmd.Skip, "globalclusteraccesses") == false {
-		cmd.Log.Info("Backing up globalclusteraccesses...")
-		users, err := backupGlobalClusterAccess(kubeConfig)
+	if contains(cmd.Skip, "clusteraccesses") == false {
+		cmd.Log.Info("Backing up clusteraccesses...")
+		users, err := backupClusterAccess(kubeConfig)
 		if err != nil {
-			return errors.Wrap(err, "backup globalclusteraccesses")
+			return errors.Wrap(err, "backup clusteraccesses")
 		}
 		objects = append(objects, users...)
 	}
-	if contains(cmd.Skip, "globalspaceconstraints") == false {
-		cmd.Log.Info("Backing up globalspaceconstraints...")
-		users, err := backupGlobalSpaceConstraints(kubeConfig)
+	if contains(cmd.Skip, "spaceconstraints") == false {
+		cmd.Log.Info("Backing up spaceconstraints...")
+		users, err := backupSpaceConstraints(kubeConfig)
 		if err != nil {
-			return errors.Wrap(err, "backup globalspaceconstraints")
+			return errors.Wrap(err, "backup spaceconstraints")
 		}
 		objects = append(objects, users...)
 	}
@@ -255,13 +255,13 @@ func backupClusters(kubeClient kubernetes.Interface, rest *rest.Config) ([]runti
 	return retList, nil
 }
 
-func backupGlobalClusterRoles(rest *rest.Config) ([]runtime.Object, error) {
+func backupClusterRoles(rest *rest.Config) ([]runtime.Object, error) {
 	loftClient, err := loftclient.NewForConfig(rest)
 	if err != nil {
 		return nil, err
 	}
 
-	objs, err := loftClient.StorageV1().GlobalClusterRoleTemplates().List(context.TODO(), metav1.ListOptions{})
+	objs, err := loftClient.StorageV1().ClusterRoleTemplates().List(context.TODO(), metav1.ListOptions{})
 	if err != nil {
 		return nil, err
 	}
@@ -269,7 +269,7 @@ func backupGlobalClusterRoles(rest *rest.Config) ([]runtime.Object, error) {
 	retList := []runtime.Object{}
 	for _, o := range objs.Items {
 		u := o
-		u.Status = storagev1.GlobalClusterRoleTemplateStatus{}
+		u.Status = storagev1.ClusterRoleTemplateStatus{}
 		err := resetMetadata(&u)
 		if err != nil {
 			return nil, err
@@ -281,13 +281,13 @@ func backupGlobalClusterRoles(rest *rest.Config) ([]runtime.Object, error) {
 	return retList, nil
 }
 
-func backupGlobalSpaceConstraints(rest *rest.Config) ([]runtime.Object, error) {
+func backupSpaceConstraints(rest *rest.Config) ([]runtime.Object, error) {
 	loftClient, err := loftclient.NewForConfig(rest)
 	if err != nil {
 		return nil, err
 	}
 
-	objs, err := loftClient.StorageV1().GlobalSpaceConstraints().List(context.TODO(), metav1.ListOptions{})
+	objs, err := loftClient.StorageV1().SpaceConstraints().List(context.TODO(), metav1.ListOptions{})
 	if err != nil {
 		return nil, err
 	}
@@ -295,7 +295,7 @@ func backupGlobalSpaceConstraints(rest *rest.Config) ([]runtime.Object, error) {
 	retList := []runtime.Object{}
 	for _, o := range objs.Items {
 		u := o
-		u.Status = storagev1.GlobalSpaceConstraintStatus{}
+		u.Status = storagev1.SpaceConstraintStatus{}
 		err := resetMetadata(&u)
 		if err != nil {
 			return nil, err
@@ -307,13 +307,13 @@ func backupGlobalSpaceConstraints(rest *rest.Config) ([]runtime.Object, error) {
 	return retList, nil
 }
 
-func backupGlobalClusterAccess(rest *rest.Config) ([]runtime.Object, error) {
+func backupClusterAccess(rest *rest.Config) ([]runtime.Object, error) {
 	loftClient, err := loftclient.NewForConfig(rest)
 	if err != nil {
 		return nil, err
 	}
 
-	objs, err := loftClient.StorageV1().GlobalClusterAccesses().List(context.TODO(), metav1.ListOptions{})
+	objs, err := loftClient.StorageV1().ClusterAccesses().List(context.TODO(), metav1.ListOptions{})
 	if err != nil {
 		return nil, err
 	}
@@ -321,7 +321,7 @@ func backupGlobalClusterAccess(rest *rest.Config) ([]runtime.Object, error) {
 	retList := []runtime.Object{}
 	for _, o := range objs.Items {
 		u := o
-		u.Status = storagev1.GlobalClusterAccessStatus{}
+		u.Status = storagev1.ClusterAccessStatus{}
 		err := resetMetadata(&u)
 		if err != nil {
 			return nil, err
