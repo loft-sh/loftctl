@@ -3,6 +3,9 @@ package helper
 import (
 	"context"
 	"fmt"
+	"sort"
+	"strings"
+
 	clusterv1 "github.com/loft-sh/agentapi/pkg/apis/loft/cluster/v1"
 	managementv1 "github.com/loft-sh/api/pkg/apis/management/v1"
 	"github.com/loft-sh/loftctl/pkg/client"
@@ -16,8 +19,6 @@ import (
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
-	"sort"
-	"strings"
 )
 
 // SelectCluster lets the user select a cluster
@@ -99,7 +100,7 @@ func SelectUserOrTeam(baseClient client.Client, clusterName string, log log.Logg
 	}
 
 	answer, err := log.Question(&survey.QuestionOptions{
-		Question:     "Please choose an user or team to use",
+		Question:     "Please choose a user or team to use",
 		DefaultValue: names[0],
 		Options:      names,
 	})
@@ -222,7 +223,7 @@ func SelectClusterUserOrTeam(baseClient client.Client, clusterName, userName, te
 	}
 
 	selectedMember, err := log.Question(&survey.QuestionOptions{
-		Question:     "Please choose an user or team",
+		Question:     "Please choose a user or team",
 		DefaultValue: questionOptions[0],
 		Options:      questionOptions,
 	})
@@ -380,7 +381,7 @@ func SelectSpaceAndClusterName(baseClient client.Client, spaceName, clusterName 
 	}
 
 	selectedSpace, err := log.Question(&survey.QuestionOptions{
-		Question:     "Please choose a space to use",
+		Question:     "Please choose a space",
 		DefaultValue: questionOptions[defaultIndex],
 		Options:      questionOptions,
 	})
