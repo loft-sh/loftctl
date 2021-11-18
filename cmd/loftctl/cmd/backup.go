@@ -103,99 +103,111 @@ func (cmd *BackupCmd) Run(cobraCmd *cobra.Command, args []string) error {
 	objects := []runtime.Object{}
 	if contains(cmd.Skip, "clusteraccounttemplates") == false {
 		cmd.Log.Info("Backing up cluster account templates...")
-		clusterAccountTemplates, err := backupClusterAccountTemplates(kubeConfig)
+		objs, err := backupClusterAccountTemplates(kubeConfig)
 		if err != nil {
-			return errors.Wrap(err, "backup cluster account templates")
+			cmd.Log.Warn(errors.Wrap(err, "backup cluster account templates"))
+		} else {
+			objects = append(objects, objs...)
 		}
-		objects = append(objects, clusterAccountTemplates...)
 	}
 	if contains(cmd.Skip, "clusterroletemplates") == false {
 		cmd.Log.Info("Backing up clusterroletemplates...")
-		users, err := backupClusterRoles(kubeConfig)
+		objs, err := backupClusterRoles(kubeConfig)
 		if err != nil {
-			return errors.Wrap(err, "backup clusterroletemplates")
+			cmd.Log.Warn(errors.Wrap(err, "backup clusterroletemplates"))
+		} else {
+			objects = append(objects, objs...)
 		}
-		objects = append(objects, users...)
 	}
 	if contains(cmd.Skip, "clusteraccesses") == false {
 		cmd.Log.Info("Backing up clusteraccesses...")
 		users, err := backupClusterAccess(kubeConfig)
 		if err != nil {
-			return errors.Wrap(err, "backup clusteraccesses")
+			cmd.Log.Warn(errors.Wrap(err, "backup clusteraccesses"))
+		} else {
+			objects = append(objects, users...)
 		}
-		objects = append(objects, users...)
 	}
 	if contains(cmd.Skip, "spaceconstraints") == false {
 		cmd.Log.Info("Backing up spaceconstraints...")
-		users, err := backupSpaceConstraints(kubeConfig)
+		objs, err := backupSpaceConstraints(kubeConfig)
 		if err != nil {
-			return errors.Wrap(err, "backup spaceconstraints")
+			cmd.Log.Warn(errors.Wrap(err, "backup spaceconstraints"))
+		} else {
+			objects = append(objects, objs...)
 		}
-		objects = append(objects, users...)
 	}
 	if contains(cmd.Skip, "users") == false {
 		cmd.Log.Info("Backing up users...")
-		users, err := backupUsers(kubeClient, kubeConfig)
+		objs, err := backupUsers(kubeClient, kubeConfig)
 		if err != nil {
-			return errors.Wrap(err, "backup users")
+			cmd.Log.Warn(errors.Wrap(err, "backup users"))
+		} else {
+			objects = append(objects, objs...)
 		}
-		objects = append(objects, users...)
 	}
 	if contains(cmd.Skip, "teams") == false {
 		cmd.Log.Info("Backing up teams...")
-		teams, err := backupTeams(kubeConfig)
+		objs, err := backupTeams(kubeConfig)
 		if err != nil {
-			return errors.Wrap(err, "backup teams")
+			cmd.Log.Warn(errors.Wrap(err, "backup teams"))
+		} else {
+			objects = append(objects, objs...)
 		}
-		objects = append(objects, teams...)
 	}
 	if contains(cmd.Skip, "sharedsecrets") == false {
 		cmd.Log.Info("Backing up shared secrets...")
-		sharedSecrets, err := backupSharedSecrets(kubeConfig)
+		objs, err := backupSharedSecrets(kubeConfig)
 		if err != nil {
-			return errors.Wrap(err, "backup shared secrets")
+			cmd.Log.Warn(errors.Wrap(err, "backup shared secrets"))
+		} else {
+			objects = append(objects, objs...)
 		}
-		objects = append(objects, sharedSecrets...)
 	}
 	if contains(cmd.Skip, "accesskeys") == false {
 		cmd.Log.Info("Backing up access keys...")
-		accessKeys, err := backupAccessKeys(kubeConfig)
+		objs, err := backupAccessKeys(kubeConfig)
 		if err != nil {
-			return errors.Wrap(err, "backup access keys")
+			cmd.Log.Warn(errors.Wrap(err, "backup access keys"))
+		} else {
+			objects = append(objects, objs...)
 		}
-		objects = append(objects, accessKeys...)
 	}
 	if contains(cmd.Skip, "apps") == false {
 		cmd.Log.Info("Backing up apps...")
-		apps, err := backupApps(kubeConfig)
+		objs, err := backupApps(kubeConfig)
 		if err != nil {
-			return errors.Wrap(err, "backup apps")
+			cmd.Log.Warn(errors.Wrap(err, "backup apps"))
+		} else {
+			objects = append(objects, objs...)
 		}
-		objects = append(objects, apps...)
 	}
 	if contains(cmd.Skip, "spacetemplates") == false {
 		cmd.Log.Info("Backing up space templates...")
-		spaceTemplates, err := backupSpaceTemplates(kubeConfig)
+		objs, err := backupSpaceTemplates(kubeConfig)
 		if err != nil {
-			return errors.Wrap(err, "backup space templates")
+			cmd.Log.Warn(errors.Wrap(err, "backup space templates"))
+		} else {
+			objects = append(objects, objs...)
 		}
-		objects = append(objects, spaceTemplates...)
 	}
 	if contains(cmd.Skip, "virtualclustertemplates") == false {
 		cmd.Log.Info("Backing up virtual cluster templates...")
-		virtualClusterTemplates, err := backupVirtualClusterTemplate(kubeConfig)
+		objs, err := backupVirtualClusterTemplate(kubeConfig)
 		if err != nil {
-			return errors.Wrap(err, "backup virtual cluster templates")
+			cmd.Log.Warn(errors.Wrap(err, "backup virtual cluster templates"))
+		} else {
+			objects = append(objects, objs...)
 		}
-		objects = append(objects, virtualClusterTemplates...)
 	}
 	if contains(cmd.Skip, "clusters") == false {
 		cmd.Log.Info("Backing up clusters...")
-		clusters, err := backupClusters(kubeClient, kubeConfig)
+		objs, err := backupClusters(kubeClient, kubeConfig)
 		if err != nil {
-			return errors.Wrap(err, "backup clusters")
+			cmd.Log.Warn(errors.Wrap(err, "backup clusters"))
+		} else {
+			objects = append(objects, objs...)
 		}
-		objects = append(objects, clusters...)
 	}
 
 	// create a file
