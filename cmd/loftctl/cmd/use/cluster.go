@@ -161,7 +161,7 @@ func CreateClusterContextOptions(baseClient client.Client, config string, cluste
 		contextOptions = ApplyDirectClusterEndpointOptions(contextOptions, cluster, "/kubernetes/cluster", log)
 		_, err := baseClient.DirectClusterEndpointToken(true)
 		if err != nil {
-			log.Errorf("Retrieving direct cluster endpoint token: %v", err)
+			return kubeconfig.ContextOptions{}, fmt.Errorf("retrieving direct cluster endpoint token: %v. Use --disable-direct-cluster-endpoint to create a context without using direct cluster endpoints", err)
 		}
 	} else {
 		contextOptions.Server = baseClient.Config().Host + "/kubernetes/cluster/" + cluster.Name

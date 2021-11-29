@@ -173,7 +173,7 @@ func CreateVClusterContextOptions(baseClient client.Client, config string, clust
 		contextOptions = ApplyDirectClusterEndpointOptions(contextOptions, cluster, "/kubernetes/virtualcluster/"+spaceName+"/"+virtualClusterName, log)
 		_, err := baseClient.DirectClusterEndpointToken(true)
 		if err != nil {
-			log.Errorf("Retrieving direct cluster endpoint token: %v", err)
+			return kubeconfig.ContextOptions{}, fmt.Errorf("retrieving direct cluster endpoint token: %v. Use --disable-direct-cluster-endpoint to create a context without using direct cluster endpoints", err)
 		}
 	} else {
 		contextOptions.Server = baseClient.Config().Host + "/kubernetes/virtualcluster/" + cluster.Name + "/" + spaceName + "/" + virtualClusterName
