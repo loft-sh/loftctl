@@ -12,9 +12,9 @@ require (
 	github.com/evanphx/json-patch v4.11.0+incompatible
 	github.com/ghodss/yaml v1.0.0
 	github.com/k0kubun/go-ansi v0.0.0-20180517002512-3bf9e2903213
-	github.com/loft-sh/agentapi/v2 v2.0.3-beta.2
-	github.com/loft-sh/api/v2 v2.0.3-beta.2
-	github.com/loft-sh/apimachinery/v2 v2.0.3-beta.2
+	github.com/loft-sh/agentapi/v2 v2.0.3-beta.0
+	github.com/loft-sh/api/v2 v2.0.3-beta.0
+	github.com/loft-sh/apimachinery/v2 v2.0.3-beta.0
 	github.com/loft-sh/apiserver v0.0.0-20210607160412-10c99558fdeb
 	github.com/mgutz/ansi v0.0.0-20200706080929-d51e80ef957d
 	github.com/mitchellh/go-homedir v1.1.0
