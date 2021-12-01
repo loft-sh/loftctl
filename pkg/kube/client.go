@@ -1,8 +1,8 @@
 package kube
 
 import (
-	agentloftclient "github.com/loft-sh/agentapi/pkg/client/loft/clientset_generated/clientset"
-	loftclient "github.com/loft-sh/api/pkg/client/clientset_generated/clientset"
+	agentloftclient "github.com/loft-sh/agentapi/v2/pkg/client/loft/clientset_generated/clientset"
+	loftclient "github.com/loft-sh/api/v2/pkg/client/clientset_generated/clientset"
 
 	"github.com/pkg/errors"
 

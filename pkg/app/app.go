@@ -1,8 +1,8 @@
 package app
 
 import (
-	managementv1 "github.com/loft-sh/api/pkg/apis/management/v1"
-	storagev1 "github.com/loft-sh/api/pkg/apis/storage/v1"
+	managementv1 "github.com/loft-sh/api/v2/pkg/apis/management/v1"
+	storagev1 "github.com/loft-sh/api/v2/pkg/apis/storage/v1"
 	"strconv"
 )
 

@@ -16,11 +16,11 @@ const dockerFileFolder = ".docker"
 // Config is the interface to interact with the docker config
 type Config interface {
 	// Store saves credentials for the given registry into the local config file
-	Store(registry string, authConfig types.AuthConfig) error 
-	
+	Store(registry string, authConfig types.AuthConfig) error
+
 	// Save persists the locally changed config file to file
 	Save() error
-} 
+}
 
 // NewDockerConfig creates a new docker client
 func NewDockerConfig() (Config, error) {
@@ -28,7 +28,7 @@ func NewDockerConfig() (Config, error) {
 	if err != nil {
 		return nil, err
 	}
-	
+
 	return &config{
 		DockerConfig: configFile,
 	}, nil
@@ -47,9 +47,9 @@ func (c *config) Store(registry string, authConfig types.AuthConfig) error {
 	if err != nil {
 		return errors.Wrapf(err, "store credentials for registry %s", registry)
 	}
-	
+
 	return nil
-} 
+}
 
 func (c *config) Save() error {
 	return c.DockerConfig.Save()

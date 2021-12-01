@@ -2,13 +2,13 @@ package set
 
 import (
 	"context"
-	managementv1 "github.com/loft-sh/api/pkg/apis/management/v1"
-	storagev1 "github.com/loft-sh/api/pkg/apis/storage/v1"
-	"github.com/loft-sh/loftctl/cmd/loftctl/flags"
-	"github.com/loft-sh/loftctl/pkg/client"
-	"github.com/loft-sh/loftctl/pkg/log"
-	"github.com/loft-sh/loftctl/pkg/survey"
-	"github.com/loft-sh/loftctl/pkg/upgrade"
+	managementv1 "github.com/loft-sh/api/v2/pkg/apis/management/v1"
+	storagev1 "github.com/loft-sh/api/v2/pkg/apis/storage/v1"
+	"github.com/loft-sh/loftctl/v2/cmd/loftctl/flags"
+	"github.com/loft-sh/loftctl/v2/pkg/client"
+	"github.com/loft-sh/loftctl/v2/pkg/log"
+	"github.com/loft-sh/loftctl/v2/pkg/survey"
+	"github.com/loft-sh/loftctl/v2/pkg/upgrade"
 	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
@@ -20,7 +20,7 @@ import (
 type SharedSecretCmd struct {
 	*flags.GlobalFlags
 	Namespace string
-	
+
 	log log.Logger
 }
 
@@ -61,7 +61,7 @@ devspace set secret test-secret.key value
 			return cmd.Run(cobraCmd, args)
 		},
 	}
-	
+
 	c.Flags().StringVarP(&cmd.Namespace, "namespace", "n", "", "The namespace in the loft cluster to create the secret in. If omitted will use the namespace were loft is installed in")
 	return c
 }
@@ -89,7 +89,7 @@ func (cmd *SharedSecretCmd) Run(cobraCmd *cobra.Command, args []string) error {
 		secretName = secretArg[:idx]
 		keyName = secretArg[idx+1:]
 	}
-	
+
 	// get target namespace
 	namespace, err := GetSharedSecretNamespace(cmd.Namespace)
 	if err != nil {
@@ -101,7 +101,7 @@ func (cmd *SharedSecretCmd) Run(cobraCmd *cobra.Command, args []string) error {
 		if kerrors.IsNotFound(err) == false {
 			return errors.Wrap(err, "get secret")
 		}
-		
+
 		secret = nil
 	}
 
@@ -168,6 +168,6 @@ func GetSharedSecretNamespace(namespace string) (string, error) {
 	if namespace == "" {
 		namespace = "loft"
 	}
-	
+
 	return namespace, nil
 }

@@ -3,11 +3,11 @@ package share
 import (
 	"context"
 	"fmt"
-	"github.com/loft-sh/loftctl/cmd/loftctl/flags"
-	"github.com/loft-sh/loftctl/pkg/client"
-	"github.com/loft-sh/loftctl/pkg/client/helper"
-	"github.com/loft-sh/loftctl/pkg/log"
-	"github.com/loft-sh/loftctl/pkg/upgrade"
+	"github.com/loft-sh/loftctl/v2/cmd/loftctl/flags"
+	"github.com/loft-sh/loftctl/v2/pkg/client"
+	"github.com/loft-sh/loftctl/v2/pkg/client/helper"
+	"github.com/loft-sh/loftctl/v2/pkg/log"
+	"github.com/loft-sh/loftctl/v2/pkg/upgrade"
 	"github.com/mgutz/ansi"
 	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
@@ -133,11 +133,11 @@ func createRoleBinding(baseClient client.Client, clusterName, spaceName, userNam
 
 	subjectString := ""
 	if userOrTeam.Team {
-		subjectString = "loft:team:"+userOrTeam.ClusterMember.Info.Name
+		subjectString = "loft:team:" + userOrTeam.ClusterMember.Info.Name
 	} else {
-		subjectString = "loft:user:"+userOrTeam.ClusterMember.Info.Name
+		subjectString = "loft:user:" + userOrTeam.ClusterMember.Info.Name
 	}
-	
+
 	// check if there is already a role binding
 	for _, roleBinding := range roleBindings.Items {
 		if roleBinding.RoleRef.Kind == "ClusterRole" && roleBinding.RoleRef.Name == clusterRole {
@@ -162,7 +162,7 @@ func createRoleBinding(baseClient client.Client, clusterName, spaceName, userNam
 	// create the rolebinding
 	_, err = clusterClient.RbacV1().RoleBindings(spaceName).Create(context.TODO(), &rbacv1.RoleBinding{
 		ObjectMeta: metav1.ObjectMeta{
-			GenerateName:    roleBindingName + "-",
+			GenerateName: roleBindingName + "-",
 		},
 		RoleRef: rbacv1.RoleRef{
 			APIGroup: rbacv1.SchemeGroupVersion.Group,
@@ -171,9 +171,9 @@ func createRoleBinding(baseClient client.Client, clusterName, spaceName, userNam
 		},
 		Subjects: []rbacv1.Subject{
 			{
-				Kind: "Group",
+				Kind:     "Group",
 				APIGroup: rbacv1.GroupName,
-				Name: subjectString,
+				Name:     subjectString,
 			},
 		},
 	}, metav1.CreateOptions{})

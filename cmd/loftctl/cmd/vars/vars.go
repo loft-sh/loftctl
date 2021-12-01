@@ -1,7 +1,7 @@
 package vars
 
 import (
-	"github.com/loft-sh/loftctl/cmd/loftctl/flags"
+	"github.com/loft-sh/loftctl/v2/cmd/loftctl/flags"
 	"github.com/spf13/cobra"
 )
 

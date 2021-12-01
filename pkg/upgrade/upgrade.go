@@ -10,7 +10,7 @@ import (
 	"k8s.io/klog"
 
 	"github.com/blang/semver"
-	"github.com/loft-sh/loftctl/pkg/log"
+	"github.com/loft-sh/loftctl/v2/pkg/log"
 	"github.com/rhysd/go-github-selfupdate/selfupdate"
 )
 

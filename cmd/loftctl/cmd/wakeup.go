@@ -3,16 +3,16 @@ package cmd
 import (
 	"context"
 	"fmt"
-	managementv1 "github.com/loft-sh/api/pkg/apis/management/v1"
+	managementv1 "github.com/loft-sh/api/v2/pkg/apis/management/v1"
 	"github.com/pkg/errors"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"time"
 
-	"github.com/loft-sh/loftctl/cmd/loftctl/flags"
-	"github.com/loft-sh/loftctl/pkg/client"
-	"github.com/loft-sh/loftctl/pkg/client/helper"
-	"github.com/loft-sh/loftctl/pkg/log"
-	"github.com/loft-sh/loftctl/pkg/upgrade"
+	"github.com/loft-sh/loftctl/v2/cmd/loftctl/flags"
+	"github.com/loft-sh/loftctl/v2/pkg/client"
+	"github.com/loft-sh/loftctl/v2/pkg/client/helper"
+	"github.com/loft-sh/loftctl/v2/pkg/log"
+	"github.com/loft-sh/loftctl/v2/pkg/upgrade"
 	"github.com/spf13/cobra"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )

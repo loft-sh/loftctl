@@ -2,12 +2,12 @@ package list
 
 import (
 	"context"
-	"github.com/loft-sh/loftctl/cmd/loftctl/flags"
-	"github.com/loft-sh/loftctl/pkg/client"
-	"github.com/loft-sh/loftctl/pkg/client/helper"
-	"github.com/loft-sh/loftctl/pkg/clihelper"
-	"github.com/loft-sh/loftctl/pkg/log"
-	"github.com/loft-sh/loftctl/pkg/upgrade"
+	"github.com/loft-sh/loftctl/v2/cmd/loftctl/flags"
+	"github.com/loft-sh/loftctl/v2/pkg/client"
+	"github.com/loft-sh/loftctl/v2/pkg/client/helper"
+	"github.com/loft-sh/loftctl/v2/pkg/clihelper"
+	"github.com/loft-sh/loftctl/v2/pkg/log"
+	"github.com/loft-sh/loftctl/v2/pkg/upgrade"
 	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
 )

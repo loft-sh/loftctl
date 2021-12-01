@@ -2,8 +2,8 @@ package vcluster
 
 import (
 	"context"
-	"github.com/loft-sh/loftctl/pkg/client"
-	"github.com/loft-sh/loftctl/pkg/log"
+	"github.com/loft-sh/loftctl/v2/pkg/client"
+	"github.com/loft-sh/loftctl/v2/pkg/log"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"sync"

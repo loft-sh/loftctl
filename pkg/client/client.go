@@ -15,16 +15,16 @@ import (
 	"sync"
 	"time"
 
-	"github.com/loft-sh/api/pkg/auth"
+	"github.com/loft-sh/api/v2/pkg/auth"
 
-	managementv1 "github.com/loft-sh/api/pkg/apis/management/v1"
-	storagev1 "github.com/loft-sh/api/pkg/apis/storage/v1"
+	managementv1 "github.com/loft-sh/api/v2/pkg/apis/management/v1"
+	storagev1 "github.com/loft-sh/api/v2/pkg/apis/storage/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	"github.com/loft-sh/loftctl/pkg/constants"
-	"github.com/loft-sh/loftctl/pkg/kube"
-	"github.com/loft-sh/loftctl/pkg/log"
-	"github.com/loft-sh/loftctl/pkg/upgrade"
+	"github.com/loft-sh/loftctl/v2/pkg/constants"
+	"github.com/loft-sh/loftctl/v2/pkg/kube"
+	"github.com/loft-sh/loftctl/v2/pkg/log"
+	"github.com/loft-sh/loftctl/v2/pkg/upgrade"
 	"github.com/mitchellh/go-homedir"
 	"github.com/pkg/errors"
 	"github.com/skratchdot/open-golang/open"

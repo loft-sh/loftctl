@@ -7,7 +7,7 @@ import (
 	"sync"
 
 	goansi "github.com/k0kubun/go-ansi"
-	"github.com/loft-sh/loftctl/pkg/survey"
+	"github.com/loft-sh/loftctl/v2/pkg/survey"
 	"github.com/mgutz/ansi"
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"

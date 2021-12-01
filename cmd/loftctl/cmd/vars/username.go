@@ -3,9 +3,9 @@ package vars
 import (
 	"context"
 	"fmt"
-	"github.com/loft-sh/loftctl/cmd/loftctl/flags"
-	"github.com/loft-sh/loftctl/pkg/client"
-	"github.com/loft-sh/loftctl/pkg/client/helper"
+	"github.com/loft-sh/loftctl/v2/cmd/loftctl/flags"
+	"github.com/loft-sh/loftctl/v2/pkg/client"
+	"github.com/loft-sh/loftctl/v2/pkg/client/helper"
 	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
 	"os"
