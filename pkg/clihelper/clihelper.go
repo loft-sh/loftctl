@@ -23,8 +23,8 @@ import (
 
 	jsonpatch "github.com/evanphx/json-patch"
 	loftclientset "github.com/loft-sh/api/v2/pkg/client/clientset_generated/clientset"
-	"github.com/loft-sh/apimachinery/v2/pkg/portforward"
 	"github.com/loft-sh/loftctl/v2/pkg/log"
+	"github.com/loft-sh/loftctl/v2/pkg/portforward"
 	"github.com/loft-sh/loftctl/v2/pkg/survey"
 	"github.com/pkg/errors"
 	corev1 "k8s.io/api/core/v1"

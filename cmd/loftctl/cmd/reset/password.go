@@ -7,10 +7,10 @@ import (
 	"strings"
 
 	storagev1 "github.com/loft-sh/api/v2/pkg/apis/storage/v1"
-	"github.com/loft-sh/apimachinery/v2/pkg/random"
 	"github.com/loft-sh/loftctl/v2/cmd/loftctl/flags"
 	"github.com/loft-sh/loftctl/v2/pkg/kube"
 	"github.com/loft-sh/loftctl/v2/pkg/log"
+	"github.com/loft-sh/loftctl/v2/pkg/random"
 	"github.com/loft-sh/loftctl/v2/pkg/survey"
 	"github.com/loft-sh/loftctl/v2/pkg/upgrade"
 	"github.com/pkg/errors"

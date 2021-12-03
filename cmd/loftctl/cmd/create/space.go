@@ -5,7 +5,6 @@ import (
 	"fmt"
 	clusterv1 "github.com/loft-sh/agentapi/v2/pkg/apis/loft/cluster/v1"
 	storagev1 "github.com/loft-sh/api/v2/pkg/apis/storage/v1"
-	"github.com/loft-sh/apimachinery/v2/pkg/sleepmode"
 	"github.com/loft-sh/loftctl/v2/cmd/loftctl/cmd/use"
 	"github.com/loft-sh/loftctl/v2/pkg/app"
 	"github.com/loft-sh/loftctl/v2/pkg/clihelper"
@@ -198,13 +197,13 @@ func (cmd *SpaceCmd) Run(args []string) error {
 		space.Annotations["loft.sh/space-template"] = spaceTemplate.Name
 	}
 	if cmd.SleepAfter > 0 {
-		space.Annotations[sleepmode.SleepModeSleepAfterAnnotation] = strconv.FormatInt(cmd.SleepAfter, 10)
+		space.Annotations[clusterv1.SleepModeSleepAfterAnnotation] = strconv.FormatInt(cmd.SleepAfter, 10)
 	}
 	if cmd.DeleteAfter > 0 {
-		space.Annotations[sleepmode.SleepModeDeleteAfterAnnotation] = strconv.FormatInt(cmd.DeleteAfter, 10)
+		space.Annotations[clusterv1.SleepModeDeleteAfterAnnotation] = strconv.FormatInt(cmd.DeleteAfter, 10)
 	}
 	zone, offset := time.Now().Zone()
-	space.Annotations[sleepmode.SleepModeTimezoneAnnotation] = zone + "#" + strconv.Itoa(offset)
+	space.Annotations[clusterv1.SleepModeTimezoneAnnotation] = zone + "#" + strconv.Itoa(offset)
 
 	if spaceTemplate != nil && len(spaceTemplate.Spec.Template.Apps) > 0 {
 		createTask := &v1.Task{

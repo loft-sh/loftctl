@@ -3,11 +3,10 @@ package create
 import (
 	"context"
 	"fmt"
+	clusterv1 "github.com/loft-sh/agentapi/v2/pkg/apis/loft/cluster/v1"
 	agentstoragev1 "github.com/loft-sh/agentapi/v2/pkg/apis/loft/storage/v1"
 	v1 "github.com/loft-sh/api/v2/pkg/apis/management/v1"
 	storagev1 "github.com/loft-sh/api/v2/pkg/apis/storage/v1"
-	"github.com/loft-sh/apimachinery/v2/pkg/random"
-	"github.com/loft-sh/apimachinery/v2/pkg/sleepmode"
 	"github.com/loft-sh/loftctl/v2/cmd/loftctl/cmd/use"
 	"github.com/loft-sh/loftctl/v2/cmd/loftctl/flags"
 	"github.com/loft-sh/loftctl/v2/pkg/client"
@@ -17,6 +16,7 @@ import (
 	"github.com/loft-sh/loftctl/v2/pkg/kubeconfig"
 	"github.com/loft-sh/loftctl/v2/pkg/log"
 	"github.com/loft-sh/loftctl/v2/pkg/parameters"
+	"github.com/loft-sh/loftctl/v2/pkg/random"
 	"github.com/loft-sh/loftctl/v2/pkg/task"
 	"github.com/loft-sh/loftctl/v2/pkg/upgrade"
 	"github.com/mgutz/ansi"
@@ -396,13 +396,13 @@ func (cmd *VirtualClusterCmd) createSpace(ctx context.Context, baseClient client
 			task.Spec.Task.VirtualClusterCreationTask.SpaceCreationTask.Metadata.Annotations["loft.sh/space-template"] = spaceTemplate.Name
 		}
 		if cmd.SleepAfter > 0 {
-			task.Spec.Task.VirtualClusterCreationTask.SpaceCreationTask.Metadata.Annotations[sleepmode.SleepModeSleepAfterAnnotation] = strconv.FormatInt(cmd.SleepAfter, 10)
+			task.Spec.Task.VirtualClusterCreationTask.SpaceCreationTask.Metadata.Annotations[clusterv1.SleepModeSleepAfterAnnotation] = strconv.FormatInt(cmd.SleepAfter, 10)
 		}
 		if cmd.DeleteAfter > 0 {
-			task.Spec.Task.VirtualClusterCreationTask.SpaceCreationTask.Metadata.Annotations[sleepmode.SleepModeDeleteAfterAnnotation] = strconv.FormatInt(cmd.DeleteAfter, 10)
+			task.Spec.Task.VirtualClusterCreationTask.SpaceCreationTask.Metadata.Annotations[clusterv1.SleepModeDeleteAfterAnnotation] = strconv.FormatInt(cmd.DeleteAfter, 10)
 		}
 		zone, offset := time.Now().Zone()
-		task.Spec.Task.VirtualClusterCreationTask.SpaceCreationTask.Metadata.Annotations[sleepmode.SleepModeTimezoneAnnotation] = zone + "#" + strconv.Itoa(offset)
+		task.Spec.Task.VirtualClusterCreationTask.SpaceCreationTask.Metadata.Annotations[clusterv1.SleepModeTimezoneAnnotation] = zone + "#" + strconv.Itoa(offset)
 
 		// resolve the space apps
 		if spaceTemplate != nil && len(spaceTemplate.Spec.Template.Apps) > 0 {
