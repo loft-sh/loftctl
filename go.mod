@@ -43,8 +43,8 @@ replace (
 	github.com/go-openapi/swag => github.com/go-openapi/swag v0.19.5
 	github.com/googleapis/gnostic => github.com/googleapis/gnostic v0.4.1
 	github.com/kubernetes-incubator/reference-docs => github.com/kubernetes-sigs/reference-docs v0.0.0-20170929004150-fcf65347b256
-	github.com/loft-sh/agentapi/v2 v2.0.3-beta.5
-	github.com/loft-sh/api/v2 v2.0.3-beta.5
+	
+	
 	github.com/markbates/inflect => github.com/markbates/inflect v1.0.4
 	k8s.io/kube-openapi => k8s.io/kube-openapi v0.0.0-20210305001622-591a79e4bda7
 )
