@@ -7,7 +7,7 @@ import (
 	"sync"
 
 	"github.com/pkg/errors"
-	"k8s.io/klog"
+	klog "k8s.io/klog/v2"
 
 	"github.com/blang/semver"
 	"github.com/loft-sh/loftctl/v2/pkg/log"
