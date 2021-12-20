@@ -1,7 +1,7 @@
 package log
 
 import (
-	"github.com/loft-sh/loftctl/v2/pkg/survey"
+	"github.com/loft-sh/loftctl/pkg/survey"
 	"github.com/sirupsen/logrus"
 )
 

@@ -1,8 +1,9 @@
 package kube
 
 import (
-	agentloftclient "github.com/loft-sh/agentapi/v2/pkg/client/loft/clientset_generated/clientset"
-	loftclient "github.com/loft-sh/api/v2/pkg/client/clientset_generated/clientset"
+	kioskclient "github.com/loft-sh/agentapi/pkg/client/kiosk/clientset_generated/clientset"
+	agentloftclient "github.com/loft-sh/agentapi/pkg/client/loft/clientset_generated/clientset"
+	loftclient "github.com/loft-sh/api/pkg/client/clientset_generated/clientset"
 
 	"github.com/pkg/errors"
 
@@ -13,6 +14,7 @@ import (
 type Interface interface {
 	kubernetes.Interface
 	Loft() loftclient.Interface
+	Kiosk() kioskclient.Interface
 	Agent() agentloftclient.Interface
 }
 
@@ -27,6 +29,11 @@ func NewForConfig(c *rest.Config) (Interface, error) {
 		return nil, errors.Wrap(err, "create loft client")
 	}
 
+	kioskClient, err := kioskclient.NewForConfig(c)
+	if err != nil {
+		return nil, errors.Wrap(err, "create kiosk client")
+	}
+
 	agentLoftClient, err := agentloftclient.NewForConfig(c)
 	if err != nil {
 		return nil, errors.Wrap(err, "create kiosk client")
@@ -35,6 +42,7 @@ func NewForConfig(c *rest.Config) (Interface, error) {
 	return &client{
 		Interface:       kubeClient,
 		loftClient:      loftClient,
+		kioskClient:     kioskClient,
 		agentLoftClient: agentLoftClient,
 	}, nil
 }
@@ -42,11 +50,16 @@ func NewForConfig(c *rest.Config) (Interface, error) {
 type client struct {
 	kubernetes.Interface
 	loftClient      loftclient.Interface
+	kioskClient     kioskclient.Interface
 	agentLoftClient agentloftclient.Interface
 }
 
 func (c *client) Loft() loftclient.Interface {
 	return c.loftClient
+}
+
+func (c *client) Kiosk() kioskclient.Interface {
+	return c.kioskClient
 }
 
 func (c *client) Agent() agentloftclient.Interface {

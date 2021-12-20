@@ -3,32 +3,29 @@ package cmd
 import (
 	"bytes"
 	"context"
-	"fmt"
-	"os"
-	"strings"
-
 	dockerconfig "github.com/docker/cli/cli/config"
 	"github.com/docker/cli/cli/config/configfile"
-	managementv1 "github.com/loft-sh/api/v2/pkg/apis/management/v1"
-	storagev1 "github.com/loft-sh/api/v2/pkg/apis/storage/v1"
-	"github.com/loft-sh/loftctl/v2/cmd/loftctl/flags"
-	"github.com/loft-sh/loftctl/v2/pkg/client"
-	"github.com/loft-sh/loftctl/v2/pkg/client/helper"
-	"github.com/loft-sh/loftctl/v2/pkg/clihelper"
-	"github.com/loft-sh/loftctl/v2/pkg/docker"
-	"github.com/loft-sh/loftctl/v2/pkg/kube"
-	"github.com/loft-sh/loftctl/v2/pkg/log"
-	"github.com/loft-sh/loftctl/v2/pkg/upgrade"
+	managementv1 "github.com/loft-sh/api/pkg/apis/management/v1"
+	storagev1 "github.com/loft-sh/api/pkg/apis/storage/v1"
+	"github.com/loft-sh/loftctl/cmd/loftctl/flags"
+	"github.com/loft-sh/loftctl/pkg/client"
+	"github.com/loft-sh/loftctl/pkg/client/helper"
+	"github.com/loft-sh/loftctl/pkg/docker"
+	"github.com/loft-sh/loftctl/pkg/kube"
+	"github.com/loft-sh/loftctl/pkg/log"
+	"github.com/loft-sh/loftctl/pkg/upgrade"
 	"github.com/mgutz/ansi"
 	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"strings"
 )
 
 // LoginCmd holds the login cmd flags
 type LoginCmd struct {
 	*flags.GlobalFlags
 
+	Username  string
 	AccessKey string
 	Insecure  bool
 
@@ -76,18 +73,23 @@ devspace login https://my-loft.com --access-key myaccesskey
 			// Check for newer version
 			upgrade.PrintNewerVersionWarning()
 
-			return cmd.RunLogin(args)
+			return cmd.RunLogin(cobraCmd, args)
 		},
 	}
 
+	loginCmd.Flags().StringVar(&cmd.Username, "username", "", "DEPRECATED DO NOT USE ANYMORE")
 	loginCmd.Flags().StringVar(&cmd.AccessKey, "access-key", "", "The access key to use")
-	loginCmd.Flags().BoolVar(&cmd.Insecure, "insecure", false, "Allow login into an insecure Loft instance")
+	loginCmd.Flags().BoolVar(&cmd.Insecure, "insecure", false, "Allow login into an insecure loft instance")
 	loginCmd.Flags().BoolVar(&cmd.DockerLogin, "docker-login", true, "If true, will log into the docker image registries the user has image pull secrets for")
 	return loginCmd
 }
 
 // RunLogin executes the functionality "loft login"
-func (cmd *LoginCmd) RunLogin(args []string) error {
+func (cmd *LoginCmd) RunLogin(cobraCmd *cobra.Command, args []string) error {
+	if cmd.Username != "" {
+		cmd.Log.Warnf("--username is deprecated, please do not use anymore and only use --access-key")
+	}
+
 	loader, err := client.NewClientFromPath(cmd.Config)
 	if err != nil {
 		return err
@@ -96,17 +98,26 @@ func (cmd *LoginCmd) RunLogin(args []string) error {
 	// Print login information
 	if len(args) == 0 {
 		config := loader.Config()
-		insecureFlag := ""
-		if config.Insecure {
-			insecureFlag = "--insecure"
+		if config.Host == "" {
+			cmd.Log.Info("Not logged in")
+			return nil
 		}
 
-		err := cmd.printLoginDetails(loader, config)
+		managementClient, err := loader.Management()
 		if err != nil {
-			cmd.Log.Fatalf("%s\n\nYou may need to log in again via: %s login %s %s\n", err.Error(), os.Args[0], config.Host, insecureFlag)
+			return err
 		}
 
-		cmd.Log.WriteString(fmt.Sprintf("\nTo log in as a different user, run: %s login %s %s\n\n", os.Args[0], config.Host, insecureFlag))
+		userName, teamName, err := helper.GetCurrentUser(context.TODO(), managementClient)
+		if err != nil {
+			return err
+		}
+
+		if userName != "" {
+			cmd.Log.Infof("Logged into %s as user %s", config.Host, userName)
+		} else {
+			cmd.Log.Infof("Logged into %s as team %s", config.Host, teamName)
+		}
 
 		return nil
 	}
@@ -126,7 +137,7 @@ func (cmd *LoginCmd) RunLogin(args []string) error {
 	if err != nil {
 		return err
 	}
-	cmd.Log.Donef("Successfully logged into Loft instance %s", ansi.Color(url, "white+b"))
+	cmd.Log.Donef("Successfully logged into loft at %s", ansi.Color(url, "white+b"))
 
 	// skip log into docker registries?
 	if cmd.DockerLogin == false {
@@ -138,30 +149,6 @@ func (cmd *LoginCmd) RunLogin(args []string) error {
 		return err
 	}
 
-	return nil
-}
-
-func (cmd *LoginCmd) printLoginDetails(loader client.Client, config *client.Config) error {
-	if config.Host == "" {
-		cmd.Log.Info("Not logged in")
-		return nil
-	}
-
-	managementClient, err := loader.Management()
-	if err != nil {
-		return err
-	}
-
-	userName, teamName, err := helper.GetCurrentUser(context.TODO(), managementClient)
-	if err != nil {
-		return err
-	}
-
-	if userName != nil {
-		cmd.Log.Infof("Logged into %s as user: %s", config.Host, clihelper.DisplayName(&userName.EntityInfo))
-	} else {
-		cmd.Log.Infof("Logged into %s as team: %s", config.Host, clihelper.DisplayName(teamName))
-	}
 	return nil
 }
 
@@ -179,29 +166,25 @@ func dockerLogin(loader client.Client, log log.Logger) error {
 
 	// collect image pull secrets from team or user
 	dockerConfigs := []*configfile.ConfigFile{}
-	if userName != nil {
+	if userName != "" {
+		// get image pull secrets from teams
+		teams, err := managementClient.Loft().ManagementV1().Users().ListTeams(context.TODO(), userName, metav1.GetOptions{})
+		if err != nil {
+			return err
+		}
+		for _, team := range teams.Teams {
+			dockerConfigs = append(dockerConfigs, collectImagePullSecrets(context.TODO(), managementClient, team.Spec.ImagePullSecrets, log)...)
+		}
+
 		// get image pull secrets from user
-		user, err := managementClient.Loft().ManagementV1().Users().Get(context.TODO(), userName.Name, metav1.GetOptions{})
+		user, err := managementClient.Loft().ManagementV1().Users().Get(context.TODO(), userName, metav1.GetOptions{})
 		if err != nil {
 			return err
 		}
 		dockerConfigs = append(dockerConfigs, collectImagePullSecrets(context.TODO(), managementClient, user.Spec.ImagePullSecrets, log)...)
-
-		// get image pull secrets from teams
-		if err != nil {
-			return err
-		}
-		for _, teamName := range user.Status.Teams {
-			team, err := managementClient.Loft().ManagementV1().Teams().Get(context.TODO(), teamName, metav1.GetOptions{})
-			if err != nil {
-				return err
-			}
-
-			dockerConfigs = append(dockerConfigs, collectImagePullSecrets(context.TODO(), managementClient, team.Spec.ImagePullSecrets, log)...)
-		}
-	} else if teamName != nil {
+	} else {
 		// get image pull secrets from team
-		team, err := managementClient.Loft().ManagementV1().Teams().Get(context.TODO(), teamName.Name, metav1.GetOptions{})
+		team, err := managementClient.Loft().ManagementV1().Teams().Get(context.TODO(), teamName, metav1.GetOptions{})
 		if err != nil {
 			return err
 		}

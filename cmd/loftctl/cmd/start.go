@@ -1,29 +1,24 @@
 package cmd
 
 import (
-	"bytes"
 	"context"
 	"crypto/tls"
 	"fmt"
-	"net/http"
-	"os"
-	"os/exec"
-	"path/filepath"
-	"regexp"
-	"time"
-
-	"github.com/loft-sh/loftctl/v2/pkg/clihelper"
-	"github.com/loft-sh/loftctl/v2/pkg/printhelper"
-	"github.com/loft-sh/loftctl/v2/pkg/upgrade"
-	"github.com/mgutz/ansi"
+	"github.com/loft-sh/loftctl/pkg/clihelper"
+	"github.com/loft-sh/loftctl/pkg/printhelper"
+	"github.com/loft-sh/loftctl/pkg/upgrade"
 	"github.com/pkg/errors"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/client-go/rest"
+	"net/http"
+	"os/exec"
+	"regexp"
+	"time"
 
-	"github.com/loft-sh/loftctl/v2/cmd/loftctl/flags"
-	"github.com/loft-sh/loftctl/v2/pkg/client"
-	"github.com/loft-sh/loftctl/v2/pkg/log"
-	"github.com/loft-sh/loftctl/v2/pkg/survey"
+	"github.com/loft-sh/loftctl/cmd/loftctl/flags"
+	"github.com/loft-sh/loftctl/pkg/client"
+	"github.com/loft-sh/loftctl/pkg/log"
+	"github.com/loft-sh/loftctl/pkg/survey"
 	"github.com/spf13/cobra"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -38,7 +33,6 @@ type StartCmd struct {
 	*flags.GlobalFlags
 
 	LocalPort   string
-	Host        string
 	Reset       bool
 	Version     string
 	Context     string
@@ -85,14 +79,13 @@ before running this command:
 			// Check for newer version
 			upgrade.PrintNewerVersionWarning()
 
-			return cmd.Run()
+			return cmd.Run(cobraCmd, args)
 		},
 	}
 
 	startCmd.Flags().StringVar(&cmd.Context, "context", "", "The kube context to use for installation")
 	startCmd.Flags().StringVar(&cmd.Namespace, "namespace", "loft", "The namespace to install loft into")
 	startCmd.Flags().StringVar(&cmd.LocalPort, "local-port", "9898", "The local port to bind to if using port-forwarding")
-	startCmd.Flags().StringVar(&cmd.Host, "host", "", "Provide a hostname to enable ingress and configure its hostname")
 	startCmd.Flags().StringVar(&cmd.Password, "password", "", "The password to use for the admin account. (If empty this will be the namespace UID)")
 	startCmd.Flags().StringVar(&cmd.Version, "version", "", "The loft version to install")
 	startCmd.Flags().StringVar(&cmd.Values, "values", "", "Path to a file for extra loft helm chart values")
@@ -103,48 +96,97 @@ before running this command:
 }
 
 // Run executes the functionality "loft start"
-func (cmd *StartCmd) Run() error {
+func (cmd *StartCmd) Run(cobraCmd *cobra.Command, args []string) error {
 	err := cmd.prepare()
 	if err != nil {
 		return err
-	}
-	cmd.Log.WriteString("\n")
-
-	// Uninstall already existing Loft instance
-	if cmd.Reset {
-		err = clihelper.UninstallLoft(cmd.KubeClient, cmd.RestConfig, cmd.Context, cmd.Namespace, cmd.Log)
-		if err != nil {
-			return err
-		}
 	}
 
 	// Is already installed?
 	isInstalled, err := clihelper.IsLoftAlreadyInstalled(cmd.KubeClient, cmd.Namespace)
 	if err != nil {
 		return err
+	} else if isInstalled {
+		if cmd.Reset == false {
+			return cmd.handleAlreadyExistingInstallation()
+		}
+
+		cmd.Log.Info("Found an existing loft installation")
+		err = clihelper.UninstallLoft(cmd.KubeClient, cmd.RestConfig, cmd.Context, cmd.Namespace, cmd.Log)
+		if err != nil {
+			return err
+		}
 	}
 
-	// Use default password if none is set
-	if cmd.Password == "" {
-		defaultPassword, err := clihelper.GetLoftDefaultPassword(cmd.KubeClient, cmd.Namespace)
+	cmd.Log.WriteString("\n")
+	cmd.Log.Info("Welcome to the loft installation.")
+	cmd.Log.Info("This installer will guide you through the installation.")
+	cmd.Log.Info("If you prefer installing loft via helm yourself, visit https://loft.sh/docs/getting-started/setup")
+	cmd.Log.Info("Thanks for trying out loft!")
+
+	installLocally := clihelper.IsLocalCluster(cmd.RestConfig.Host, cmd.Log)
+	remoteHost := ""
+
+	if installLocally == false {
+		const (
+			YesOption = "Yes"
+			NoOption  = "No, my cluster is running locally (docker desktop, minikube, kind etc.)"
+		)
+
+		answer, err := cmd.Log.Question(&survey.QuestionOptions{
+			Question:     "Seems like your cluster is running remotely (GKE, EKS, AKS, private cloud etc.). Is that correct?",
+			DefaultValue: YesOption,
+			Options: []string{
+				YesOption,
+				NoOption,
+			},
+		})
 		if err != nil {
 			return err
 		}
 
-		cmd.Password = defaultPassword
+		if answer == YesOption {
+			remoteHost, err = clihelper.AskForHost(cmd.Log)
+			if err != nil {
+				return err
+			} else if remoteHost == "" {
+				installLocally = true
+			}
+		} else {
+			installLocally = true
+		}
+	} else {
+		const (
+			YesOption = "Yes"
+			NoOption  = "No, I am using a remote cluster and want to access loft on a public domain"
+		)
+
+		answer, err := cmd.Log.Question(&survey.QuestionOptions{
+			Question:     "Seems like your cluster is running locally (docker desktop, minikube, kind etc.). Is that correct?",
+			DefaultValue: YesOption,
+			Options: []string{
+				YesOption,
+				NoOption,
+			},
+		})
+		if err != nil {
+			return err
+		}
+
+		if answer == NoOption {
+			installLocally = false
+
+			remoteHost, err = clihelper.AskForHost(cmd.Log)
+			if err != nil {
+				return err
+			} else if remoteHost == "" {
+				installLocally = true
+			}
+		}
 	}
 
-	// Upgrade Loft if already installed
-	if isInstalled {
-		return cmd.handleAlreadyExistingInstallation()
-	}
-
-	// Install Loft
-	cmd.Log.Info("Welcome to Loft!")
-	cmd.Log.Info("This installer will help you configure and deploy Loft.")
-
-	email, err := cmd.Log.Question(&survey.QuestionOptions{
-		Question: "Enter your email address to create the login for your admin user",
+	userEmail, err := cmd.Log.Question(&survey.QuestionOptions{
+		Question: "Enter an email address for your admin user",
 		ValidationFunc: func(emailVal string) error {
 			if !emailRegex.MatchString(emailVal) {
 				return fmt.Errorf("%s is not a valid email address", emailVal)
@@ -156,23 +198,11 @@ func (cmd *StartCmd) Run() error {
 		return err
 	}
 
-	// make sure we are ready for installing
-	err = cmd.prepareInstall()
-	if err != nil {
-		return err
+	if installLocally || remoteHost == "" {
+		return cmd.installLocal(userEmail)
 	}
 
-	err = cmd.upgradeLoft(email)
-	if err != nil {
-		return err
-	}
-
-	return cmd.success()
-}
-
-func (cmd *StartCmd) prepareInstall() error {
-	// delete admin user & secret
-	return clihelper.UninstallLoft(cmd.KubeClient, cmd.RestConfig, cmd.Context, cmd.Namespace, log.Discard)
+	return cmd.installRemote(userEmail, remoteHost)
 }
 
 func (cmd *StartCmd) prepare() error {
@@ -253,213 +283,89 @@ func (cmd *StartCmd) prepare() error {
 }
 
 func (cmd *StartCmd) handleAlreadyExistingInstallation() error {
-	enableIngress := false
+	cmd.Log.Info("Found an existing loft installation, if you want to reinstall loft run 'loft start --reset'")
+	cmd.Log.Info("Found an existing loft installation, if you want to upgrade loft run 'loft start --upgrade'")
 
-	// Only ask if ingress should be enabled if --upgrade flag is not provided
-	if cmd.Upgrade == false {
-		cmd.Log.Info("Existing Loft instance found.")
+	// get default password
+	password := cmd.Password
+	if password == "" {
+		defaultPassword, err := clihelper.GetLoftDefaultPassword(cmd.KubeClient, cmd.Namespace)
+		if err != nil {
+			return err
+		}
 
-		// Check if Loft is installed in a local cluster
-		isLocal := clihelper.IsLoftInstalledLocally(cmd.KubeClient, cmd.Namespace)
+		password = defaultPassword
+	}
 
-		// Skip question if --host flag is provided
-		if cmd.Host != "" {
-			enableIngress = true
-		} else {
-			// Ask if we should enable the ingress for Loft
-			const (
-				NoOption  = "No"
-				YesOption = "Yes, I want to enable the ingress to be able to access Loft via a domain."
-			)
-			defaultOption := YesOption
+	// check if we should upgrade Loft
+	isLocal := clihelper.IsLoftInstalledLocally(cmd.KubeClient, cmd.Namespace)
+	if cmd.Upgrade {
+		extraArgs := []string{}
+		if cmd.ReuseValues {
+			extraArgs = append(extraArgs, "--reuse-values")
+		}
+		if cmd.Version != "" {
+			extraArgs = append(extraArgs, "--version", cmd.Version)
+		}
+		if cmd.Values != "" {
+			extraArgs = append(extraArgs, "--values", cmd.Values)
+		}
 
-			if isLocal {
-				defaultOption = NoOption
-			}
+		err := clihelper.UpgradeLoft(cmd.Context, cmd.Namespace, extraArgs, cmd.Log)
+		if err != nil {
+			return errors.Wrap(err, "upgrade loft")
+		}
+	} else if isLocal {
+		// ask if we should deploy an ingress now
+		const (
+			NoOption  = "No"
+			YesOption = "Yes, I want to deploy an ingress to let other people access loft."
+		)
 
-			answer, err := cmd.Log.Question(&survey.QuestionOptions{
-				Question:     "Do you want to enable access to Loft via ingress?",
-				DefaultValue: defaultOption,
-				Options: []string{
-					NoOption,
-					YesOption,
-				},
-			})
+		answer, err := cmd.Log.Question(&survey.QuestionOptions{
+			Question:     "Loft was installed without an ingress. Do you want to upgrade loft and install an ingress now?",
+			DefaultValue: NoOption,
+			Options: []string{
+				NoOption,
+				YesOption,
+			},
+		})
+		if err != nil {
+			return err
+		} else if answer == YesOption {
+			host, err := clihelper.EnterHostNameQuestion(cmd.Log)
 			if err != nil {
 				return err
 			}
 
-			enableIngress = (answer == YesOption)
-		}
-
-		if enableIngress {
-			if isLocal {
-				// Confirm with user if this is a local cluster
-				const (
-					YesOption = "Yes"
-					NoOption  = "No, my cluster is running locally (docker desktop, minikube, kind etc.)"
-				)
-
-				answer, err := cmd.Log.Question(&survey.QuestionOptions{
-					Question:     "Seems like your cluster is running locally (docker desktop, minikube, kind etc.). Is that correct?",
-					DefaultValue: YesOption,
-					Options: []string{
-						YesOption,
-						NoOption,
-					},
-				})
-				if err != nil {
-					return err
-				}
-
-				isLocal = (answer == YesOption)
-			}
-
-			if isLocal {
-				// Confirm with user if ingress should be installed in local cluster
-				const (
-					YesOption = "Yes, enable the ingress for Loft anyway"
-					NoOption  = "No"
-				)
-
-				answer, err := cmd.Log.Question(&survey.QuestionOptions{
-					Question:     "Enabling ingress is usually only useful for remote clusters. Do you still want to deploy the ingress for Loft to your local cluster?",
-					DefaultValue: NoOption,
-					Options: []string{
-						NoOption,
-						YesOption,
-					},
-				})
-				if err != nil {
-					return err
-				}
-
-				enableIngress = (answer == YesOption)
-			}
-		}
-
-		// Check if we need to enable ingress
-		if enableIngress {
-			// Ask for hostname if --host flag is not provided
-			if cmd.Host == "" {
-				host, err := clihelper.EnterHostNameQuestion(cmd.Log)
-				if err != nil {
-					return err
-				}
-
-				cmd.Host = host
-			} else {
-				cmd.Log.Info("Will enable Loft ingress with hostname: " + cmd.Host)
-			}
-
-			err := clihelper.EnsureIngressController(cmd.KubeClient, cmd.Context, cmd.Log)
+			err = cmd.upgradeWithIngress(host)
 			if err != nil {
-				return errors.Wrap(err, "install ingress controller")
+				return err
 			}
 		}
 	}
 
-	// Only upgrade if --upgrade flag is present or user decided to enable ingress
-	if cmd.Upgrade || enableIngress {
-		err := cmd.upgradeLoft("")
-		if err != nil {
-			return err
-		}
-	}
+	// recheck if Loft was installed locally
+	isLocal = clihelper.IsLoftInstalledLocally(cmd.KubeClient, cmd.Namespace)
 
-	return cmd.success()
-}
-
-func (cmd *StartCmd) upgradeLoft(email string) error {
-	extraArgs := []string{}
-
-	if email != "" {
-		extraArgs = append(extraArgs, "--set", "admin.email="+email)
-	}
-
-	if cmd.Password != "" {
-		extraArgs = append(extraArgs, "--set", "admin.password="+cmd.Password)
-	}
-
-	if cmd.Host != "" {
-		extraArgs = append(extraArgs, "--set", "ingress.enabled=true", "--set", "ingress.host="+cmd.Host)
-	}
-
-	if cmd.Version != "" {
-		extraArgs = append(extraArgs, "--version", cmd.Version)
-	}
-
-	// Do not use --reuse-values if --reset flag is provided because this should be a new install and it will cause issues with `helm template`
-	if cmd.Reset == false && cmd.ReuseValues {
-		extraArgs = append(extraArgs, "--reuse-values")
-	}
-
-	if cmd.Values != "" {
-		absValuesPath, err := filepath.Abs(cmd.Values)
-		if err != nil {
-			return err
-		}
-		extraArgs = append(extraArgs, "--values", absValuesPath)
-	}
-
-	err := clihelper.UpgradeLoft(cmd.Context, cmd.Namespace, extraArgs, cmd.Log)
-	if err != nil {
-		if cmd.Reset == false {
-			return errors.New(err.Error() + fmt.Sprintf("\n\nIf want to purge and reinstall Loft, run: %s\n", ansi.Color("loft start --reset", "green+b")))
-		}
-
-		// Try to purge Loft and retry install
-		cmd.Log.Info("Trying to delete objects blocking Loft installation")
-
-		manifests, err := clihelper.GetLoftManifests(cmd.Context, cmd.Namespace, extraArgs, cmd.Log)
-		if err != nil {
-			return err
-		}
-
-		kubectlDelete := exec.Command("kubectl", "delete", "-f", "-", "--ignore-not-found=true", "--grace-period=0", "--force")
-
-		buffer := bytes.Buffer{}
-		buffer.Write([]byte(manifests))
-
-		kubectlDelete.Stdin = &buffer
-		kubectlDelete.Stdout = os.Stdout
-		kubectlDelete.Stderr = os.Stderr
-
-		err = kubectlDelete.Run()
-		if err != nil {
-			// Ignoring potential errors here
-		}
-
-		// Retry Loft installation
-		err = clihelper.UpgradeLoft(cmd.Context, cmd.Namespace, extraArgs, cmd.Log)
-		if err != nil {
-			return errors.New(err.Error() + fmt.Sprintf("\n\nLoft installation failed. Reach out to get help:\n- via Slack: %s (fastest option)\n- via Online Chat: %s\n- via Email: %s\n", ansi.Color("https://slack.loft.sh/", "green+b"), ansi.Color("https://loft.sh/", "green+b"), ansi.Color("support@loft.sh", "green+b")))
-		}
-	}
-
-	return nil
-}
-
-func (cmd *StartCmd) success() error {
 	// wait until Loft is ready
-	loftPod, err := cmd.waitForLoft()
+	loftPod, err := cmd.waitForLoft(password)
 	if err != nil {
 		return err
 	}
 
-	// check if Loft was installed locally
-	isLocal := clihelper.IsLoftInstalledLocally(cmd.KubeClient, cmd.Namespace)
+	// check if local or remote installation
 	if isLocal {
 		err = cmd.startPortForwarding(loftPod)
 		if err != nil {
 			return err
 		}
 
-		return cmd.successLocal()
+		return cmd.successLocal(password)
 	}
 
 	// get login link
-	cmd.Log.StartWait("Checking Loft status...")
+	cmd.Log.StartWait("Checking loft status...")
 	host, err := clihelper.GetLoftIngressHost(cmd.KubeClient, cmd.Namespace)
 	cmd.Log.StopWait()
 	if err != nil {
@@ -471,11 +377,11 @@ func (cmd *StartCmd) success() error {
 	if reachable == false || err != nil {
 		const (
 			YesOption = "Yes"
-			NoOption  = "No, please re-run the DNS check"
+			NoOption  = "No, I want to see the DNS message again"
 		)
 
 		answer, err := cmd.Log.Question(&survey.QuestionOptions{
-			Question:     "Unable to reach Loft at https://" + host + ". Do you want to start port-forwarding instead?",
+			Question:     "Loft seems to be not reachable at https://" + host + ". Do you want to use port-forwarding instead?",
 			DefaultValue: YesOption,
 			Options: []string{
 				YesOption,
@@ -492,50 +398,16 @@ func (cmd *StartCmd) success() error {
 				return err
 			}
 
-			return cmd.successLocal()
+			return cmd.successLocal(password)
 		}
 	}
 
-	return cmd.successRemote(host)
+	return cmd.successRemote(host, password)
 }
 
-func (cmd *StartCmd) successLocal() error {
-	printhelper.PrintSuccessMessageLocalInstall(cmd.Password, cmd.LocalPort, cmd.Log)
-
-	blockChan := make(chan bool)
-	<-blockChan
-	return nil
-}
-
-func (cmd *StartCmd) successRemote(host string) error {
-	ready, err := clihelper.IsLoftReachable(host)
-	if err != nil {
-		return err
-	} else if ready {
-		printhelper.PrintSuccessMessageRemoteInstall(host, cmd.Password, cmd.Log)
-		return nil
-	}
-
-	// Print DNS Configuration
-	printhelper.PrintDNSConfiguration(host, cmd.Log)
-
-	cmd.Log.StartWait("Waiting for you to configure DNS, so loft can be reached on https://" + host)
-	err = wait.PollImmediate(time.Second*5, time.Hour*24, func() (bool, error) {
-		return clihelper.IsLoftReachable(host)
-	})
-	cmd.Log.StopWait()
-	if err != nil {
-		return err
-	}
-
-	cmd.Log.Done("Loft is reachable at https://" + host)
-	printhelper.PrintSuccessMessageRemoteInstall(host, cmd.Password, cmd.Log)
-	return nil
-}
-
-func (cmd *StartCmd) waitForLoft() (*corev1.Pod, error) {
+func (cmd *StartCmd) waitForLoft(password string) (*corev1.Pod, error) {
 	// wait for loft pod to start
-	cmd.Log.StartWait("Waiting for Loft pod to be running...")
+	cmd.Log.StartWait("Waiting until loft pod has been started...")
 	loftPod, err := clihelper.WaitForReadyLoftPod(cmd.KubeClient, cmd.Namespace, cmd.Log)
 	cmd.Log.StopWait()
 	cmd.Log.Donef("Loft pod successfully started")
@@ -544,7 +416,7 @@ func (cmd *StartCmd) waitForLoft() (*corev1.Pod, error) {
 	}
 
 	// wait for loft pod to start
-	cmd.Log.StartWait("Waiting for Loft Agent pod to be running...")
+	cmd.Log.StartWait("Waiting until loft agent has been started...")
 	err = clihelper.WaitForReadyLoftAgentPod(cmd.KubeClient, cmd.Namespace, cmd.Log)
 	cmd.Log.StopWait()
 	if err != nil {
@@ -552,17 +424,96 @@ func (cmd *StartCmd) waitForLoft() (*corev1.Pod, error) {
 	}
 
 	// ensure user admin secret is there
-	isNewPassword, err := clihelper.EnsureAdminPassword(cmd.KubeClient, cmd.RestConfig, cmd.Password, cmd.Log)
+	err = clihelper.EnsureAdminPassword(cmd.KubeClient, cmd.RestConfig, password, cmd.Log)
 	if err != nil {
 		return nil, err
 	}
 
-	// If password is different than expected
-	if isNewPassword {
-		cmd.Password = ""
+	return loftPod, nil
+}
+
+func (cmd *StartCmd) installRemote(email, host string) error {
+	err := clihelper.InstallIngressController(cmd.KubeClient, cmd.Context, cmd.Log)
+	if err != nil {
+		return errors.Wrap(err, "install ingress controller")
 	}
 
-	return loftPod, nil
+	password := cmd.Password
+	if password == "" {
+		defaultPassword, err := clihelper.GetLoftDefaultPassword(cmd.KubeClient, cmd.Namespace)
+		if err != nil {
+			return err
+		}
+
+		password = defaultPassword
+	}
+
+	err = clihelper.InstallLoftRemote(cmd.Context, cmd.Namespace, password, email, cmd.Version, cmd.Values, host, cmd.Log)
+	if err != nil {
+		return err
+	}
+
+	// wait until Loft is ready
+	_, err = cmd.waitForLoft(password)
+	if err != nil {
+		return err
+	}
+
+	cmd.Log.Done("Loft pod has successfully started")
+	return cmd.successRemote(host, password)
+}
+
+func (cmd *StartCmd) upgradeWithIngress(host string) error {
+	err := clihelper.InstallIngressController(cmd.KubeClient, cmd.Context, cmd.Log)
+	if err != nil {
+		return errors.Wrap(err, "install ingress controller")
+	}
+
+	extraArgs := []string{
+		"--reuse-values",
+		"--set",
+		"ingress.enabled=true",
+		"--set",
+		"ingress.host=" + host,
+	}
+
+	// upgrade loft
+	err = clihelper.UpgradeLoft(cmd.Context, cmd.Namespace, extraArgs, cmd.Log)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (cmd *StartCmd) installLocal(email string) error {
+	password := cmd.Password
+	if password == "" {
+		defaultPassword, err := clihelper.GetLoftDefaultPassword(cmd.KubeClient, cmd.Namespace)
+		if err != nil {
+			return err
+		}
+
+		password = defaultPassword
+	}
+
+	err := clihelper.InstallLoftLocally(cmd.Context, cmd.Namespace, password, email, cmd.Version, cmd.Values, cmd.Log)
+	if err != nil {
+		return err
+	}
+
+	// wait until Loft is ready
+	loftPod, err := cmd.waitForLoft(password)
+	if err != nil {
+		return err
+	}
+
+	err = cmd.startPortForwarding(loftPod)
+	if err != nil {
+		return err
+	}
+	
+	return cmd.successLocal(password)
 }
 
 func (cmd *StartCmd) startPortForwarding(loftPod *corev1.Pod) error {
@@ -592,13 +543,13 @@ func (cmd *StartCmd) startPortForwarding(loftPod *corev1.Pod) error {
 	if err != nil {
 		return err
 	}
-
-	return nil
+	
+	return nil 
 }
 
 func (cmd *StartCmd) restartPortForwarding(stopChan chan struct{}) {
 	for {
-		<-stopChan
+		<- stopChan
 		cmd.Log.Info("Restart port forwarding")
 
 		// wait for loft pod to start
@@ -614,7 +565,41 @@ func (cmd *StartCmd) restartPortForwarding(stopChan chan struct{}) {
 		if err != nil {
 			cmd.Log.Fatalf("Error starting port forwarding: %v", err)
 		}
-
+		
 		cmd.Log.Donef("Successfully restarted port forwarding")
 	}
+}
+
+func (cmd *StartCmd) successRemote(host string, password string) error {
+	ready, err := clihelper.IsLoftReachable(host)
+	if err != nil {
+		return err
+	} else if ready {
+		printhelper.PrintSuccessMessageRemoteInstall(host, password, cmd.Log)
+		return nil
+	}
+
+	// Print DNS Configuration
+	printhelper.PrintDNSConfiguration(host, cmd.Log)
+
+	cmd.Log.StartWait("Waiting for you to configure DNS, so loft can be reached on https://" + host)
+	err = wait.PollImmediate(time.Second*5, time.Hour*24, func() (bool, error) {
+		return clihelper.IsLoftReachable(host)
+	})
+	cmd.Log.StopWait()
+	if err != nil {
+		return err
+	}
+
+	cmd.Log.Done("loft is reachable at https://" + host)
+	printhelper.PrintSuccessMessageRemoteInstall(host, password, cmd.Log)
+	return nil
+}
+
+func (cmd *StartCmd) successLocal(password string) error {
+	printhelper.PrintSuccessMessageLocalInstall(password, cmd.LocalPort, cmd.Log)
+
+	blockChan := make(chan bool)
+	<-blockChan
+	return nil
 }

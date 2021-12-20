@@ -3,16 +3,14 @@ package cmd
 import (
 	"context"
 	"fmt"
-	managementv1 "github.com/loft-sh/api/v2/pkg/apis/management/v1"
-	"github.com/pkg/errors"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"time"
 
-	"github.com/loft-sh/loftctl/v2/cmd/loftctl/flags"
-	"github.com/loft-sh/loftctl/v2/pkg/client"
-	"github.com/loft-sh/loftctl/v2/pkg/client/helper"
-	"github.com/loft-sh/loftctl/v2/pkg/log"
-	"github.com/loft-sh/loftctl/v2/pkg/upgrade"
+	"github.com/loft-sh/loftctl/cmd/loftctl/flags"
+	"github.com/loft-sh/loftctl/pkg/client"
+	"github.com/loft-sh/loftctl/pkg/client/helper"
+	"github.com/loft-sh/loftctl/pkg/log"
+	"github.com/loft-sh/loftctl/pkg/upgrade"
 	"github.com/spf13/cobra"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -63,7 +61,7 @@ devspace wakeup myspace --cluster mycluster
 		Long:  description,
 		Args:  cobra.MaximumNArgs(1),
 		RunE: func(cobraCmd *cobra.Command, args []string) error {
-			return cmd.Run(args)
+			return cmd.Run(cobraCmd, args)
 		},
 	}
 
@@ -72,7 +70,7 @@ devspace wakeup myspace --cluster mycluster
 }
 
 // Run executes the functionality
-func (cmd *WakeUpCmd) Run(args []string) error {
+func (cmd *WakeUpCmd) Run(cobraCmd *cobra.Command, args []string) error {
 	baseClient, err := client.NewClientFromPath(cmd.Config)
 	if err != nil {
 		return err
@@ -91,19 +89,6 @@ func (cmd *WakeUpCmd) Run(args []string) error {
 	clusterClient, err := baseClient.Cluster(clusterName)
 	if err != nil {
 		return err
-	}
-
-	managementClient, err := baseClient.Management()
-	if err != nil {
-		return err
-	}
-
-	// get current user / team
-	self, err := managementClient.Loft().ManagementV1().Selves().Create(context.TODO(), &managementv1.Self{}, metav1.CreateOptions{})
-	if err != nil {
-		return errors.Wrap(err, "get self")
-	} else if self.Status.User == nil && self.Status.Team == nil {
-		return fmt.Errorf("no user or team name returned")
 	}
 
 	configs, err := clusterClient.Agent().ClusterV1().SleepModeConfigs(spaceName).List(context.TODO(), metav1.ListOptions{})

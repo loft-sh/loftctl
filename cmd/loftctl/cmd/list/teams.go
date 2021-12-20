@@ -2,14 +2,17 @@ package list
 
 import (
 	"context"
-	"github.com/loft-sh/loftctl/v2/cmd/loftctl/flags"
-	"github.com/loft-sh/loftctl/v2/pkg/client"
-	"github.com/loft-sh/loftctl/v2/pkg/client/helper"
-	"github.com/loft-sh/loftctl/v2/pkg/clihelper"
-	"github.com/loft-sh/loftctl/v2/pkg/log"
-	"github.com/loft-sh/loftctl/v2/pkg/upgrade"
+	"github.com/loft-sh/loftctl/cmd/loftctl/flags"
+	"github.com/loft-sh/loftctl/pkg/client"
+	"github.com/loft-sh/loftctl/pkg/client/helper"
+	"github.com/loft-sh/loftctl/pkg/log"
+	"github.com/loft-sh/loftctl/pkg/upgrade"
 	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/duration"
+	"strconv"
+	"time"
 )
 
 // TeamsCmd holds the cmd flags
@@ -53,7 +56,7 @@ devspace list teams
 		Long:  description,
 		Args:  cobra.NoArgs,
 		RunE: func(cobraCmd *cobra.Command, args []string) error {
-			return cmd.Run()
+			return cmd.Run(cobraCmd, args)
 		},
 	}
 
@@ -61,7 +64,7 @@ devspace list teams
 }
 
 // RunUsers executes the functionality "loft list users"
-func (cmd *TeamsCmd) Run() error {
+func (cmd *TeamsCmd) Run(cobraCmd *cobra.Command, args []string) error {
 	baseClient, err := client.NewClientFromPath(cmd.Config)
 	if err != nil {
 		return err
@@ -75,17 +78,28 @@ func (cmd *TeamsCmd) Run() error {
 	userName, teamName, err := helper.GetCurrentUser(context.TODO(), client)
 	if err != nil {
 		return err
-	} else if teamName != nil {
+	} else if teamName != "" {
 		return errors.New("logged in as a team")
+	}
+
+	teams, err := client.Loft().ManagementV1().Users().ListTeams(context.TODO(), userName, metav1.GetOptions{})
+	if err != nil {
+		return err
 	}
 
 	header := []string{
 		"Name",
+		"Users",
+		"Groups",
+		"Age",
 	}
 	values := [][]string{}
-	for _, team := range userName.Teams {
+	for _, team := range teams.Teams {
 		values = append(values, []string{
-			clihelper.DisplayName(team),
+			team.Name,
+			strconv.Itoa(len(team.Spec.Users)),
+			strconv.Itoa(len(team.Spec.Groups)),
+			duration.HumanDuration(time.Now().Sub(team.CreationTimestamp.Time)),
 		})
 	}
 

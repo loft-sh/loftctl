@@ -4,12 +4,12 @@ import (
 	"context"
 	"time"
 
-	"github.com/loft-sh/loftctl/v2/cmd/loftctl/flags"
-	"github.com/loft-sh/loftctl/v2/pkg/client"
-	"github.com/loft-sh/loftctl/v2/pkg/client/helper"
-	"github.com/loft-sh/loftctl/v2/pkg/kubeconfig"
-	"github.com/loft-sh/loftctl/v2/pkg/log"
-	"github.com/loft-sh/loftctl/v2/pkg/upgrade"
+	"github.com/loft-sh/loftctl/cmd/loftctl/flags"
+	"github.com/loft-sh/loftctl/pkg/client"
+	"github.com/loft-sh/loftctl/pkg/client/helper"
+	"github.com/loft-sh/loftctl/pkg/kubeconfig"
+	"github.com/loft-sh/loftctl/pkg/log"
+	"github.com/loft-sh/loftctl/pkg/upgrade"
 	"github.com/mgutz/ansi"
 	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
@@ -62,15 +62,15 @@ devspace delete vcluster myvirtualcluster --space myspace --cluster mycluster
 	`
 	}
 	c := &cobra.Command{
-		Use:   "vcluster [name]",
+		Use:   "vcluster",
 		Short: "Deletes a virtual cluster from a cluster",
 		Long:  description,
-		Args:  cobra.ExactArgs(1),
+		Args:  cobra.MaximumNArgs(1),
 		RunE: func(cobraCmd *cobra.Command, args []string) error {
 			// Check for newer version
 			upgrade.PrintNewerVersionWarning()
 
-			return cmd.Run(args)
+			return cmd.Run(cobraCmd, args)
 		},
 	}
 
@@ -83,7 +83,7 @@ devspace delete vcluster myvirtualcluster --space myspace --cluster mycluster
 }
 
 // Run executes the command
-func (cmd *VirtualClusterCmd) Run(args []string) error {
+func (cmd *VirtualClusterCmd) Run(cobraCmd *cobra.Command, args []string) error {
 	baseClient, err := client.NewClientFromPath(cmd.Config)
 	if err != nil {
 		return err
@@ -124,7 +124,7 @@ func (cmd *VirtualClusterCmd) Run(args []string) error {
 
 	// delete space
 	if cmd.DeleteSpace {
-		err = clusterClient.Agent().ClusterV1().Spaces().Delete(context.TODO(), spaceName, metav1.DeleteOptions{})
+		err = clusterClient.CoreV1().Namespaces().Delete(context.TODO(), spaceName, metav1.DeleteOptions{})
 		if err != nil {
 			return err
 		}

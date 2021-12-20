@@ -1,11 +1,9 @@
 package printhelper
 
 import (
-	"github.com/loft-sh/loftctl/v2/pkg/log"
+	"github.com/loft-sh/loftctl/pkg/log"
 	"github.com/mgutz/ansi"
 )
-
-const passwordChangedHint = "(has been changed)"
 
 func PrintDNSConfiguration(host string, log log.Logger) {
 	log.WriteString(`
@@ -33,17 +31,12 @@ by running 'loft start' again.
 
 func PrintSuccessMessageLocalInstall(password, localPort string, log log.Logger) {
 	url := "https://localhost:" + localPort
-
-	if password == "" {
-		password = passwordChangedHint
-	}
-
 	log.WriteString(`
 
 ##########################   LOGIN   ############################
 
 Username: ` + ansi.Color("admin", "green+b") + `
-Password: ` + ansi.Color(password, "green+b") + `  # Change via UI or via: ` + ansi.Color("loft reset password", "green+b") + `
+Password: ` + ansi.Color(password, "green+b") + `
 
 Login via UI:  ` + ansi.Color(url, "green+b") + `
 Login via CLI: ` + ansi.Color(`loft login --insecure `+url, "green+b") + `
@@ -55,24 +48,19 @@ Login via CLI: ` + ansi.Color(`loft login --insecure `+url, "green+b") + `
 Loft was successfully installed and port-forwarding has been started.
 If you stop this command, run 'loft start' again to restart port-forwarding.
 
-Thanks for using Loft!
+Thanks for using loft!
 `)
 }
 
 func PrintSuccessMessageRemoteInstall(host, password string, log log.Logger) {
 	url := "https://" + host
-
-	if password == "" {
-		password = passwordChangedHint
-	}
-
 	log.WriteString(`
 
 
 ##########################   LOGIN   ############################
 
 Username: ` + ansi.Color("admin", "green+b") + `
-Password: ` + ansi.Color(password, "green+b") + `  # Change via UI or via: ` + ansi.Color("loft reset password", "green+b") + `
+Password: ` + ansi.Color(password, "green+b") + `
 
 Login via UI:  ` + ansi.Color(url, "green+b") + `
 Login via CLI: ` + ansi.Color(`loft login --insecure `+url, "green+b") + `
@@ -85,6 +73,6 @@ Follow this guide to add a valid certificate: https://loft.sh/docs/administratio
 
 Loft was successfully installed and can now be reached at: ` + url + `
 
-Thanks for using Loft!
+Thanks for using loft!
 `)
 }

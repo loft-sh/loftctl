@@ -3,8 +3,8 @@ package testing
 import (
 	"fmt"
 
-	"github.com/loft-sh/loftctl/v2/pkg/survey"
-	fakesurvey "github.com/loft-sh/loftctl/v2/pkg/survey/testing"
+	"github.com/loft-sh/loftctl/pkg/survey"
+	fakesurvey "github.com/loft-sh/loftctl/pkg/survey/testing"
 	"github.com/sirupsen/logrus"
 )
 

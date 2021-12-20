@@ -1,16 +1,16 @@
 package cmd
 
 import (
-	"github.com/loft-sh/loftctl/v2/pkg/log"
-	"github.com/loft-sh/loftctl/v2/pkg/upgrade"
+	"github.com/loft-sh/loftctl/pkg/log"
+	"github.com/loft-sh/loftctl/pkg/upgrade"
 	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
 )
 
 // UpgradeCmd is a struct that defines a command call for "upgrade"
-type UpgradeCmd struct {
+type UpgradeCmd struct{
 	Version string
-
+	
 	log log.Logger
 }
 

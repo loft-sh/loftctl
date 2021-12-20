@@ -3,12 +3,12 @@ package use
 import (
 	"context"
 	"fmt"
-	"github.com/loft-sh/loftctl/v2/cmd/loftctl/flags"
-	"github.com/loft-sh/loftctl/v2/pkg/client"
-	"github.com/loft-sh/loftctl/v2/pkg/client/helper"
-	"github.com/loft-sh/loftctl/v2/pkg/kubeconfig"
-	"github.com/loft-sh/loftctl/v2/pkg/log"
-	"github.com/loft-sh/loftctl/v2/pkg/upgrade"
+	"github.com/loft-sh/loftctl/cmd/loftctl/flags"
+	"github.com/loft-sh/loftctl/pkg/client"
+	"github.com/loft-sh/loftctl/pkg/client/helper"
+	"github.com/loft-sh/loftctl/pkg/kubeconfig"
+	"github.com/loft-sh/loftctl/pkg/log"
+	"github.com/loft-sh/loftctl/pkg/upgrade"
 	"github.com/mgutz/ansi"
 	"github.com/spf13/cobra"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
@@ -71,7 +71,7 @@ devspace use space myspace --cluster mycluster
 				upgrade.PrintNewerVersionWarning()
 			}
 
-			return cmd.Run(args)
+			return cmd.Run(cobraCmd, args)
 		},
 	}
 
@@ -82,13 +82,8 @@ devspace use space myspace --cluster mycluster
 }
 
 // Run executes the command
-func (cmd *SpaceCmd) Run(args []string) error {
+func (cmd *SpaceCmd) Run(cobraCmd *cobra.Command, args []string) error {
 	baseClient, err := client.NewClientFromPath(cmd.Config)
-	if err != nil {
-		return err
-	}
-
-	err = client.VerifyVersion(baseClient)
 	if err != nil {
 		return err
 	}

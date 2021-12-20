@@ -3,20 +3,22 @@ package use
 import (
 	"context"
 	"fmt"
-	managementv1 "github.com/loft-sh/api/v2/pkg/apis/management/v1"
-	"github.com/loft-sh/loftctl/v2/cmd/loftctl/flags"
-	"github.com/loft-sh/loftctl/v2/pkg/client"
-	"github.com/loft-sh/loftctl/v2/pkg/client/helper"
-	"github.com/loft-sh/loftctl/v2/pkg/kubeconfig"
-	"github.com/loft-sh/loftctl/v2/pkg/log"
-	"github.com/loft-sh/loftctl/v2/pkg/upgrade"
-	"github.com/loft-sh/loftctl/v2/pkg/vcluster"
+	managementv1 "github.com/loft-sh/api/pkg/apis/management/v1"
+	"github.com/loft-sh/loftctl/cmd/loftctl/flags"
+	"github.com/loft-sh/loftctl/pkg/client"
+	"github.com/loft-sh/loftctl/pkg/client/helper"
+	"github.com/loft-sh/loftctl/pkg/kubeconfig"
+	"github.com/loft-sh/loftctl/pkg/log"
+	"github.com/loft-sh/loftctl/pkg/upgrade"
 	"github.com/mgutz/ansi"
+	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
 	"io"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/wait"
 	"os"
+	"time"
 )
 
 // VirtualClusterCmd holds the cmd flags
@@ -80,7 +82,7 @@ devspace use vcluster myvcluster --cluster mycluster --space myspace
 				upgrade.PrintNewerVersionWarning()
 			}
 
-			return cmd.Run(args)
+			return cmd.Run(cobraCmd, args)
 		},
 	}
 
@@ -92,13 +94,8 @@ devspace use vcluster myvcluster --cluster mycluster --space myspace
 }
 
 // Run executes the command
-func (cmd *VirtualClusterCmd) Run(args []string) error {
+func (cmd *VirtualClusterCmd) Run(cobraCmd *cobra.Command, args []string) error {
 	baseClient, err := client.NewClientFromPath(cmd.Config)
-	if err != nil {
-		return err
-	}
-
-	err = client.VerifyVersion(baseClient)
 	if err != nil {
 		return err
 	}
@@ -132,7 +129,7 @@ func (cmd *VirtualClusterCmd) Run(args []string) error {
 	if cmd.Print == false && cmd.PrintToken == false {
 		cmd.Log.StartWait("Waiting for virtual cluster to become ready...")
 	}
-	err = vcluster.WaitForVCluster(context.TODO(), baseClient, clusterName, spaceName, virtualClusterName, cmd.Log)
+	err = WaitForVCluster(baseClient, clusterName, spaceName, virtualClusterName)
 	cmd.Log.StopWait()
 	if err != nil {
 		return err
@@ -163,6 +160,31 @@ func (cmd *VirtualClusterCmd) Run(args []string) error {
 	return nil
 }
 
+func WaitForVCluster(baseClient client.Client, clusterName, spaceName, virtualClusterName string) error {
+	clusterClient, err := baseClient.Cluster(clusterName)
+	if err != nil {
+		return errors.Wrap(err, "cluster client")
+	}
+	
+	return wait.PollImmediate(time.Second, time.Minute*5, func() (bool, error) {
+		vCluster, err := clusterClient.Agent().StorageV1().VirtualClusters(spaceName).Get(context.TODO(), virtualClusterName, metav1.GetOptions{})
+		if err != nil {
+			return false, err
+		} else if vCluster.Status.HelmRelease != nil {
+			// ping the vcluster if its the old version
+			vClusterClient, err := baseClient.VirtualCluster(clusterName, spaceName, virtualClusterName)
+			if err != nil {
+				return false, err
+			}
+			
+			_, err = vClusterClient.CoreV1().ServiceAccounts("default").Get(context.TODO(), "default", metav1.GetOptions{})
+			return err == nil, nil
+		}
+
+		return vCluster.Status.ControlPlaneReady == true, nil
+	})
+}
+
 func CreateVClusterContextOptions(baseClient client.Client, config string, cluster *managementv1.Cluster, spaceName, virtualClusterName string, disableClusterGateway, setActive bool, log log.Logger) (kubeconfig.ContextOptions, error) {
 	contextOptions := kubeconfig.ContextOptions{
 		Name:       kubeconfig.VirtualClusterContextName(cluster.Name, spaceName, virtualClusterName),
@@ -173,7 +195,7 @@ func CreateVClusterContextOptions(baseClient client.Client, config string, clust
 		contextOptions = ApplyDirectClusterEndpointOptions(contextOptions, cluster, "/kubernetes/virtualcluster/"+spaceName+"/"+virtualClusterName, log)
 		_, err := baseClient.DirectClusterEndpointToken(true)
 		if err != nil {
-			return kubeconfig.ContextOptions{}, fmt.Errorf("retrieving direct cluster endpoint token: %v. Use --disable-direct-cluster-endpoint to create a context without using direct cluster endpoints", err)
+			log.Errorf("Retrieving direct cluster endpoint token: %v", err)
 		}
 	} else {
 		contextOptions.Server = baseClient.Config().Host + "/kubernetes/virtualcluster/" + cluster.Name + "/" + spaceName + "/" + virtualClusterName

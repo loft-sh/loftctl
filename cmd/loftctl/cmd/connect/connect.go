@@ -1,8 +1,8 @@
 package connect
 
 import (
-	"github.com/loft-sh/loftctl/v2/cmd/loftctl/flags"
-	"github.com/loft-sh/loftctl/v2/pkg/upgrade"
+	"github.com/loft-sh/loftctl/cmd/loftctl/flags"
+	"github.com/loft-sh/loftctl/pkg/upgrade"
 	"github.com/spf13/cobra"
 )
 

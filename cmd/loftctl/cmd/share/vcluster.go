@@ -2,11 +2,11 @@ package share
 
 import (
 	"fmt"
-	"github.com/loft-sh/loftctl/v2/cmd/loftctl/flags"
-	"github.com/loft-sh/loftctl/v2/pkg/client"
-	"github.com/loft-sh/loftctl/v2/pkg/client/helper"
-	"github.com/loft-sh/loftctl/v2/pkg/log"
-	"github.com/loft-sh/loftctl/v2/pkg/upgrade"
+	"github.com/loft-sh/loftctl/cmd/loftctl/flags"
+	"github.com/loft-sh/loftctl/pkg/client"
+	"github.com/loft-sh/loftctl/pkg/client/helper"
+	"github.com/loft-sh/loftctl/pkg/log"
+	"github.com/loft-sh/loftctl/pkg/upgrade"
 	"github.com/mgutz/ansi"
 	"github.com/spf13/cobra"
 )
@@ -15,11 +15,12 @@ import (
 type VClusterCmd struct {
 	*flags.GlobalFlags
 
-	Cluster     string
-	Space       string
-	ClusterRole string
-	User        string
-	Team        string
+	Cluster         string
+	Space           string
+	ClusterRole     string
+	User            string
+	Team            string
+	AllowDuplicates bool
 
 	Log log.Logger
 }
@@ -73,9 +74,10 @@ devspace share vcluster myvcluster --cluster mycluster --user admin
 
 	c.Flags().StringVar(&cmd.Cluster, "cluster", "", "The cluster to use")
 	c.Flags().StringVar(&cmd.Space, "space", "", "The space to use")
-	c.Flags().StringVar(&cmd.ClusterRole, "cluster-role", "loft-cluster-space-admin", "The cluster role which is assigned to the user or team for that space")
+	c.Flags().StringVar(&cmd.ClusterRole, "cluster-role", "loft-cluster-space-default", "The cluster role which is assigned to the user or team for that space")
 	c.Flags().StringVar(&cmd.User, "user", "", "The user to share the space with. The user needs to have access to the cluster")
 	c.Flags().StringVar(&cmd.Team, "team", "", "The team to share the space with. The team needs to have access to the cluster")
+	c.Flags().BoolVar(&cmd.AllowDuplicates, "allow-duplicates", false, "If true multiple rolebindings are allowed for an user or team in a space")
 	return c
 }
 
@@ -96,7 +98,7 @@ func (cmd *VClusterCmd) Run(cobraCmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	userOrTeam, err := createRoleBinding(baseClient, clusterName, spaceName, cmd.User, cmd.Team, cmd.ClusterRole, cmd.Log)
+	userOrTeam, err := createRoleBinding(baseClient, clusterName, spaceName, cmd.User, cmd.Team, cmd.ClusterRole, cmd.AllowDuplicates, cmd.Log)
 	if err != nil {
 		return err
 	}

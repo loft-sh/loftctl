@@ -2,13 +2,16 @@ package get
 
 import (
 	"context"
-	"github.com/loft-sh/loftctl/v2/cmd/loftctl/flags"
-	"github.com/loft-sh/loftctl/v2/pkg/client"
-	"github.com/loft-sh/loftctl/v2/pkg/client/helper"
-	"github.com/loft-sh/loftctl/v2/pkg/log"
-	"github.com/loft-sh/loftctl/v2/pkg/upgrade"
+	"github.com/loft-sh/loftctl/cmd/loftctl/flags"
+	"github.com/loft-sh/loftctl/pkg/client"
+	"github.com/loft-sh/loftctl/pkg/client/helper"
+	"github.com/loft-sh/loftctl/pkg/log"
+	"github.com/loft-sh/loftctl/pkg/upgrade"
 	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/duration"
+	"time"
 )
 
 // UserCmd holds the lags
@@ -52,7 +55,7 @@ devspace get user
 		Long:  description,
 		Args:  cobra.NoArgs,
 		RunE: func(cobraCmd *cobra.Command, args []string) error {
-			return cmd.Run()
+			return cmd.Run(cobraCmd, args)
 		},
 	}
 
@@ -60,7 +63,7 @@ devspace get user
 }
 
 // RunUsers executes the functionality
-func (cmd *UserCmd) Run() error {
+func (cmd *UserCmd) Run(cobraCmd *cobra.Command, args []string) error {
 	baseClient, err := client.NewClientFromPath(cmd.Config)
 	if err != nil {
 		return err
@@ -74,22 +77,27 @@ func (cmd *UserCmd) Run() error {
 	userName, teamName, err := helper.GetCurrentUser(context.TODO(), client)
 	if err != nil {
 		return err
-	} else if teamName != nil {
+	} else if teamName != "" {
 		return errors.New("logged in with a team and not a user")
+	}
+
+	user, err := client.Loft().ManagementV1().Users().Get(context.TODO(), userName, metav1.GetOptions{})
+	if err != nil {
+		return errors.Wrap(err, "list users")
 	}
 
 	header := []string{
 		"Username",
 		"Kubernetes Name",
-		"Display Name",
 		"Email",
+		"Age",
 	}
 	values := [][]string{}
 	values = append(values, []string{
-		userName.Username,
-		userName.Name,
-		userName.DisplayName,
-		userName.Email,
+		user.Spec.Username,
+		user.Name,
+		user.Spec.Email,
+		duration.HumanDuration(time.Now().Sub(user.CreationTimestamp.Time)),
 	})
 
 	log.PrintTable(cmd.log, header, values)

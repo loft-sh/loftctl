@@ -2,7 +2,7 @@ package vars
 
 import (
 	"fmt"
-	"github.com/loft-sh/loftctl/v2/cmd/loftctl/flags"
+	"github.com/loft-sh/loftctl/cmd/loftctl/flags"
 	"github.com/spf13/cobra"
 	"k8s.io/client-go/tools/clientcmd"
 	"os"

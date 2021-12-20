@@ -1,11 +1,11 @@
 package list
 
 import (
-	"github.com/loft-sh/loftctl/v2/cmd/loftctl/flags"
-	"github.com/loft-sh/loftctl/v2/pkg/client"
-	"github.com/loft-sh/loftctl/v2/pkg/client/helper"
-	"github.com/loft-sh/loftctl/v2/pkg/log"
-	"github.com/loft-sh/loftctl/v2/pkg/upgrade"
+	"github.com/loft-sh/loftctl/cmd/loftctl/flags"
+	"github.com/loft-sh/loftctl/pkg/client"
+	"github.com/loft-sh/loftctl/pkg/client/helper"
+	"github.com/loft-sh/loftctl/pkg/log"
+	"github.com/loft-sh/loftctl/pkg/upgrade"
 	"github.com/spf13/cobra"
 	"k8s.io/apimachinery/pkg/util/duration"
 	"time"
@@ -31,7 +31,7 @@ func NewVirtualClustersCmd(globalFlags *flags.GlobalFlags) *cobra.Command {
 List the loft virtual clusters you have access to
 
 Example:
-loft list vclusters
+loft list vcluster
 #######################################################
 	`
 	if upgrade.IsPlugin == "true" {
@@ -42,7 +42,7 @@ loft list vclusters
 List the loft virtual clusters you have access to
 
 Example:
-devspace list vclusters
+devspace list vcluster
 #######################################################
 	`
 	}
@@ -52,7 +52,7 @@ devspace list vclusters
 		Long:  description,
 		Args:  cobra.NoArgs,
 		RunE: func(cobraCmd *cobra.Command, args []string) error {
-			return cmd.Run()
+			return cmd.Run(cobraCmd, args)
 		},
 	}
 
@@ -60,13 +60,13 @@ devspace list vclusters
 }
 
 // Run executes the functionality
-func (cmd *VirtualClustersCmd) Run() error {
+func (cmd *VirtualClustersCmd) Run(cobraCmd *cobra.Command, args []string) error {
 	baseClient, err := client.NewClientFromPath(cmd.Config)
 	if err != nil {
 		return err
 	}
 
-	virtualClusters, err := helper.GetVirtualClusters(baseClient, cmd.log)
+	virtualClusters, err := helper.GetVirtualClusters(baseClient)
 	if err != nil {
 		return err
 	}

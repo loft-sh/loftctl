@@ -4,13 +4,13 @@ import (
 	"context"
 	"time"
 
-	"github.com/loft-sh/loftctl/v2/cmd/loftctl/flags"
-	"github.com/loft-sh/loftctl/v2/pkg/client"
-	"github.com/loft-sh/loftctl/v2/pkg/client/helper"
-	"github.com/loft-sh/loftctl/v2/pkg/kube"
-	"github.com/loft-sh/loftctl/v2/pkg/kubeconfig"
-	"github.com/loft-sh/loftctl/v2/pkg/log"
-	"github.com/loft-sh/loftctl/v2/pkg/upgrade"
+	"github.com/loft-sh/loftctl/cmd/loftctl/flags"
+	"github.com/loft-sh/loftctl/pkg/client"
+	"github.com/loft-sh/loftctl/pkg/client/helper"
+	"github.com/loft-sh/loftctl/pkg/kube"
+	"github.com/loft-sh/loftctl/pkg/kubeconfig"
+	"github.com/loft-sh/loftctl/pkg/log"
+	"github.com/loft-sh/loftctl/pkg/upgrade"
 	"github.com/mgutz/ansi"
 	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
@@ -41,6 +41,7 @@ func NewSpaceCmd(globalFlags *flags.GlobalFlags) *cobra.Command {
 Deletes a space from a cluster
 
 Example:
+loft delete space 
 loft delete space myspace
 loft delete space myspace --cluster mycluster
 #######################################################
@@ -53,21 +54,22 @@ loft delete space myspace --cluster mycluster
 Deletes a space from a cluster
 
 Example:
+devspace delete space 
 devspace delete space myspace
 devspace delete space myspace --cluster mycluster
 #######################################################
 	`
 	}
 	c := &cobra.Command{
-		Use:   "space [name]",
+		Use:   "space",
 		Short: "Deletes a space from a cluster",
 		Long:  description,
-		Args:  cobra.ExactArgs(1),
+		Args:  cobra.MaximumNArgs(1),
 		RunE: func(cobraCmd *cobra.Command, args []string) error {
 			// Check for newer version
 			upgrade.PrintNewerVersionWarning()
 
-			return cmd.Run(args)
+			return cmd.Run(cobraCmd, args)
 		},
 	}
 
@@ -78,7 +80,7 @@ devspace delete space myspace --cluster mycluster
 }
 
 // Run executes the command
-func (cmd *SpaceCmd) Run(args []string) error {
+func (cmd *SpaceCmd) Run(cobraCmd *cobra.Command, args []string) error {
 	baseClient, err := client.NewClientFromPath(cmd.Config)
 	if err != nil {
 		return err
@@ -100,7 +102,7 @@ func (cmd *SpaceCmd) Run(args []string) error {
 	}
 
 	gracePeriod := int64(0)
-	err = clusterClient.Agent().ClusterV1().Spaces().Delete(context.TODO(), spaceName, metav1.DeleteOptions{GracePeriodSeconds: &gracePeriod})
+	err = clusterClient.Kiosk().TenancyV1alpha1().Spaces().Delete(context.TODO(), spaceName, metav1.DeleteOptions{GracePeriodSeconds: &gracePeriod})
 	if err != nil {
 		return errors.Wrap(err, "delete space")
 	}
@@ -131,6 +133,6 @@ func (cmd *SpaceCmd) Run(args []string) error {
 }
 
 func isSpaceStillThere(clusterClient kube.Interface, spaceName string) bool {
-	_, err := clusterClient.Agent().ClusterV1().Spaces().Get(context.TODO(), spaceName, metav1.GetOptions{})
+	_, err := clusterClient.Kiosk().TenancyV1alpha1().Spaces().Get(context.TODO(), spaceName, metav1.GetOptions{})
 	return err == nil
 }

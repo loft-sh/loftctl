@@ -5,26 +5,20 @@ import (
 	"crypto/x509"
 	"encoding/json"
 	"fmt"
+	managementv1 "github.com/loft-sh/api/pkg/apis/management/v1"
+	storagev1 "github.com/loft-sh/api/pkg/apis/storage/v1"
 	"io/ioutil"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"net/http"
 	"net/url"
 	"os"
 	"path/filepath"
-	"strconv"
 	"strings"
 	"sync"
 	"time"
 
-	"github.com/loft-sh/api/v2/pkg/auth"
-
-	managementv1 "github.com/loft-sh/api/v2/pkg/apis/management/v1"
-	storagev1 "github.com/loft-sh/api/v2/pkg/apis/storage/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-
-	"github.com/loft-sh/loftctl/v2/pkg/constants"
-	"github.com/loft-sh/loftctl/v2/pkg/kube"
-	"github.com/loft-sh/loftctl/v2/pkg/log"
-	"github.com/loft-sh/loftctl/v2/pkg/upgrade"
+	"github.com/loft-sh/loftctl/pkg/kube"
+	"github.com/loft-sh/loftctl/pkg/log"
 	"github.com/mitchellh/go-homedir"
 	"github.com/pkg/errors"
 	"github.com/skratchdot/open-golang/open"
@@ -39,7 +33,6 @@ var cacheFolder = ".loft"
 var DefaultCacheConfig = "config.json"
 
 const (
-	VersionPath   = "%s/version"
 	LoginPath     = "%s/login?cli=true"
 	RedirectPath  = "%s/spaces"
 	AccessKeyPath = "%s/profile/access-keys"
@@ -64,9 +57,7 @@ type Client interface {
 
 	Login(host string, insecure bool, log log.Logger) error
 	LoginWithAccessKey(host, accessKey string, insecure bool) error
-	LoginRaw(host, accessKey string, insecure bool) error
 
-	Version() (*auth.Version, error)
 	Config() *Config
 	DirectClusterEndpointToken(forceRefresh bool) (string, error)
 	Save() error
@@ -94,6 +85,12 @@ type client struct {
 func (c *client) initConfig() error {
 	var retErr error
 	c.configOnce.Do(func() {
+		err := os.MkdirAll(filepath.Dir(c.configPath), 0755)
+		if err != nil {
+			retErr = err
+			return
+		}
+
 		// load the config or create new one if not found
 		content, err := ioutil.ReadFile(c.configPath)
 		if err != nil {
@@ -168,11 +165,6 @@ func (c *client) Save() error {
 		c.config.TypeMeta.APIVersion = "storage.loft.sh/v1"
 	}
 
-	err := os.MkdirAll(filepath.Dir(c.configPath), 0755)
-	if err != nil {
-		return err
-	}
-
 	out, err := json.Marshal(c.config)
 	if err != nil {
 		return err
@@ -236,31 +228,6 @@ func verifyHost(host string) error {
 	return nil
 }
 
-func (c *client) Version() (*auth.Version, error) {
-	restConfig, err := c.restConfig("")
-	if err != nil {
-		return nil, err
-	}
-
-	restClient, err := kube.NewForConfig(restConfig)
-	if err != nil {
-		return nil, err
-	}
-
-	raw, err := restClient.CoreV1().RESTClient().Get().RequestURI("/version").DoRaw(context.Background())
-	if err != nil {
-		return nil, errors.New(fmt.Sprintf("%s\n\nYou may need to login again via `%s login %s --insecure` to allow self-signed certificates\n", os.Args[0], restConfig.Host, err.Error()))
-	}
-
-	version := &auth.Version{}
-	err = json.Unmarshal(raw, version)
-	if err != nil {
-		return nil, errors.Wrap(err, "parse version response")
-	}
-
-	return version, nil
-}
-
 func (c *client) Login(host string, insecure bool, log log.Logger) error {
 	var (
 		loginUrl   = fmt.Sprintf(LoginPath, host)
@@ -294,19 +261,6 @@ func (c *client) Login(host string, insecure bool, log log.Logger) error {
 	return c.LoginWithAccessKey(host, key.Key, insecure)
 }
 
-func (c *client) LoginRaw(host, accessKey string, insecure bool) error {
-	if c.config.Host == host && c.config.AccessKey == accessKey {
-		return nil
-	}
-
-	c.config.Host = host
-	c.config.Insecure = insecure
-	c.config.AccessKey = accessKey
-	c.config.DirectClusterEndpointToken = ""
-	c.config.DirectClusterEndpointTokenRequested = nil
-	return c.Save()
-}
-
 func (c *client) LoginWithAccessKey(host, accessKey string, insecure bool) error {
 	err := verifyHost(host)
 	if err != nil {
@@ -333,12 +287,6 @@ func (c *client) LoginWithAccessKey(host, accessKey string, insecure bool) error
 	c.config.DirectClusterEndpointToken = ""
 	c.config.DirectClusterEndpointTokenRequested = nil
 
-	// verify version
-	err = VerifyVersion(c)
-	if err != nil {
-		return err
-	}
-
 	// verify the connection works
 	managementClient, err := c.Management()
 	if err != nil {
@@ -358,23 +306,6 @@ func (c *client) LoginWithAccessKey(host, accessKey string, insecure bool) error
 	}
 
 	return c.Save()
-}
-
-// VerifyVersion checks if the Loft version is compatible with this CLI version
-func VerifyVersion(baseClient Client) error {
-	v, err := baseClient.Version()
-	if err != nil {
-		return err
-	}
-
-	major, err := strconv.Atoi(v.Major)
-	if err != nil {
-		return errors.Wrap(err, "parse major version string")
-	} else if major == 1 {
-		return fmt.Errorf("unsupported Loft version %s. Please downgrade your CLI to below v2.0.0 to support this version, as Loft v2.0.0 and newer versions are incompatible with v1.x.x", v.Version)
-	}
-
-	return nil
 }
 
 func (c *client) restConfig(hostSuffix string) (*rest.Config, error) {
@@ -418,7 +349,6 @@ func getRestConfig(host, token string, insecure bool) (*rest.Config, error) {
 	if err != nil {
 		return nil, err
 	}
-	config.UserAgent = constants.LoftctlUserAgentPrefix + upgrade.GetVersion()
 
 	return config, nil
 }

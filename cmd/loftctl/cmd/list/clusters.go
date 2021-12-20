@@ -1,13 +1,12 @@
 package list
 
 import (
-	"context"
-	"github.com/loft-sh/loftctl/v2/cmd/loftctl/flags"
-	"github.com/loft-sh/loftctl/v2/pkg/client"
-	"github.com/loft-sh/loftctl/v2/pkg/log"
-	"github.com/loft-sh/loftctl/v2/pkg/upgrade"
+	"github.com/loft-sh/loftctl/cmd/loftctl/flags"
+	"github.com/loft-sh/loftctl/pkg/client"
+	"github.com/loft-sh/loftctl/pkg/client/helper"
+	"github.com/loft-sh/loftctl/pkg/log"
+	"github.com/loft-sh/loftctl/pkg/upgrade"
 	"github.com/spf13/cobra"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/duration"
 	"time"
 )
@@ -53,39 +52,40 @@ devspace list clusters
 		Long:  description,
 		Args:  cobra.NoArgs,
 		RunE: func(cobraCmd *cobra.Command, args []string) error {
-			return cmd.RunClusters()
+			return cmd.RunClusters(cobraCmd, args)
 		},
 	}
 
 	return clustersCmd
 }
 
-// RunClusters executes the functionality
-func (cmd *ClustersCmd) RunClusters() error {
+// RunUsers executes the functionality "loft list users"
+func (cmd *ClustersCmd) RunClusters(cobraCmd *cobra.Command, args []string) error {
 	baseClient, err := client.NewClientFromPath(cmd.Config)
 	if err != nil {
 		return err
 	}
 
-	managementClient, err := baseClient.Management()
-	if err != nil {
-		return err
-	}
-
-	clusterList, err := managementClient.Loft().ManagementV1().Clusters().List(context.TODO(), metav1.ListOptions{})
+	clusters, err := helper.ListClusterAccounts(baseClient)
 	if err != nil {
 		return err
 	}
 
 	header := []string{
 		"Cluster",
+		"Account",
 		"Age",
 	}
 	values := [][]string{}
-	for _, cluster := range clusterList.Items {
+	for _, cluster := range clusters {
+		if len(cluster.Accounts) == 0 {
+			continue
+		}
+
 		values = append(values, []string{
-			cluster.Name,
-			duration.HumanDuration(time.Now().Sub(cluster.CreationTimestamp.Time)),
+			cluster.Cluster.Name,
+			cluster.Accounts[0],
+			duration.HumanDuration(time.Now().Sub(cluster.Cluster.CreationTimestamp.Time)),
 		})
 	}
 

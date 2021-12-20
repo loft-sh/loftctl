@@ -2,10 +2,10 @@ package connect
 
 import (
 	"fmt"
-	"github.com/loft-sh/loftctl/v2/cmd/loftctl/flags"
-	"github.com/loft-sh/loftctl/v2/pkg/client/helper"
-	"github.com/loft-sh/loftctl/v2/pkg/log"
-	"github.com/loft-sh/loftctl/v2/pkg/upgrade"
+	"github.com/loft-sh/loftctl/cmd/loftctl/flags"
+	"github.com/loft-sh/loftctl/pkg/client/helper"
+	"github.com/loft-sh/loftctl/pkg/log"
+	"github.com/loft-sh/loftctl/pkg/upgrade"
 	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
 	"io/ioutil"
@@ -69,7 +69,7 @@ devspace connect vcluster test --namespace test
 		Long:  description,
 		Args:  cobra.MaximumNArgs(1),
 		RunE: func(cobraCmd *cobra.Command, args []string) error {
-			return cmd.Run(args)
+			return cmd.Run(cobraCmd, args)
 		},
 	}
 
@@ -81,7 +81,7 @@ devspace connect vcluster test --namespace test
 }
 
 // Run executes the command
-func (cmd *VirtualClusterCmd) Run(args []string) error {
+func (cmd *VirtualClusterCmd) Run(cobraCmd *cobra.Command, args []string) error {
 	kubeConfigLoader := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(clientcmd.NewDefaultClientConfigLoadingRules(), &clientcmd.ConfigOverrides{})
 	config, err := kubeConfigLoader.ClientConfig()
 	if err != nil {

@@ -4,13 +4,13 @@ import (
 	"context"
 	"encoding/base64"
 	"fmt"
-	managementv1 "github.com/loft-sh/api/v2/pkg/apis/management/v1"
-	"github.com/loft-sh/loftctl/v2/cmd/loftctl/flags"
-	"github.com/loft-sh/loftctl/v2/pkg/client"
-	"github.com/loft-sh/loftctl/v2/pkg/client/helper"
-	"github.com/loft-sh/loftctl/v2/pkg/kubeconfig"
-	"github.com/loft-sh/loftctl/v2/pkg/log"
-	"github.com/loft-sh/loftctl/v2/pkg/upgrade"
+	managementv1 "github.com/loft-sh/api/pkg/apis/management/v1"
+	"github.com/loft-sh/loftctl/cmd/loftctl/flags"
+	"github.com/loft-sh/loftctl/pkg/client"
+	"github.com/loft-sh/loftctl/pkg/client/helper"
+	"github.com/loft-sh/loftctl/pkg/kubeconfig"
+	"github.com/loft-sh/loftctl/pkg/log"
+	"github.com/loft-sh/loftctl/pkg/upgrade"
 	"github.com/mgutz/ansi"
 	"github.com/spf13/cobra"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
@@ -83,7 +83,7 @@ devspace use cluster mycluster
 				upgrade.PrintNewerVersionWarning()
 			}
 
-			return cmd.Run(args)
+			return cmd.Run(cobraCmd, args)
 		},
 	}
 
@@ -93,7 +93,7 @@ devspace use cluster mycluster
 }
 
 // Run executes the command
-func (cmd *ClusterCmd) Run(args []string) error {
+func (cmd *ClusterCmd) Run(cobraCmd *cobra.Command, args []string) error {
 	baseClient, err := client.NewClientFromPath(cmd.Config)
 	if err != nil {
 		return err
@@ -161,7 +161,7 @@ func CreateClusterContextOptions(baseClient client.Client, config string, cluste
 		contextOptions = ApplyDirectClusterEndpointOptions(contextOptions, cluster, "/kubernetes/cluster", log)
 		_, err := baseClient.DirectClusterEndpointToken(true)
 		if err != nil {
-			return kubeconfig.ContextOptions{}, fmt.Errorf("retrieving direct cluster endpoint token: %v. Use --disable-direct-cluster-endpoint to create a context without using direct cluster endpoints", err)
+			log.Errorf("Retrieving direct cluster endpoint token: %v", err)
 		}
 	} else {
 		contextOptions.Server = baseClient.Config().Host + "/kubernetes/cluster/" + cluster.Name

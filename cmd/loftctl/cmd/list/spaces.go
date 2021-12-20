@@ -1,11 +1,11 @@
 package list
 
 import (
-	"github.com/loft-sh/loftctl/v2/cmd/loftctl/flags"
-	"github.com/loft-sh/loftctl/v2/pkg/client"
-	"github.com/loft-sh/loftctl/v2/pkg/client/helper"
-	"github.com/loft-sh/loftctl/v2/pkg/log"
-	"github.com/loft-sh/loftctl/v2/pkg/upgrade"
+	"github.com/loft-sh/loftctl/cmd/loftctl/flags"
+	"github.com/loft-sh/loftctl/pkg/client"
+	"github.com/loft-sh/loftctl/pkg/client/helper"
+	"github.com/loft-sh/loftctl/pkg/log"
+	"github.com/loft-sh/loftctl/pkg/upgrade"
 	"github.com/spf13/cobra"
 	"k8s.io/apimachinery/pkg/util/duration"
 	"time"
@@ -52,21 +52,21 @@ devspace list spaces
 		Long:  description,
 		Args:  cobra.NoArgs,
 		RunE: func(cobraCmd *cobra.Command, args []string) error {
-			return cmd.RunSpaces()
+			return cmd.RunSpaces(cobraCmd, args)
 		},
 	}
 
 	return loginCmd
 }
 
-// RunSpaces executes the functionality
-func (cmd *SpacesCmd) RunSpaces() error {
+// RunUsers executes the functionality "loft list users"
+func (cmd *SpacesCmd) RunSpaces(cobraCmd *cobra.Command, args []string) error {
 	baseClient, err := client.NewClientFromPath(cmd.Config)
 	if err != nil {
 		return err
 	}
 
-	spaces, err := helper.GetSpaces(baseClient, cmd.log)
+	spaces, err := helper.GetSpaces(baseClient)
 	if err != nil {
 		return err
 	}
@@ -80,14 +80,14 @@ func (cmd *SpacesCmd) RunSpaces() error {
 	}
 	values := [][]string{}
 	for _, space := range spaces {
-		sleepModeConfig := space.Status.SleepModeConfig
+		sleepModeConfig := space.SleepModeConfig
 		sleeping := "false"
 		if sleepModeConfig.Status.SleepingSince != 0 {
 			sleeping = duration.HumanDuration(time.Now().Sub(time.Unix(sleepModeConfig.Status.SleepingSince, 0)))
 		}
 
 		values = append(values, []string{
-			space.Name,
+			space.Space.Name,
 			space.Cluster,
 			sleeping,
 			string(space.Space.Status.Phase),
