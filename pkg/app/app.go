@@ -36,8 +36,10 @@ func ConvertAppToHelmTask(app *managementv1.App, namespace string) *storagev1.He
 	if helmTask.Release.Config.Annotations == nil {
 		helmTask.Release.Config.Annotations = map[string]string{}
 	}
+	
 	helmTask.Release.Config.Annotations[LoftHelmReleaseAppNameAnnotation] = app.Name
 	helmTask.Release.Config.Annotations[LoftHelmReleaseAppGenerationAnnotation] = strconv.FormatInt(app.Generation, 10)
+	
 	if app.Spec.Wait {
 		helmTask.Args = append(helmTask.Args, "--wait")
 	}
