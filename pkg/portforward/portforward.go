@@ -19,16 +19,17 @@ package portforward
 import (
 	"errors"
 	"fmt"
-	"go.uber.org/atomic"
 	"io"
 	"io/ioutil"
-	"k8s.io/klog"
 	"net"
 	"net/http"
 	"sort"
 	"strconv"
 	"strings"
 	"sync"
+
+	"go.uber.org/atomic"
+	klog "k8s.io/klog/v2"
 
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/util/httpstream"
