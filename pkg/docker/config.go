@@ -63,3 +63,4 @@ func loadDockerConfig() (*configfile.ConfigFile, error) {
 
 	return dockerconfig.Load(configDir)
 }
+
