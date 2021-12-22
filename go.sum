@@ -555,6 +555,7 @@ github.com/loft-sh/agentapi/v2 v2.0.3-beta.5.0.20211221090823-d60ed0b45f21 h1:Ae
 github.com/loft-sh/agentapi/v2 v2.0.3-beta.5.0.20211221090823-d60ed0b45f21/go.mod h1:M2Y/Y/uOVJrYCiNk1cQ/iZ5B8yAqdvBghM1kbgQNnq0=
 github.com/loft-sh/agentapi/v2 v2.0.3-beta.12/go.mod h1:M2Y/Y/uOVJrYCiNk1cQ/iZ5B8yAqdvBghM1kbgQNnq0=
 github.com/loft-sh/api/v2 v2.0.3-beta.1/go.mod h1:id3p24z4DdFqJqpgp0rqWgRcKB6f9Hazio8aq6DdeoA=
+github.com/loft-sh/api/v2 v2.0.3-beta.5/go.mod h1:dpplLv+2fdlhVAYODPF0DI9ag/zPXkWq2qYHavVbpLc=
 github.com/loft-sh/api/v2 v2.0.3-beta.5.0.20211221151342-3203cfd4f11d h1:yaCan3LecBY46EUgQFLWqH50H2+Ju3tg+CgnCQZcUPw=
 github.com/loft-sh/api/v2 v2.0.3-beta.5.0.20211221151342-3203cfd4f11d/go.mod h1:kcFoDfSN0faBtTyFLuCblnZ8Zbyxjpk91OHb4jrzvKg=
 github.com/loft-sh/apiserver v0.0.0-20210607160412-10c99558fdeb/go.mod h1:i+5YH8eXJ6uxozbFV75z++t6XEADRQDD0IlbCt3Gr/o=
