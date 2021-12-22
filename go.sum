@@ -553,11 +553,9 @@ github.com/lithammer/dedent v1.1.0/go.mod h1:jrXYCQtgg0nJiN+StA2KgR7w6CiQNv9Fd/Z
 github.com/loft-sh/agentapi/v2 v2.0.3-beta.1/go.mod h1:bCawx+U24BHMVvBZVa0sPD0GfQv+ewy2uTLyD734BMU=
 github.com/loft-sh/agentapi/v2 v2.0.3-beta.5.0.20211221090823-d60ed0b45f21 h1:Ae+/Moq4dZt8u71QcovviN2RFfwmhpij3mqBvkDG4xo=
 github.com/loft-sh/agentapi/v2 v2.0.3-beta.5.0.20211221090823-d60ed0b45f21/go.mod h1:M2Y/Y/uOVJrYCiNk1cQ/iZ5B8yAqdvBghM1kbgQNnq0=
-github.com/loft-sh/agentapi/v2 v2.0.3-beta.12/go.mod h1:M2Y/Y/uOVJrYCiNk1cQ/iZ5B8yAqdvBghM1kbgQNnq0=
 github.com/loft-sh/api/v2 v2.0.3-beta.1/go.mod h1:id3p24z4DdFqJqpgp0rqWgRcKB6f9Hazio8aq6DdeoA=
-github.com/loft-sh/api/v2 v2.0.3-beta.5/go.mod h1:dpplLv+2fdlhVAYODPF0DI9ag/zPXkWq2qYHavVbpLc=
-github.com/loft-sh/api/v2 v2.0.3-beta.5.0.20211221151342-3203cfd4f11d h1:yaCan3LecBY46EUgQFLWqH50H2+Ju3tg+CgnCQZcUPw=
-github.com/loft-sh/api/v2 v2.0.3-beta.5.0.20211221151342-3203cfd4f11d/go.mod h1:kcFoDfSN0faBtTyFLuCblnZ8Zbyxjpk91OHb4jrzvKg=
+github.com/loft-sh/api/v2 v2.0.3-beta.5.0.20211221231257-b5786fea9066 h1:H6xpNkH1Sur5Dz5NFmfyWMTsFPlv4qh4QkdJOdAjCkw=
+github.com/loft-sh/api/v2 v2.0.3-beta.5.0.20211221231257-b5786fea9066/go.mod h1:S8tAnFdpCPHsD5R7tlz/jQ9X4wkrMtUk7/7Be+CuJ3Y=
 github.com/loft-sh/apiserver v0.0.0-20210607160412-10c99558fdeb/go.mod h1:i+5YH8eXJ6uxozbFV75z++t6XEADRQDD0IlbCt3Gr/o=
 github.com/loft-sh/apiserver v0.0.0-20211216225656-cafe09adc0b8 h1:AwRDdL4KSuT28PXCVyOoPNkMJNrYJgI4pdsjS+D9aRo=
 github.com/loft-sh/apiserver v0.0.0-20211216225656-cafe09adc0b8/go.mod h1:vKe3kIPUctcbJAsNegS/cWLxeq9ru5MxKA1W3bjZGkQ=
