@@ -165,6 +165,7 @@ func (cmd *VirtualClusterCmd) Run(args []string) error {
 	}
 
 	var (
+		vClusterChartName           string
 		vClusterValues              string
 		vClusterVersion             string
 		vClusterTemplate            *storagev1.VirtualClusterTemplateSpec
@@ -196,6 +197,7 @@ func (cmd *VirtualClusterCmd) Run(args []string) error {
 			return err
 		}
 		if virtualClusterTemplate.Spec.Template.HelmRelease != nil {
+			vClusterChartName = virtualClusterTemplate.Spec.Template.HelmRelease.Chart.Name
 			vClusterValues = virtualClusterTemplate.Spec.Template.HelmRelease.Values
 			vClusterVersion = virtualClusterTemplate.Spec.Template.HelmRelease.Chart.Version
 		}
@@ -225,6 +227,7 @@ func (cmd *VirtualClusterCmd) Run(args []string) error {
 						},
 						HelmRelease: &agentstoragev1.VirtualClusterHelmRelease{
 							Chart: agentstoragev1.VirtualClusterHelmChart{
+								Name:    vClusterChartName,
 								Version: vClusterVersion,
 							},
 							Values: vClusterValues,
