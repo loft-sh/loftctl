@@ -84,9 +84,13 @@ func (cmd *VirtualClustersCmd) Run() error {
 		if virtualCluster.VirtualCluster.Status.HelmRelease != nil {
 			status = string(virtualCluster.VirtualCluster.Status.HelmRelease.Phase)
 		}
+		vClusterName := virtualCluster.VirtualCluster.Name
+		if virtualCluster.VirtualCluster.Annotations != nil && virtualCluster.VirtualCluster.Annotations["loft.sh/display-name"] != "" {
+			vClusterName = virtualCluster.VirtualCluster.Annotations["loft.sh/display-name"] + " (" + vClusterName + ")"
+		}
 
 		values = append(values, []string{
-			virtualCluster.VirtualCluster.Name,
+			vClusterName,
 			virtualCluster.VirtualCluster.Namespace,
 			virtualCluster.Cluster,
 			status,

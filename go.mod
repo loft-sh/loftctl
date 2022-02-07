@@ -36,3 +36,8 @@ require (
 	k8s.io/kubectl v0.23.1
 	sigs.k8s.io/controller-runtime v0.11.0
 )
+
+replace (
+	github.com/loft-sh/agentapi/v2 => ../../agentapi/v2
+	github.com/loft-sh/api/v2 => ../../api/v2
+)

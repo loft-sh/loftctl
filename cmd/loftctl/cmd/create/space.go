@@ -42,6 +42,9 @@ type SpaceCmd struct {
 	Template                     string
 	ParametersFile               string
 
+	DisplayName string
+	Description string
+
 	User string
 	Team string
 
@@ -95,6 +98,8 @@ devspace create space myspace --cluster mycluster --account myaccount
 		},
 	}
 
+	c.Flags().StringVar(&cmd.DisplayName, "display-name", "", "The display name to show in the UI for this virtual cluster")
+	c.Flags().StringVar(&cmd.Description, "description", "", "The description to show in the UI for this virtual cluster")
 	c.Flags().StringVar(&cmd.Cluster, "cluster", "", "The cluster to use")
 	c.Flags().StringVar(&cmd.User, "user", "", "The user to create the space for")
 	c.Flags().StringVar(&cmd.Team, "team", "", "The team to create the space for")
@@ -202,6 +207,13 @@ func (cmd *SpaceCmd) Run(args []string) error {
 	if cmd.DeleteAfter > 0 {
 		space.Annotations[clusterv1.SleepModeDeleteAfterAnnotation] = strconv.FormatInt(cmd.DeleteAfter, 10)
 	}
+	if cmd.DisplayName != "" {
+		space.Annotations["loft.sh/display-name"] = cmd.DisplayName
+	}
+	if cmd.Description != "" {
+		space.Annotations["loft.sh/description"] = cmd.Description
+	}
+
 	zone, offset := time.Now().Zone()
 	space.Annotations[clusterv1.SleepModeTimezoneAnnotation] = zone + "#" + strconv.Itoa(offset)
 

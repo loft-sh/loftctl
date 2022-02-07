@@ -297,7 +297,7 @@ func (cmd *StartCmd) handleAlreadyExistingInstallation() error {
 				// Confirm with user if this is a local cluster
 				const (
 					YesOption = "Yes"
-					NoOption  = "No, my cluster is running locally (docker desktop, minikube, kind etc.)"
+					NoOption  = "No, my cluster is running not locally (GKE, EKS, Bare Metal etc."
 				)
 
 				answer, err := cmd.Log.Question(&survey.QuestionOptions{
@@ -312,7 +312,7 @@ func (cmd *StartCmd) handleAlreadyExistingInstallation() error {
 					return err
 				}
 
-				isLocal = (answer == YesOption)
+				isLocal = answer == YesOption
 			}
 
 			if isLocal {
@@ -334,7 +334,7 @@ func (cmd *StartCmd) handleAlreadyExistingInstallation() error {
 					return err
 				}
 
-				enableIngress = (answer == YesOption)
+				enableIngress = answer == YesOption
 			}
 		}
 

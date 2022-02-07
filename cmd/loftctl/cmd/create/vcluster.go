@@ -46,6 +46,9 @@ type VirtualClusterCmd struct {
 	Print          bool
 	ParametersFile string
 
+	DisplayName string
+	Description string
+
 	User string
 	Team string
 
@@ -105,6 +108,8 @@ devspace create vcluster test --cluster mycluster --space myspace
 		},
 	}
 
+	c.Flags().StringVar(&cmd.DisplayName, "display-name", "", "The display name to show in the UI for this virtual cluster")
+	c.Flags().StringVar(&cmd.Description, "description", "", "The description to show in the UI for this virtual cluster")
 	c.Flags().StringVar(&cmd.Cluster, "cluster", "", "The cluster to create the virtual cluster in")
 	c.Flags().StringVar(&cmd.Space, "space", "", "The space to create the virtual cluster in")
 	c.Flags().StringVar(&cmd.User, "user", "", "The user to create the space for")
@@ -283,6 +288,20 @@ func (cmd *VirtualClusterCmd) Run(args []string) error {
 			createTask.Spec.Task.VirtualClusterCreationTask.Metadata.Annotations = map[string]string{}
 		}
 		createTask.Spec.Task.VirtualClusterCreationTask.Metadata.Annotations["loft.sh/virtual-cluster-template"] = vClusterTemplateName
+		createTask.Spec.Task.VirtualClusterCreationTask.Access = vClusterTemplate.Template.Access
+	}
+
+	if cmd.DisplayName != "" {
+		if createTask.Spec.Task.VirtualClusterCreationTask.Metadata.Annotations == nil {
+			createTask.Spec.Task.VirtualClusterCreationTask.Metadata.Annotations = map[string]string{}
+		}
+		createTask.Spec.Task.VirtualClusterCreationTask.Metadata.Annotations["loft.sh/display-name"] = cmd.DisplayName
+	}
+	if cmd.Description != "" {
+		if createTask.Spec.Task.VirtualClusterCreationTask.Metadata.Annotations == nil {
+			createTask.Spec.Task.VirtualClusterCreationTask.Metadata.Annotations = map[string]string{}
+		}
+		createTask.Spec.Task.VirtualClusterCreationTask.Metadata.Annotations["loft.sh/description"] = cmd.Description
 	}
 
 	// resolve apps

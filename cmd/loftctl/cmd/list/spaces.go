@@ -85,9 +85,13 @@ func (cmd *SpacesCmd) RunSpaces() error {
 		if sleepModeConfig.Status.SleepingSince != 0 {
 			sleeping = duration.HumanDuration(time.Now().Sub(time.Unix(sleepModeConfig.Status.SleepingSince, 0)))
 		}
+		spaceName := space.Name
+		if space.Annotations != nil && space.Annotations["loft.sh/display-name"] != "" {
+			spaceName = space.Annotations["loft.sh/display-name"] + " (" + spaceName + ")"
+		}
 
 		values = append(values, []string{
-			space.Name,
+			spaceName,
 			space.Cluster,
 			sleeping,
 			string(space.Space.Status.Phase),

@@ -364,7 +364,12 @@ func SelectSpaceAndClusterName(baseClient client.Client, spaceName, clusterName 
 		}
 
 		matchedSpaces = append(matchedSpaces, space)
-		questionOptionsUnformatted = append(questionOptionsUnformatted, []string{space.Space.Name, space.Cluster})
+		spaceName := space.Space.Name
+		if space.Space.Annotations != nil && space.Space.Annotations["loft.sh/display-name"] != "" {
+			spaceName = space.Space.Annotations["loft.sh/display-name"] + " (" + spaceName + ")"
+		}
+
+		questionOptionsUnformatted = append(questionOptionsUnformatted, []string{spaceName, space.Cluster})
 	}
 
 	questionOptions := formatOptions("Space: %s | Cluster: %s", questionOptionsUnformatted)
@@ -440,7 +445,12 @@ func SelectVirtualClusterAndSpaceAndClusterName(baseClient client.Client, virtua
 		}
 
 		matchedVClusters = append(matchedVClusters, virtualCluster)
-		questionOptionsUnformatted = append(questionOptionsUnformatted, []string{virtualCluster.VirtualCluster.Name, virtualCluster.VirtualCluster.Namespace, virtualCluster.Cluster})
+		vClusterName := virtualCluster.VirtualCluster.Name
+		if virtualCluster.VirtualCluster.Annotations != nil && virtualCluster.VirtualCluster.Annotations["loft.sh/display-name"] != "" {
+			vClusterName = virtualCluster.VirtualCluster.Annotations["loft.sh/display-name"] + " (" + vClusterName + ")"
+		}
+
+		questionOptionsUnformatted = append(questionOptionsUnformatted, []string{vClusterName, virtualCluster.VirtualCluster.Namespace, virtualCluster.Cluster})
 	}
 
 	questionOptions := formatOptions("vCluster: %s | Space: %s | Cluster: %s", questionOptionsUnformatted)
