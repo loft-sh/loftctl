@@ -12,6 +12,7 @@ import (
 	"github.com/loft-sh/loftctl/v2/pkg/client"
 	"github.com/loft-sh/loftctl/v2/pkg/client/helper"
 	"github.com/loft-sh/loftctl/v2/pkg/clihelper"
+	"github.com/loft-sh/loftctl/v2/pkg/constants"
 	"github.com/loft-sh/loftctl/v2/pkg/kube"
 	"github.com/loft-sh/loftctl/v2/pkg/kubeconfig"
 	"github.com/loft-sh/loftctl/v2/pkg/log"
@@ -428,6 +429,7 @@ func (cmd *VirtualClusterCmd) createSpace(ctx context.Context, baseClient client
 		if task.Spec.Task.VirtualClusterCreationTask.SpaceCreationTask.Metadata.Annotations["loft.sh/description"] == "" {
 			task.Spec.Task.VirtualClusterCreationTask.SpaceCreationTask.Metadata.Annotations["loft.sh/description"] = "Space for Virtual Cluster [" + task.Spec.Task.VirtualClusterCreationTask.Metadata.Name + "](/vclusters#search=" + task.Spec.Task.VirtualClusterCreationTask.Metadata.Name + ")"
 		}
+		task.Spec.Task.VirtualClusterCreationTask.SpaceCreationTask.Metadata.Annotations[constants.VClusterSpace] = "true"
 
 		// resolve the space apps
 		if spaceTemplate != nil && len(spaceTemplate.Spec.Template.Apps) > 0 {

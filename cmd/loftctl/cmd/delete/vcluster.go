@@ -2,6 +2,7 @@ package delete
 
 import (
 	"context"
+	"github.com/loft-sh/loftctl/v2/pkg/constants"
 	"time"
 
 	"github.com/loft-sh/loftctl/v2/cmd/loftctl/flags"
@@ -120,6 +121,12 @@ func (cmd *VirtualClusterCmd) Run(args []string) error {
 		}
 
 		cmd.Log.Donef("Successfully deleted kube context for virtual cluster %s", ansi.Color(virtualClusterName, "white+b"))
+	}
+
+	// check if we should delete space
+	spaceObject, err := clusterClient.Agent().ClusterV1().Spaces().Get(context.TODO(), spaceName, metav1.GetOptions{})
+	if err == nil && spaceObject.Annotations != nil && spaceObject.Annotations[constants.VClusterSpace] == "true" {
+		cmd.DeleteSpace = true
 	}
 
 	// delete space
