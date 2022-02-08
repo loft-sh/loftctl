@@ -425,6 +425,9 @@ func (cmd *VirtualClusterCmd) createSpace(ctx context.Context, baseClient client
 		}
 		zone, offset := time.Now().Zone()
 		task.Spec.Task.VirtualClusterCreationTask.SpaceCreationTask.Metadata.Annotations[clusterv1.SleepModeTimezoneAnnotation] = zone + "#" + strconv.Itoa(offset)
+		if task.Spec.Task.VirtualClusterCreationTask.SpaceCreationTask.Metadata.Annotations["loft.sh/description"] == "" {
+			task.Spec.Task.VirtualClusterCreationTask.SpaceCreationTask.Metadata.Annotations["loft.sh/description"] = "Space for Virtual Cluster [" + task.Spec.Task.VirtualClusterCreationTask.Metadata.Name + "](/vclusters#search=" + task.Spec.Task.VirtualClusterCreationTask.Metadata.Name + ")"
+		}
 
 		// resolve the space apps
 		if spaceTemplate != nil && len(spaceTemplate.Spec.Template.Apps) > 0 {
