@@ -9,6 +9,7 @@ import (
 	"github.com/loft-sh/loftctl/v2/cmd/loftctl/flags"
 	"github.com/loft-sh/loftctl/v2/pkg/clihelper"
 	"github.com/loft-sh/loftctl/v2/pkg/log"
+	"github.com/loft-sh/loftctl/v2/pkg/survey"
 	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
 	"io/ioutil"
@@ -97,7 +98,14 @@ func (cmd *BackupCmd) Run(cobraCmd *cobra.Command, args []string) error {
 	if err != nil {
 		return err
 	} else if isInstalled == false {
-		return fmt.Errorf("seems like Loft was not installed into namespace %s", cmd.Namespace)
+		answer, err := cmd.Log.Question(&survey.QuestionOptions{
+			Question:     "Seems like Loft was not installed into namespace %s, do you want to continue?",
+			DefaultValue: "Yes",
+			Options:      []string{"Yes", "No"},
+		})
+		if err != nil || answer != "Yes" {
+			return err
+		}
 	}
 
 	objects := []runtime.Object{}
