@@ -93,9 +93,9 @@ func (cmd *PasswordCmd) Run() error {
 	// get user
 	cmd.log.Infof("Resetting password of user %s", cmd.User)
 	user, err := managementClient.Loft().StorageV1().Users().Get(context.Background(), cmd.User, metav1.GetOptions{})
-	if err != nil && kerrors.IsNotFound(err) == false {
+	if err != nil && !kerrors.IsNotFound(err) {
 		return errors.Wrap(err, "get user")
-	} else if user == nil {
+	} else if kerrors.IsNotFound(err) {
 		// create user
 		if cmd.Create == false {
 			return fmt.Errorf("user %s was not found, run with '--create' to create this user automatically", cmd.User)
