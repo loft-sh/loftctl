@@ -249,7 +249,7 @@ func (c *client) Version() (*auth.Version, error) {
 
 	raw, err := restClient.CoreV1().RESTClient().Get().RequestURI("/version").DoRaw(context.Background())
 	if err != nil {
-		return nil, errors.New(fmt.Sprintf("%s\n\nYou may need to login again via `%s login %s --insecure` to allow self-signed certificates\n", os.Args[0], restConfig.Host, err.Error()))
+		return nil, errors.New(fmt.Sprintf("%s\n\nYou may need to login again via `%s login %s --insecure` to allow self-signed certificates\n", err.Error(), os.Args[0], restConfig.Host))
 	}
 
 	version := &auth.Version{}
@@ -279,6 +279,12 @@ func (c *client) Login(host string, insecure bool, log log.Logger) error {
 		return fmt.Errorf("couldn't open the login page in a browser: %v. Please use the --access-key flag for the login command. You can generate an access key here: %s", err, fmt.Sprintf(AccessKeyPath, host))
 	} else {
 		log.Infof("If the browser does not open automatically, please navigate to %s", loginUrl)
+		msg := "If you have problems logging in, please navigate to %s/profile/access-keys, click on 'Create Access Key' and then login via 'loft login %s --access-key ACCESS_KEY"
+		if insecure {
+			msg += " --insecure"
+		}
+		msg += "'"
+		log.Infof(msg, host, host)
 		log.StartWait("Logging into loft...")
 		defer log.StopWait()
 
