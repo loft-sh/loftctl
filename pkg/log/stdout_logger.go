@@ -433,6 +433,14 @@ func (s *stdoutLogger) Question(params *survey.QuestionOptions) (string, error) 
 	// Stop wait if there was any
 	s.StopWait()
 
+	if !tty.IsTerminalIn() {
+		if params.DefaultValue == "" {
+			return "", errors.Errorf("cannot ask question because input stream is not a terminal")
+		}
+
+		return params.DefaultValue, nil
+	}
+
 	// Check if we can ask the question
 	if s.GetLevel() < logrus.InfoLevel {
 		return "", errors.Errorf("Cannot ask question '%s' because log level is too low", params.Question)
