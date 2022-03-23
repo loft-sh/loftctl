@@ -5,6 +5,7 @@ import (
 	"context"
 	"crypto/tls"
 	"fmt"
+	"k8s.io/kubectl/pkg/util/term"
 	"net/http"
 	"os"
 	"os/exec"
@@ -45,8 +46,12 @@ type StartCmd struct {
 	Namespace   string
 	Password    string
 	Values      string
+	Email       string
 	ReuseValues bool
 	Upgrade     bool
+
+	NoWait           bool
+	NoPortForwarding bool
 
 	// Will be filled later
 	KubeClient kubernetes.Interface
@@ -98,7 +103,10 @@ before running this command:
 	startCmd.Flags().StringVar(&cmd.Values, "values", "", "Path to a file for extra loft helm chart values")
 	startCmd.Flags().BoolVar(&cmd.ReuseValues, "reuse-values", true, "Reuse previous Loft helm values on upgrade")
 	startCmd.Flags().BoolVar(&cmd.Upgrade, "upgrade", false, "If true, Loft will try to upgrade the release")
+	startCmd.Flags().StringVar(&cmd.Email, "email", "", "The email to use for the installation")
 	startCmd.Flags().BoolVar(&cmd.Reset, "reset", false, "If true, an existing loft instance will be deleted before installing loft")
+	startCmd.Flags().BoolVar(&cmd.NoWait, "no-wait", false, "If true, loft will not wait after installing it")
+	startCmd.Flags().BoolVar(&cmd.NoPortForwarding, "no-port-forwarding", false, "If true, loft will not do port forwarding after installing it")
 	return startCmd
 }
 
@@ -143,17 +151,25 @@ func (cmd *StartCmd) Run() error {
 	cmd.Log.Info("Welcome to Loft!")
 	cmd.Log.Info("This installer will help you configure and deploy Loft.")
 
-	email, err := cmd.Log.Question(&survey.QuestionOptions{
-		Question: "Enter your email address to create the login for your admin user",
-		ValidationFunc: func(emailVal string) error {
-			if !emailRegex.MatchString(emailVal) {
-				return fmt.Errorf("%s is not a valid email address", emailVal)
-			}
-			return nil
-		},
-	})
-	if err != nil {
-		return err
+	// Get email
+	email := cmd.Email
+	if email == "" {
+		if !term.IsTerminal(os.Stdin) {
+			return fmt.Errorf("please enter an email via 'loft start --email my-email@domain.com'")
+		}
+
+		email, err = cmd.Log.Question(&survey.QuestionOptions{
+			Question: "Enter your email address to create the login for your admin user",
+			ValidationFunc: func(emailVal string) error {
+				if !emailRegex.MatchString(emailVal) {
+					return fmt.Errorf("%s is not a valid email address", emailVal)
+				}
+				return nil
+			},
+		})
+		if err != nil {
+			return err
+		}
 	}
 
 	// make sure we are ready for installing
@@ -256,7 +272,7 @@ func (cmd *StartCmd) handleAlreadyExistingInstallation() error {
 	enableIngress := false
 
 	// Only ask if ingress should be enabled if --upgrade flag is not provided
-	if cmd.Upgrade == false {
+	if cmd.Upgrade == false && term.IsTerminal(os.Stdin) {
 		cmd.Log.Info("Existing Loft instance found.")
 
 		// Check if Loft is installed in a local cluster
@@ -271,8 +287,8 @@ func (cmd *StartCmd) handleAlreadyExistingInstallation() error {
 				NoOption  = "No"
 				YesOption = "Yes, I want to enable the ingress to be able to access Loft via a domain."
 			)
-			defaultOption := YesOption
 
+			defaultOption := YesOption
 			if isLocal {
 				defaultOption = NoOption
 			}
@@ -289,7 +305,7 @@ func (cmd *StartCmd) handleAlreadyExistingInstallation() error {
 				return err
 			}
 
-			enableIngress = (answer == YesOption)
+			enableIngress = answer == YesOption
 		}
 
 		if enableIngress {
@@ -352,9 +368,11 @@ func (cmd *StartCmd) handleAlreadyExistingInstallation() error {
 				cmd.Log.Info("Will enable Loft ingress with hostname: " + cmd.Host)
 			}
 
-			err := clihelper.EnsureIngressController(cmd.KubeClient, cmd.Context, cmd.Log)
-			if err != nil {
-				return errors.Wrap(err, "install ingress controller")
+			if term.IsTerminal(os.Stdin) {
+				err := clihelper.EnsureIngressController(cmd.KubeClient, cmd.Context, cmd.Log)
+				if err != nil {
+					return errors.Wrap(err, "install ingress controller")
+				}
 			}
 		}
 	}
@@ -372,7 +390,6 @@ func (cmd *StartCmd) handleAlreadyExistingInstallation() error {
 
 func (cmd *StartCmd) upgradeLoft(email string) error {
 	extraArgs := []string{}
-
 	if email != "" {
 		extraArgs = append(extraArgs, "--set", "admin.email="+email)
 	}
@@ -380,11 +397,9 @@ func (cmd *StartCmd) upgradeLoft(email string) error {
 	if cmd.Password != "" {
 		extraArgs = append(extraArgs, "--set", "admin.password="+cmd.Password)
 	}
-
 	if cmd.Host != "" {
 		extraArgs = append(extraArgs, "--set", "ingress.enabled=true", "--set", "ingress.host="+cmd.Host)
 	}
-
 	if cmd.Version != "" {
 		extraArgs = append(extraArgs, "--version", cmd.Version)
 	}
@@ -441,10 +456,18 @@ func (cmd *StartCmd) upgradeLoft(email string) error {
 }
 
 func (cmd *StartCmd) success() error {
+	if cmd.NoWait {
+		return nil
+	}
+
 	// wait until Loft is ready
 	loftPod, err := cmd.waitForLoft()
 	if err != nil {
 		return err
+	}
+
+	if cmd.NoPortForwarding {
+		return nil
 	}
 
 	// check if Loft was installed locally

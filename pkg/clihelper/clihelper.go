@@ -346,26 +346,6 @@ func IsPrivateIP(ip net.IP) bool {
 	return false
 }
 
-func AskForHost(log log.Logger) (string, error) {
-	ingressAccess := "via ingress (you will need to configure DNS)"
-	answer, err := log.Question(&survey.QuestionOptions{
-		Question: "How do you want to access Loft?",
-		Options: []string{
-			"via port-forwarding (no other configuration needed)",
-			ingressAccess,
-		},
-	})
-	if err != nil {
-		return "", err
-	}
-
-	if answer == ingressAccess {
-		return EnterHostNameQuestion(log)
-	}
-
-	return "", nil
-}
-
 func EnterHostNameQuestion(log log.Logger) (string, error) {
 	return log.Question(&survey.QuestionOptions{
 		Question: "Enter a hostname for your Loft instance (e.g. loft.my-domain.tld): \n ",

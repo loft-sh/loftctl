@@ -25,9 +25,10 @@ import (
 type PasswordCmd struct {
 	*flags.GlobalFlags
 
-	User   string
-	Create bool
-	Force  bool
+	User     string
+	Password string
+	Create   bool
+	Force    bool
 
 	log log.Logger
 }
@@ -73,6 +74,7 @@ devspace reset password --user admin
 	}
 
 	c.Flags().StringVar(&cmd.User, "user", "admin", "The name of the user to reset the password")
+	c.Flags().StringVar(&cmd.Password, "password", "", "The new password to use")
 	c.Flags().BoolVar(&cmd.Create, "create", false, "Creates the user if it does not exist")
 	c.Flags().BoolVar(&cmd.Force, "force", false, "If user had no password will create one")
 	return c
@@ -141,21 +143,23 @@ func (cmd *PasswordCmd) Run() error {
 	}
 
 	// now ask user for new password
-	password := ""
-	for {
-		password, err = cmd.log.Question(&survey.QuestionOptions{
-			Question:   "Please enter new password",
-			IsPassword: true,
-		})
-		password = strings.TrimSpace(password)
-		if err != nil {
-			return err
-		} else if password == "" {
-			cmd.log.Error("Please enter a password")
-			continue
-		}
+	password := cmd.Password
+	if password == "" {
+		for {
+			password, err = cmd.log.Question(&survey.QuestionOptions{
+				Question:   "Please enter a new password",
+				IsPassword: true,
+			})
+			password = strings.TrimSpace(password)
+			if err != nil {
+				return err
+			} else if password == "" {
+				cmd.log.Error("Please enter a password")
+				continue
+			}
 
-		break
+			break
+		}
 	}
 	passwordHash := []byte(fmt.Sprintf("%x", sha256.Sum256([]byte(password))))
 
