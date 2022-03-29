@@ -50,6 +50,13 @@ type StartCmd struct {
 	ReuseValues bool
 	Upgrade     bool
 
+	ChartName string
+	ChartPath string
+	ChartRepo string
+
+	NoWait           bool
+	NoPortForwarding bool
+
 	// Will be filled later
 	KubeClient kubernetes.Interface
 	RestConfig *rest.Config
@@ -102,6 +109,11 @@ before running this command:
 	startCmd.Flags().BoolVar(&cmd.Upgrade, "upgrade", false, "If true, Loft will try to upgrade the release")
 	startCmd.Flags().StringVar(&cmd.Email, "email", "", "The email to use for the installation")
 	startCmd.Flags().BoolVar(&cmd.Reset, "reset", false, "If true, an existing loft instance will be deleted before installing loft")
+	startCmd.Flags().BoolVar(&cmd.NoWait, "no-wait", false, "If true, loft will not wait after installing it")
+	startCmd.Flags().BoolVar(&cmd.NoPortForwarding, "no-port-forwarding", false, "If true, loft will not do port forwarding after installing it")
+	startCmd.Flags().StringVar(&cmd.ChartPath, "chart-path", "", "The local chart path to deploy Loft")
+	startCmd.Flags().StringVar(&cmd.ChartRepo, "chart-repo", "https://charts.loft.sh/", "The chart repo to deploy Loft")
+	startCmd.Flags().StringVar(&cmd.ChartName, "chart-name", "loft", "The chart name to deploy Loft")
 	return startCmd
 }
 
@@ -267,7 +279,7 @@ func (cmd *StartCmd) handleAlreadyExistingInstallation() error {
 	enableIngress := false
 
 	// Only ask if ingress should be enabled if --upgrade flag is not provided
-	if cmd.Upgrade == false {
+	if cmd.Upgrade == false && term.IsTerminal(os.Stdin) {
 		cmd.Log.Info("Existing Loft instance found.")
 
 		// Check if Loft is installed in a local cluster
@@ -276,7 +288,7 @@ func (cmd *StartCmd) handleAlreadyExistingInstallation() error {
 		// Skip question if --host flag is provided
 		if cmd.Host != "" {
 			enableIngress = true
-		} else if term.IsTerminal(os.Stdin) {
+		} else {
 			// Ask if we should enable the ingress for Loft
 			const (
 				NoOption  = "No"
@@ -303,7 +315,7 @@ func (cmd *StartCmd) handleAlreadyExistingInstallation() error {
 			enableIngress = answer == YesOption
 		}
 
-		if enableIngress && term.IsTerminal(os.Stdin) {
+		if enableIngress {
 			if isLocal {
 				// Confirm with user if this is a local cluster
 				const (
@@ -412,7 +424,14 @@ func (cmd *StartCmd) upgradeLoft(email string) error {
 		extraArgs = append(extraArgs, "--values", absValuesPath)
 	}
 
-	err := clihelper.UpgradeLoft(cmd.Context, cmd.Namespace, extraArgs, cmd.Log)
+	chartName := cmd.ChartPath
+	chartRepo := ""
+	if chartName == "" {
+		chartName = cmd.ChartName
+		chartRepo = cmd.ChartRepo
+	}
+
+	err := clihelper.UpgradeLoft(chartName, chartRepo, cmd.Context, cmd.Namespace, extraArgs, cmd.Log)
 	if err != nil {
 		if cmd.Reset == false {
 			return errors.New(err.Error() + fmt.Sprintf("\n\nIf want to purge and reinstall Loft, run: %s\n", ansi.Color("loft start --reset", "green+b")))
@@ -421,7 +440,7 @@ func (cmd *StartCmd) upgradeLoft(email string) error {
 		// Try to purge Loft and retry install
 		cmd.Log.Info("Trying to delete objects blocking Loft installation")
 
-		manifests, err := clihelper.GetLoftManifests(cmd.Context, cmd.Namespace, extraArgs, cmd.Log)
+		manifests, err := clihelper.GetLoftManifests(chartName, chartRepo, cmd.Context, cmd.Namespace, extraArgs, cmd.Log)
 		if err != nil {
 			return err
 		}
@@ -441,7 +460,7 @@ func (cmd *StartCmd) upgradeLoft(email string) error {
 		}
 
 		// Retry Loft installation
-		err = clihelper.UpgradeLoft(cmd.Context, cmd.Namespace, extraArgs, cmd.Log)
+		err = clihelper.UpgradeLoft(chartName, chartRepo, cmd.Context, cmd.Namespace, extraArgs, cmd.Log)
 		if err != nil {
 			return errors.New(err.Error() + fmt.Sprintf("\n\nLoft installation failed. Reach out to get help:\n- via Slack: %s (fastest option)\n- via Online Chat: %s\n- via Email: %s\n", ansi.Color("https://slack.loft.sh/", "green+b"), ansi.Color("https://loft.sh/", "green+b"), ansi.Color("support@loft.sh", "green+b")))
 		}
@@ -451,10 +470,18 @@ func (cmd *StartCmd) upgradeLoft(email string) error {
 }
 
 func (cmd *StartCmd) success() error {
+	if cmd.NoWait {
+		return nil
+	}
+
 	// wait until Loft is ready
 	loftPod, err := cmd.waitForLoft()
 	if err != nil {
 		return err
+	}
+
+	if cmd.NoPortForwarding {
+		return nil
 	}
 
 	// check if Loft was installed locally
