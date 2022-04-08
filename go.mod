@@ -12,8 +12,8 @@ require (
 	github.com/evanphx/json-patch v4.12.0+incompatible
 	github.com/ghodss/yaml v1.0.0
 	github.com/k0kubun/go-ansi v0.0.0-20180517002512-3bf9e2903213
-	github.com/loft-sh/agentapi/v2 v2.1.4
-	github.com/loft-sh/api/v2 v2.0.3-beta.5.0.20220218175029-129b1616d452
+	github.com/loft-sh/agentapi/v2 v2.1.5-0.20220408075414-4c3de24747a0
+	github.com/loft-sh/api/v2 v2.0.3-beta.5.0.20220408075433-59f8b57e51c7
 	github.com/loft-sh/apiserver v0.0.0-20211216225656-cafe09adc0b8
 	github.com/mgutz/ansi v0.0.0-20200706080929-d51e80ef957d
 	github.com/mitchellh/go-homedir v1.1.0
@@ -28,13 +28,13 @@ require (
 	go.uber.org/atomic v1.7.0
 	gopkg.in/AlecAivazis/survey.v1 v1.8.8
 	gotest.tools v2.2.0+incompatible
-	k8s.io/api v0.23.1
-	k8s.io/apimachinery v0.23.1
-	k8s.io/client-go v0.23.1
+	k8s.io/api v0.23.5
+	k8s.io/apimachinery v0.23.5
+	k8s.io/client-go v0.23.5
 	k8s.io/klog/v2 v2.30.0
-	k8s.io/kube-aggregator v0.23.1
-	k8s.io/kubectl v0.23.1
-	sigs.k8s.io/controller-runtime v0.11.0
+	k8s.io/kube-aggregator v0.23.5
+	k8s.io/kubectl v0.23.5
+	sigs.k8s.io/controller-runtime v0.11.2
 )
 
 replace (
