@@ -167,7 +167,7 @@ func (cmd *PasswordCmd) Run() error {
 	passwordSecret, err := managementClient.CoreV1().Secrets(user.Spec.PasswordRef.SecretNamespace).Get(context.Background(), user.Spec.PasswordRef.SecretName, metav1.GetOptions{})
 	if err != nil && kerrors.IsNotFound(err) == false {
 		return err
-	} else if passwordSecret == nil {
+	} else if kerrors.IsNotFound(err) {
 		_, err = managementClient.CoreV1().Secrets(user.Spec.PasswordRef.SecretNamespace).Create(context.Background(), &corev1.Secret{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      user.Spec.PasswordRef.SecretName,
