@@ -283,8 +283,8 @@ func (cmd *VirtualClusterCmd) Run(args []string) error {
 	// create the object
 	if vClusterTemplate != nil {
 		cmd.Log.Infof("Using virtual cluster template %s", vClusterTemplateDisplayName)
-		createTask.Spec.Task.VirtualClusterCreationTask.Metadata.Annotations = vClusterTemplate.Template.Metadata.Annotations
-		createTask.Spec.Task.VirtualClusterCreationTask.Metadata.Labels = vClusterTemplate.Template.Metadata.Labels
+		createTask.Spec.Task.VirtualClusterCreationTask.Metadata.Annotations = vClusterTemplate.Template.Annotations
+		createTask.Spec.Task.VirtualClusterCreationTask.Metadata.Labels = vClusterTemplate.Template.Labels
 		if createTask.Spec.Task.VirtualClusterCreationTask.Metadata.Annotations == nil {
 			createTask.Spec.Task.VirtualClusterCreationTask.Metadata.Annotations = map[string]string{}
 		}
@@ -411,8 +411,8 @@ func (cmd *VirtualClusterCmd) createSpace(ctx context.Context, baseClient client
 			Apps: nil,
 		}
 		if spaceTemplate != nil {
-			task.Spec.Task.VirtualClusterCreationTask.SpaceCreationTask.Metadata.Annotations = spaceTemplate.Spec.Template.Metadata.Annotations
-			task.Spec.Task.VirtualClusterCreationTask.SpaceCreationTask.Metadata.Labels = spaceTemplate.Spec.Template.Metadata.Labels
+			task.Spec.Task.VirtualClusterCreationTask.SpaceCreationTask.Metadata.Annotations = spaceTemplate.Spec.Template.Annotations
+			task.Spec.Task.VirtualClusterCreationTask.SpaceCreationTask.Metadata.Labels = spaceTemplate.Spec.Template.Labels
 			if task.Spec.Task.VirtualClusterCreationTask.SpaceCreationTask.Metadata.Annotations == nil {
 				task.Spec.Task.VirtualClusterCreationTask.SpaceCreationTask.Metadata.Annotations = map[string]string{}
 			}

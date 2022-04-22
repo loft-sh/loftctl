@@ -194,8 +194,8 @@ func (cmd *SpaceCmd) Run(args []string) error {
 		space.Spec.Team = cmd.Team
 	}
 	if spaceTemplate != nil {
-		space.Annotations = spaceTemplate.Spec.Template.Metadata.Annotations
-		space.Labels = spaceTemplate.Spec.Template.Metadata.Labels
+		space.Annotations = spaceTemplate.Spec.Template.Annotations
+		space.Labels = spaceTemplate.Spec.Template.Labels
 		if space.Annotations == nil {
 			space.Annotations = map[string]string{}
 		}
