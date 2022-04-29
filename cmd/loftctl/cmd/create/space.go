@@ -200,6 +200,9 @@ func (cmd *SpaceCmd) Run(args []string) error {
 			space.Annotations = map[string]string{}
 		}
 		space.Annotations["loft.sh/space-template"] = spaceTemplate.Name
+		if spaceTemplate.Spec.Template.Objects != "" {
+			space.Spec.Objects = spaceTemplate.Spec.Template.Objects
+		}
 	}
 	if cmd.SleepAfter > 0 {
 		space.Annotations[clusterv1.SleepModeSleepAfterAnnotation] = strconv.FormatInt(cmd.SleepAfter, 10)

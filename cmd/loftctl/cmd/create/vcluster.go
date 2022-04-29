@@ -417,6 +417,7 @@ func (cmd *VirtualClusterCmd) createSpace(ctx context.Context, baseClient client
 				task.Spec.Task.VirtualClusterCreationTask.SpaceCreationTask.Metadata.Annotations = map[string]string{}
 			}
 			task.Spec.Task.VirtualClusterCreationTask.SpaceCreationTask.Metadata.Annotations["loft.sh/space-template"] = spaceTemplate.Name
+			task.Spec.Task.VirtualClusterCreationTask.SpaceCreationTask.Objects = spaceTemplate.Spec.Template.Objects
 		}
 		if cmd.SleepAfter > 0 {
 			task.Spec.Task.VirtualClusterCreationTask.SpaceCreationTask.Metadata.Annotations[clusterv1.SleepModeSleepAfterAnnotation] = strconv.FormatInt(cmd.SleepAfter, 10)
