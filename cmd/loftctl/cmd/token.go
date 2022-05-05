@@ -9,7 +9,7 @@ import (
 	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/client-go/pkg/apis/clientauthentication/v1alpha1"
+	"k8s.io/client-go/pkg/apis/clientauthentication/v1beta1"
 	"os"
 )
 
@@ -98,12 +98,12 @@ func (cmd *TokenCmd) Run() error {
 
 func printToken(token string) error {
 	// Print token to stdout
-	response := &v1alpha1.ExecCredential{
+	response := &v1beta1.ExecCredential{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "ExecCredential",
-			APIVersion: v1alpha1.SchemeGroupVersion.String(),
+			APIVersion: v1beta1.SchemeGroupVersion.String(),
 		},
-		Status: &v1alpha1.ExecCredentialStatus{
+		Status: &v1beta1.ExecCredentialStatus{
 			Token: token,
 		},
 	}

@@ -6,7 +6,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"k8s.io/client-go/pkg/apis/clientauthentication/v1alpha1"
+	"k8s.io/client-go/pkg/apis/clientauthentication/v1beta1"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/client-go/tools/clientcmd/api"
@@ -208,7 +208,7 @@ func createContext(options ContextOptions) (string, *api.Cluster, *api.AuthInfo,
 		}
 
 		authInfo.Exec = &api.ExecConfig{
-			APIVersion: v1alpha1.SchemeGroupVersion.String(),
+			APIVersion: v1beta1.SchemeGroupVersion.String(),
 			Command:    command,
 			Args:       []string{"token", "--silent", "--config", absConfigPath},
 		}
