@@ -12,9 +12,9 @@ require (
 	github.com/evanphx/json-patch v4.12.0+incompatible
 	github.com/ghodss/yaml v1.0.0
 	github.com/k0kubun/go-ansi v0.0.0-20180517002512-3bf9e2903213
-	github.com/loft-sh/agentapi/v2 v2.1.5-0.20220505075328-f3bd5b956553
-	github.com/loft-sh/api/v2 v2.0.3-beta.5.0.20220505075342-361e68f01a08
-	github.com/loft-sh/apiserver v0.0.0-20211216225656-cafe09adc0b8
+	github.com/loft-sh/agentapi/v2 v2.2.1-0.20220510130445-d5a1d637aa6a
+	github.com/loft-sh/api/v2 v2.0.3-beta.5.0.20220510130528-8dcd7b74b37a
+	github.com/loft-sh/apiserver v0.0.0-20220507140345-294e3e3117e3
 	github.com/mgutz/ansi v0.0.0-20200706080929-d51e80ef957d
 	github.com/mitchellh/go-homedir v1.1.0
 	github.com/opencontainers/image-spec v1.0.1 // indirect
@@ -23,17 +23,17 @@ require (
 	github.com/rhysd/go-github-selfupdate v1.2.2
 	github.com/sirupsen/logrus v1.8.1
 	github.com/skratchdot/open-golang v0.0.0-20200116055534-eef842397966
-	github.com/spf13/cobra v1.2.1
+	github.com/spf13/cobra v1.4.0
 	github.com/spf13/pflag v1.0.5
 	go.uber.org/atomic v1.7.0
 	gopkg.in/AlecAivazis/survey.v1 v1.8.8
 	gotest.tools v2.2.0+incompatible
-	k8s.io/api v0.23.5
-	k8s.io/apimachinery v0.23.5
-	k8s.io/client-go v0.23.5
-	k8s.io/klog/v2 v2.30.0
-	k8s.io/kube-aggregator v0.23.5
-	k8s.io/kubectl v0.23.5
+	k8s.io/api v0.24.0
+	k8s.io/apimachinery v0.24.0
+	k8s.io/client-go v0.24.0
+	k8s.io/klog/v2 v2.60.1
+	k8s.io/kube-aggregator v0.24.0
+	k8s.io/kubectl v0.24.0
 	sigs.k8s.io/controller-runtime v0.11.2
 )
 
