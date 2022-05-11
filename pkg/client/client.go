@@ -72,6 +72,12 @@ type Client interface {
 	Save() error
 }
 
+func NewClient() Client {
+	return &client{
+		config: &Config{},
+	}
+}
+
 func NewClientFromPath(path string) (Client, error) {
 	c := &client{
 		configPath: path,
@@ -158,6 +164,9 @@ func (c *client) DirectClusterEndpointToken(forceRefresh bool) (string, error) {
 }
 
 func (c *client) Save() error {
+	if c.configPath == "" {
+		return nil
+	}
 	if c.config == nil {
 		return errors.New("no config to write")
 	}
