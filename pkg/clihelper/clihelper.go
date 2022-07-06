@@ -199,7 +199,8 @@ func StartPortForwarding(config *rest.Config, client kubernetes.Interface, pod *
 	errChan := make(chan error)
 	readyChan := make(chan struct{})
 	stopChan := make(chan struct{})
-	forwarder, err := portforward.New(dialer, []string{localPort + ":" + strconv.Itoa(443)}, stopChan, readyChan, errChan, ioutil.Discard, ioutil.Discard)
+	targetPort := getPortForwardingTargetPort(pod)
+	forwarder, err := portforward.New(dialer, []string{localPort + ":" + strconv.Itoa(targetPort)}, stopChan, readyChan, errChan, ioutil.Discard, ioutil.Discard)
 	if err != nil {
 		return nil, err
 	}
@@ -771,4 +772,18 @@ func IsLoftInstalledLocally(kubeClient kubernetes.Interface, namespace string) b
 	}
 
 	return kerrors.IsNotFound(err)
+}
+
+func getPortForwardingTargetPort(pod *corev1.Pod) int {
+	for _, container := range pod.Spec.Containers {
+		if container.Name == "manager" {
+			for _, port := range container.Ports {
+				if port.Name == "https" {
+					return int(port.ContainerPort)
+				}
+			}
+		}
+	}
+
+	return 443
 }

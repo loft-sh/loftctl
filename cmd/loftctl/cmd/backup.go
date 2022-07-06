@@ -3,6 +3,9 @@ package cmd
 import (
 	"context"
 	"fmt"
+	"io/ioutil"
+	"strings"
+
 	"github.com/ghodss/yaml"
 	storagev1 "github.com/loft-sh/api/v2/pkg/apis/storage/v1"
 	loftclient "github.com/loft-sh/api/v2/pkg/client/clientset_generated/clientset"
@@ -12,7 +15,6 @@ import (
 	"github.com/loft-sh/loftctl/v2/pkg/survey"
 	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
-	"io/ioutil"
 	corev1 "k8s.io/api/core/v1"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
@@ -23,7 +25,6 @@ import (
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
-	"strings"
 )
 
 var (
@@ -607,7 +608,6 @@ func resetMetadata(obj runtime.Object) error {
 
 	accessor.SetGenerateName("")
 	accessor.SetSelfLink("")
-	accessor.SetClusterName("")
 	accessor.SetCreationTimestamp(metav1.Time{})
 	accessor.SetFinalizers(nil)
 	accessor.SetGeneration(0)
