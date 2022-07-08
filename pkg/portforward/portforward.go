@@ -237,7 +237,7 @@ func (pf *PortForwarder) forward() error {
 	}
 
 	if !listenSuccess {
-		return fmt.Errorf("unable to listen on any of the requested ports: %v", pf.ports)
+		return fmt.Errorf("unable to listen on any of the requested ports: %v, error: %v", pf.ports, err)
 	}
 
 	if pf.Ready != nil {
