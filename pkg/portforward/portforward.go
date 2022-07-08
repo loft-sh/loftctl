@@ -195,6 +195,8 @@ func (pf *PortForwarder) raiseError(err error) {
 	if pf.errChan != nil {
 		pf.errChan <- err
 	}
+
+	_ = pf.streamConn.Close()
 }
 
 func (pf *PortForwarder) NumConnections() int64 {
