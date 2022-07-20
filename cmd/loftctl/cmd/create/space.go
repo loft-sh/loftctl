@@ -3,6 +3,10 @@ package create
 import (
 	"context"
 	"fmt"
+	"os"
+	"strconv"
+	"time"
+
 	clusterv1 "github.com/loft-sh/agentapi/v2/pkg/apis/loft/cluster/v1"
 	storagev1 "github.com/loft-sh/api/v2/pkg/apis/storage/v1"
 	"github.com/loft-sh/loftctl/v2/cmd/loftctl/cmd/use"
@@ -12,9 +16,6 @@ import (
 	"github.com/loft-sh/loftctl/v2/pkg/parameters"
 	"github.com/loft-sh/loftctl/v2/pkg/task"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
-	"os"
-	"strconv"
-	"time"
 
 	v1 "github.com/loft-sh/api/v2/pkg/apis/management/v1"
 	"github.com/loft-sh/loftctl/v2/cmd/loftctl/flags"
@@ -41,6 +42,7 @@ type SpaceCmd struct {
 	DisableDirectClusterEndpoint bool
 	Template                     string
 	ParametersFile               string
+	UseExisting                  bool
 
 	DisplayName string
 	Description string
@@ -110,6 +112,7 @@ devspace create space myspace --cluster mycluster --account myaccount
 	c.Flags().StringVar(&cmd.Template, "template", "", "The space template to use")
 	c.Flags().StringVar(&cmd.ParametersFile, "parameters", "", "The file where the parameter values for the apps are specified")
 	c.Flags().BoolVar(&cmd.DisableDirectClusterEndpoint, "disable-direct-cluster-endpoint", false, "When enabled does not use an available direct cluster endpoint to connect to the space")
+	c.Flags().BoolVar(&cmd.UseExisting, "use-existing", false, "When enabled this will skip space creation if the space already exists")
 	return c
 }
 
@@ -173,134 +176,147 @@ func (cmd *SpaceCmd) Run(args []string) error {
 		return err
 	}
 
-	// get default space template
-	spaceTemplate, err := resolveSpaceTemplate(managementClient, cluster, cmd.Template)
-	if err != nil {
-		return errors.Wrap(err, "resolve space template")
-	} else if spaceTemplate != nil {
-		cmd.Log.Infof("Using space template %s to create space %s", clihelper.GetDisplayName(spaceTemplate.Name, spaceTemplate.Spec.DisplayName), spaceName)
-	}
-
-	// create space object
-	space := &clusterv1.Space{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:        spaceName,
-			Annotations: map[string]string{},
-		},
-	}
-	if cmd.User != "" {
-		space.Spec.User = cmd.User
-	} else if cmd.Team != "" {
-		space.Spec.Team = cmd.Team
-	}
-	if spaceTemplate != nil {
-		space.Annotations = spaceTemplate.Spec.Template.Annotations
-		space.Labels = spaceTemplate.Spec.Template.Labels
-		if space.Annotations == nil {
-			space.Annotations = map[string]string{}
+	spaceNotFound := true
+	if cmd.UseExisting {
+		_, err := clusterClient.Agent().ClusterV1().Spaces().Get(context.TODO(), spaceName, metav1.GetOptions{})
+		if err != nil && !kerrors.IsNotFound(err) {
+			return err
 		}
-		space.Annotations["loft.sh/space-template"] = spaceTemplate.Name
-		if spaceTemplate.Spec.Template.Objects != "" {
-			space.Spec.Objects = spaceTemplate.Spec.Template.Objects
+
+		spaceNotFound = kerrors.IsNotFound(err)
+	}
+
+	if spaceNotFound {
+
+		// get default space template
+		spaceTemplate, err := resolveSpaceTemplate(managementClient, cluster, cmd.Template)
+		if err != nil {
+			return errors.Wrap(err, "resolve space template")
+		} else if spaceTemplate != nil {
+			cmd.Log.Infof("Using space template %s to create space %s", clihelper.GetDisplayName(spaceTemplate.Name, spaceTemplate.Spec.DisplayName), spaceName)
 		}
-	}
-	if cmd.SleepAfter > 0 {
-		space.Annotations[clusterv1.SleepModeSleepAfterAnnotation] = strconv.FormatInt(cmd.SleepAfter, 10)
-	}
-	if cmd.DeleteAfter > 0 {
-		space.Annotations[clusterv1.SleepModeDeleteAfterAnnotation] = strconv.FormatInt(cmd.DeleteAfter, 10)
-	}
-	if cmd.DisplayName != "" {
-		space.Annotations["loft.sh/display-name"] = cmd.DisplayName
-	}
-	if cmd.Description != "" {
-		space.Annotations["loft.sh/description"] = cmd.Description
-	}
 
-	zone, offset := time.Now().Zone()
-	space.Annotations[clusterv1.SleepModeTimezoneAnnotation] = zone + "#" + strconv.Itoa(offset)
-
-	if spaceTemplate != nil && len(spaceTemplate.Spec.Template.Apps) > 0 {
-		createTask := &v1.Task{
+		// create space object
+		space := &clusterv1.Space{
 			ObjectMeta: metav1.ObjectMeta{
-				GenerateName: "create-space-",
-			},
-			Spec: v1.TaskSpec{
-				TaskSpec: storagev1.TaskSpec{
-					DisplayName: "Create Space " + spaceName,
-					Target: storagev1.Target{
-						Cluster: &storagev1.TargetCluster{
-							Cluster: cmd.Cluster,
-						},
-					},
-					Task: storagev1.TaskDefinition{
-						SpaceCreationTask: &storagev1.SpaceCreationTask{
-							Metadata: metav1.ObjectMeta{
-								Name:        space.Name,
-								Labels:      space.Labels,
-								Annotations: space.Annotations,
-							},
-							Owner: &storagev1.UserOrTeam{
-								User: space.Spec.User,
-								Team: space.Spec.Team,
-							},
-						},
-					},
-				},
+				Name:        spaceName,
+				Annotations: map[string]string{},
 			},
 		}
-		if userName != nil {
-			createTask.Spec.Access = []storagev1.Access{
-				{
-					Verbs:        []string{"*"},
-					Subresources: []string{"*"},
-					Users:        []string{userName.Name},
+		if cmd.User != "" {
+			space.Spec.User = cmd.User
+		} else if cmd.Team != "" {
+			space.Spec.Team = cmd.Team
+		}
+		if spaceTemplate != nil {
+			space.Annotations = spaceTemplate.Spec.Template.Annotations
+			space.Labels = spaceTemplate.Spec.Template.Labels
+			if space.Annotations == nil {
+				space.Annotations = map[string]string{}
+			}
+			space.Annotations["loft.sh/space-template"] = spaceTemplate.Name
+			if spaceTemplate.Spec.Template.Objects != "" {
+				space.Spec.Objects = spaceTemplate.Spec.Template.Objects
+			}
+		}
+		if cmd.SleepAfter > 0 {
+			space.Annotations[clusterv1.SleepModeSleepAfterAnnotation] = strconv.FormatInt(cmd.SleepAfter, 10)
+		}
+		if cmd.DeleteAfter > 0 {
+			space.Annotations[clusterv1.SleepModeDeleteAfterAnnotation] = strconv.FormatInt(cmd.DeleteAfter, 10)
+		}
+		if cmd.DisplayName != "" {
+			space.Annotations["loft.sh/display-name"] = cmd.DisplayName
+		}
+		if cmd.Description != "" {
+			space.Annotations["loft.sh/description"] = cmd.Description
+		}
+
+		zone, offset := time.Now().Zone()
+		space.Annotations[clusterv1.SleepModeTimezoneAnnotation] = zone + "#" + strconv.Itoa(offset)
+
+		if spaceTemplate != nil && len(spaceTemplate.Spec.Template.Apps) > 0 {
+			createTask := &v1.Task{
+				ObjectMeta: metav1.ObjectMeta{
+					GenerateName: "create-space-",
+				},
+				Spec: v1.TaskSpec{
+					TaskSpec: storagev1.TaskSpec{
+						DisplayName: "Create Space " + spaceName,
+						Target: storagev1.Target{
+							Cluster: &storagev1.TargetCluster{
+								Cluster: cmd.Cluster,
+							},
+						},
+						Task: storagev1.TaskDefinition{
+							SpaceCreationTask: &storagev1.SpaceCreationTask{
+								Metadata: metav1.ObjectMeta{
+									Name:        space.Name,
+									Labels:      space.Labels,
+									Annotations: space.Annotations,
+								},
+								Owner: &storagev1.UserOrTeam{
+									User: space.Spec.User,
+									Team: space.Spec.Team,
+								},
+							},
+						},
+					},
 				},
 			}
-		} else if teamName != nil {
-			createTask.Spec.Access = []storagev1.Access{
-				{
-					Verbs:        []string{"*"},
-					Subresources: []string{"*"},
-					Teams:        []string{teamName.Name},
-				},
+			if userName != nil {
+				createTask.Spec.Access = []storagev1.Access{
+					{
+						Verbs:        []string{"*"},
+						Subresources: []string{"*"},
+						Users:        []string{userName.Name},
+					},
+				}
+			} else if teamName != nil {
+				createTask.Spec.Access = []storagev1.Access{
+					{
+						Verbs:        []string{"*"},
+						Subresources: []string{"*"},
+						Teams:        []string{teamName.Name},
+					},
+				}
+			}
+
+			apps, err := resolveApps(managementClient, spaceTemplate.Spec.Template.Apps)
+			if err != nil {
+				return errors.Wrap(err, "resolve space template apps")
+			}
+
+			appsWithParameters, err := parameters.ResolveAppParameters(apps, cmd.ParametersFile, cmd.Log)
+			if err != nil {
+				return err
+			}
+
+			for _, appWithParameter := range appsWithParameters {
+				createTask.Spec.Task.SpaceCreationTask.Apps = append(createTask.Spec.Task.SpaceCreationTask.Apps, storagev1.SpaceCreationAppReference{
+					Name:       appWithParameter.App.Name,
+					Parameters: appWithParameter.Parameters,
+				})
+			}
+
+			// create the task and stream
+			err = task.StreamTask(context.TODO(), managementClient, createTask, os.Stdout, cmd.Log)
+			if err != nil {
+				return err
+			}
+		} else {
+			// create the space
+			_, err = clusterClient.Agent().ClusterV1().Spaces().Create(context.TODO(), space, metav1.CreateOptions{})
+			if err != nil {
+				return errors.Wrap(err, "create space")
 			}
 		}
 
-		apps, err := resolveApps(managementClient, spaceTemplate.Spec.Template.Apps)
-		if err != nil {
-			return errors.Wrap(err, "resolve space template apps")
-		}
-
-		appsWithParameters, err := parameters.ResolveAppParameters(apps, cmd.ParametersFile, cmd.Log)
-		if err != nil {
-			return err
-		}
-
-		for _, appWithParameter := range appsWithParameters {
-			createTask.Spec.Task.SpaceCreationTask.Apps = append(createTask.Spec.Task.SpaceCreationTask.Apps, storagev1.SpaceCreationAppReference{
-				Name:       appWithParameter.App.Name,
-				Parameters: appWithParameter.Parameters,
-			})
-		}
-
-		// create the task and stream
-		err = task.StreamTask(context.TODO(), managementClient, createTask, os.Stdout, cmd.Log)
-		if err != nil {
-			return err
-		}
-	} else {
-		// create the space
-		_, err = clusterClient.Agent().ClusterV1().Spaces().Create(context.TODO(), space, metav1.CreateOptions{})
-		if err != nil {
-			return errors.Wrap(err, "create space")
-		}
+		cmd.Log.Donef("Successfully created the space %s in cluster %s", ansi.Color(spaceName, "white+b"), ansi.Color(cmd.Cluster, "white+b"))
 	}
-
-	cmd.Log.Donef("Successfully created the space %s in cluster %s", ansi.Color(spaceName, "white+b"), ansi.Color(cmd.Cluster, "white+b"))
 
 	// should we create a kube context for the space
-	if cmd.CreateContext {
+	if cmd.CreateContext || cmd.UseExisting {
 		// create kube context options
 		contextOptions, err := use.CreateClusterContextOptions(baseClient, cmd.Config, cluster, spaceName, cmd.DisableDirectClusterEndpoint, cmd.SwitchContext, cmd.Log)
 		if err != nil {
