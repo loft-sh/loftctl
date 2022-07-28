@@ -3,6 +3,8 @@ package generate
 import (
 	"context"
 	"fmt"
+	"time"
+
 	"github.com/loft-sh/loftctl/v2/cmd/loftctl/flags"
 	"github.com/loft-sh/loftctl/v2/pkg/kubeconfig"
 	"github.com/loft-sh/loftctl/v2/pkg/log"
@@ -17,7 +19,6 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
-	"time"
 )
 
 // AdminKubeConfigCmd holds the cmd flags
@@ -114,7 +115,7 @@ func (cmd *AdminKubeConfigCmd) Run(c *rest.Config, cobraCmd *cobra.Command, args
 	}
 
 	// create clusterrolebinding
-	client.RbacV1().ClusterRoleBindings().Create(context.TODO(), &rbacv1.ClusterRoleBinding{
+	_, err = client.RbacV1().ClusterRoleBindings().Create(context.TODO(), &rbacv1.ClusterRoleBinding{
 		ObjectMeta: v1.ObjectMeta{
 			Name: cmd.ServiceAccount + "-binding",
 		},
@@ -131,18 +132,34 @@ func (cmd *AdminKubeConfigCmd) Run(c *rest.Config, cobraCmd *cobra.Command, args
 			Name:     "cluster-admin",
 		},
 	}, v1.CreateOptions{})
+	if err != nil {
+		if kerrors.IsAlreadyExists(err) == false {
+			return err
+		}
+	}
 
-	// wait for secret
+	// manually create token secret. This approach works for all kubernetes versions
+	tokenSecretName := cmd.ServiceAccount + "-token"
+	_, err = client.CoreV1().Secrets(cmd.Namespace).Create(context.TODO(), &corev1.Secret{
+		ObjectMeta: v1.ObjectMeta{
+			Name:      tokenSecretName,
+			Namespace: cmd.Namespace,
+			Annotations: map[string]string{
+				corev1.ServiceAccountNameKey: cmd.ServiceAccount,
+			},
+		},
+		Type: corev1.SecretTypeServiceAccountToken,
+	}, v1.CreateOptions{})
+	if err != nil {
+		if kerrors.IsAlreadyExists(err) == false {
+			return err
+		}
+	}
+
+	// wait for secret token to be populated
 	token := []byte{}
 	err = wait.Poll(time.Millisecond*250, time.Minute*2, func() (bool, error) {
-		serviceAccount, err := client.CoreV1().ServiceAccounts(cmd.Namespace).Get(context.TODO(), cmd.ServiceAccount, v1.GetOptions{})
-		if err != nil {
-			return false, errors.Wrap(err, "retrieve service account")
-		} else if len(serviceAccount.Secrets) == 0 {
-			return false, nil
-		}
-
-		secret, err := client.CoreV1().Secrets(cmd.Namespace).Get(context.TODO(), serviceAccount.Secrets[0].Name, v1.GetOptions{})
+		secret, err := client.CoreV1().Secrets(cmd.Namespace).Get(context.TODO(), tokenSecretName, v1.GetOptions{})
 		if err != nil {
 			return false, errors.Wrap(err, "get service account secret")
 		}

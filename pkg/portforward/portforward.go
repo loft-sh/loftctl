@@ -195,6 +195,8 @@ func (pf *PortForwarder) raiseError(err error) {
 	if pf.errChan != nil {
 		pf.errChan <- err
 	}
+
+	_ = pf.streamConn.Close()
 }
 
 func (pf *PortForwarder) NumConnections() int64 {
@@ -237,7 +239,7 @@ func (pf *PortForwarder) forward() error {
 	}
 
 	if !listenSuccess {
-		return fmt.Errorf("unable to listen on any of the requested ports: %v", pf.ports)
+		return fmt.Errorf("unable to listen on any of the requested ports: %v, error: %v", pf.ports, err)
 	}
 
 	if pf.Ready != nil {
