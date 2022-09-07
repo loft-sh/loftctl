@@ -785,5 +785,5 @@ func getPortForwardingTargetPort(pod *corev1.Pod) int {
 		}
 	}
 
-	return 443
+	return 10443
 }
