@@ -1,20 +1,25 @@
 package share
 
 import (
+	"context"
 	"fmt"
+	storagev1 "github.com/loft-sh/agentapi/v2/pkg/apis/loft/storage/v1"
 	"github.com/loft-sh/loftctl/v2/cmd/loftctl/flags"
 	"github.com/loft-sh/loftctl/v2/pkg/client"
 	"github.com/loft-sh/loftctl/v2/pkg/client/helper"
+	"github.com/loft-sh/loftctl/v2/pkg/client/naming"
 	"github.com/loft-sh/loftctl/v2/pkg/log"
 	"github.com/loft-sh/loftctl/v2/pkg/upgrade"
 	"github.com/mgutz/ansi"
 	"github.com/spf13/cobra"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 // VClusterCmd holds the cmd flags
 type VClusterCmd struct {
 	*flags.GlobalFlags
 
+	Project     string
 	Cluster     string
 	Space       string
 	ClusterRole string
@@ -53,8 +58,8 @@ user or team need to have access to the cluster.
 
 Example:
 devspace share vcluster myvcluster
-devspace share vcluster myvcluster --cluster mycluster
-devspace share vcluster myvcluster --cluster mycluster --user admin
+devspace share vcluster myvcluster --project myproject
+devspace share vcluster myvcluster --project myproject --user admin
 #######################################################
 	`
 	}
@@ -72,6 +77,7 @@ devspace share vcluster myvcluster --cluster mycluster --user admin
 	}
 
 	c.Flags().StringVar(&cmd.Cluster, "cluster", "", "The cluster to use")
+	c.Flags().StringVarP(&cmd.Project, "project", "p", "", "The project to use")
 	c.Flags().StringVar(&cmd.Space, "space", "", "The space to use")
 	c.Flags().StringVar(&cmd.ClusterRole, "cluster-role", "loft-cluster-space-admin", "The cluster role which is assigned to the user or team for that space")
 	c.Flags().StringVar(&cmd.User, "user", "", "The user to share the space with. The user needs to have access to the cluster")
@@ -91,22 +97,67 @@ func (cmd *VClusterCmd) Run(cobraCmd *cobra.Command, args []string) error {
 		vClusterName = args[0]
 	}
 
-	vClusterName, spaceName, clusterName, err := helper.SelectVirtualClusterAndSpaceAndClusterName(baseClient, vClusterName, cmd.Space, cmd.Cluster, cmd.Log)
+	cmd.Cluster, cmd.Project, cmd.Space, vClusterName, err = helper.SelectVirtualClusterInstanceOrVirtualCluster(baseClient, vClusterName, cmd.Space, cmd.Project, cmd.Cluster, cmd.Log)
 	if err != nil {
 		return err
 	}
 
-	userOrTeam, err := createRoleBinding(baseClient, clusterName, spaceName, cmd.User, cmd.Team, cmd.ClusterRole, cmd.Log)
+	if cmd.Project == "" {
+		return cmd.legacyShareVCluster(baseClient, vClusterName)
+	}
+
+	return cmd.shareVCluster(baseClient, vClusterName)
+}
+
+func (cmd *VClusterCmd) shareVCluster(baseClient client.Client, vClusterName string) error {
+	managementClient, err := baseClient.Management()
+	if err != nil {
+		return err
+	}
+
+	virtualClusterInstance, err := managementClient.Loft().ManagementV1().VirtualClusterInstances(naming.ProjectNamespace(cmd.Project)).Get(context.TODO(), vClusterName, metav1.GetOptions{})
+	if err != nil {
+		return err
+	}
+
+	accessRule := storagev1.InstanceAccessRule{
+		ClusterRole: cmd.ClusterRole,
+	}
+	if cmd.User != "" {
+		accessRule.Users = append(accessRule.Users, cmd.User)
+	}
+	if cmd.Team != "" {
+		accessRule.Teams = append(accessRule.Teams, cmd.Team)
+	}
+	virtualClusterInstance.Spec.ExtraAccessRules = append(virtualClusterInstance.Spec.ExtraAccessRules, accessRule)
+	_, err = managementClient.Loft().ManagementV1().VirtualClusterInstances(naming.ProjectNamespace(cmd.Project)).Update(context.TODO(), virtualClusterInstance, metav1.UpdateOptions{})
+	if err != nil {
+		return err
+	}
+
+	if cmd.User != "" {
+		cmd.Log.Donef("Successfully granted user %s access to vcluster %s", ansi.Color(cmd.User, "white+b"), ansi.Color(vClusterName, "white+b"))
+		cmd.Log.Infof("The user can access the space now via: %s", ansi.Color(fmt.Sprintf("loft use vcluster %s --project %s", vClusterName, cmd.Project), "white+b"))
+	} else {
+		cmd.Log.Donef("Successfully granted team %s access to vcluster %s", ansi.Color(cmd.Team, "white+b"), ansi.Color(vClusterName, "white+b"))
+		cmd.Log.Infof("The team can access the space now via: %s", ansi.Color(fmt.Sprintf("loft use vcluster %s --project %s", vClusterName, cmd.Project), "white+b"))
+	}
+
+	return nil
+}
+
+func (cmd *VClusterCmd) legacyShareVCluster(baseClient client.Client, vClusterName string) error {
+	userOrTeam, err := createRoleBinding(baseClient, cmd.Cluster, cmd.Space, cmd.User, cmd.Team, cmd.ClusterRole, cmd.Log)
 	if err != nil {
 		return err
 	}
 
 	if userOrTeam.Team == false {
 		cmd.Log.Donef("Successfully granted user %s access to vcluster %s", ansi.Color(userOrTeam.ClusterMember.Info.Name, "white+b"), ansi.Color(vClusterName, "white+b"))
-		cmd.Log.Infof("The user can access the vcluster now via: %s", ansi.Color(fmt.Sprintf("loft use vcluster %s --space %s --cluster %s", vClusterName, spaceName, clusterName), "white+b"))
+		cmd.Log.Infof("The user can access the vcluster now via: %s", ansi.Color(fmt.Sprintf("loft use vcluster %s --space %s --cluster %s", vClusterName, cmd.Space, cmd.Cluster), "white+b"))
 	} else {
 		cmd.Log.Donef("Successfully granted team %s access to vcluster %s", ansi.Color(userOrTeam.ClusterMember.Info.Name, "white+b"), ansi.Color(vClusterName, "white+b"))
-		cmd.Log.Infof("The team can access the vcluster now via: %s", ansi.Color(fmt.Sprintf("loft use vcluster %s --space %s --cluster %s", vClusterName, spaceName, clusterName), "white+b"))
+		cmd.Log.Infof("The team can access the vcluster now via: %s", ansi.Color(fmt.Sprintf("loft use vcluster %s --space %s --cluster %s", vClusterName, cmd.Space, cmd.Cluster), "white+b"))
 	}
 
 	return nil

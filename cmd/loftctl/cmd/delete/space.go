@@ -2,6 +2,7 @@ package delete
 
 import (
 	"context"
+	"github.com/loft-sh/loftctl/v2/pkg/client/naming"
 	"time"
 
 	"github.com/loft-sh/loftctl/v2/cmd/loftctl/flags"
@@ -22,6 +23,7 @@ type SpaceCmd struct {
 	*flags.GlobalFlags
 
 	Cluster       string
+	Project       string
 	DeleteContext bool
 	Wait          bool
 
@@ -42,7 +44,7 @@ Deletes a space from a cluster
 
 Example:
 loft delete space myspace
-loft delete space myspace --cluster mycluster
+loft delete space myspace --project myproject
 #######################################################
 	`
 	if upgrade.IsPlugin == "true" {
@@ -54,7 +56,7 @@ Deletes a space from a cluster
 
 Example:
 devspace delete space myspace
-devspace delete space myspace --cluster mycluster
+devspace delete space myspace --project myproject
 #######################################################
 	`
 	}
@@ -72,6 +74,7 @@ devspace delete space myspace --cluster mycluster
 	}
 
 	c.Flags().StringVar(&cmd.Cluster, "cluster", "", "The cluster to use")
+	c.Flags().StringVarP(&cmd.Project, "project", "p", "", "The project to use")
 	c.Flags().BoolVar(&cmd.DeleteContext, "delete-context", true, "If the corresponding kube context should be deleted if there is any")
 	c.Flags().BoolVar(&cmd.Wait, "wait", false, "Termination of this command waits for space to be deleted")
 	return c
@@ -89,12 +92,61 @@ func (cmd *SpaceCmd) Run(args []string) error {
 		spaceName = args[0]
 	}
 
-	spaceName, clusterName, err := helper.SelectSpaceAndClusterName(baseClient, spaceName, cmd.Cluster, cmd.Log)
+	cmd.Cluster, cmd.Project, spaceName, err = helper.SelectSpaceInstanceOrSpace(baseClient, spaceName, cmd.Project, cmd.Cluster, cmd.Log)
 	if err != nil {
 		return err
 	}
 
-	clusterClient, err := baseClient.Cluster(clusterName)
+	if cmd.Project == "" {
+		return cmd.legacyDeleteSpace(baseClient, spaceName)
+	}
+
+	return cmd.deleteSpace(baseClient, spaceName)
+}
+
+func (cmd *SpaceCmd) deleteSpace(baseClient client.Client, spaceName string) error {
+	managementClient, err := baseClient.Management()
+	if err != nil {
+		return err
+	}
+
+	err = managementClient.Loft().ManagementV1().SpaceInstances(naming.ProjectNamespace(cmd.Project)).Delete(context.TODO(), spaceName, metav1.DeleteOptions{})
+	if err != nil {
+		return errors.Wrap(err, "delete space")
+	}
+
+	cmd.Log.Donef("Successfully deleted space %s in project %s", ansi.Color(spaceName, "white+b"), ansi.Color(cmd.Project, "white+b"))
+
+	// update kube config
+	if cmd.DeleteContext {
+		err = kubeconfig.DeleteContext(kubeconfig.SpaceInstanceContextName(cmd.Project, spaceName))
+		if err != nil {
+			return err
+		}
+
+		cmd.Log.Donef("Successfully deleted kube context for space %s", ansi.Color(spaceName, "white+b"))
+	}
+
+	// wait until deleted
+	if cmd.Wait {
+		cmd.Log.StartWait("Waiting for space to be deleted")
+		for isSpaceInstanceStillThere(managementClient, naming.ProjectNamespace(cmd.Project), spaceName) {
+			time.Sleep(time.Second)
+		}
+		cmd.Log.StopWait()
+		cmd.Log.Done("Space is deleted")
+	}
+
+	return nil
+}
+
+func isSpaceInstanceStillThere(managementClient kube.Interface, spaceInstanceNamespace, spaceName string) bool {
+	_, err := managementClient.Loft().ManagementV1().SpaceInstances(spaceInstanceNamespace).Get(context.TODO(), spaceName, metav1.GetOptions{})
+	return err == nil
+}
+
+func (cmd *SpaceCmd) legacyDeleteSpace(baseClient client.Client, spaceName string) error {
+	clusterClient, err := baseClient.Cluster(cmd.Cluster)
 	if err != nil {
 		return err
 	}
@@ -105,11 +157,11 @@ func (cmd *SpaceCmd) Run(args []string) error {
 		return errors.Wrap(err, "delete space")
 	}
 
-	cmd.Log.Donef("Successfully deleted space %s in cluster %s", ansi.Color(spaceName, "white+b"), ansi.Color(clusterName, "white+b"))
+	cmd.Log.Donef("Successfully deleted space %s in cluster %s", ansi.Color(spaceName, "white+b"), ansi.Color(cmd.Cluster, "white+b"))
 
 	// update kube config
 	if cmd.DeleteContext {
-		err = kubeconfig.DeleteContext(kubeconfig.SpaceContextName(clusterName, spaceName))
+		err = kubeconfig.DeleteContext(kubeconfig.SpaceContextName(cmd.Cluster, spaceName))
 		if err != nil {
 			return err
 		}

@@ -1,19 +1,24 @@
 package list
 
 import (
+	storagev1 "github.com/loft-sh/api/v2/pkg/apis/storage/v1"
 	"github.com/loft-sh/loftctl/v2/cmd/loftctl/flags"
 	"github.com/loft-sh/loftctl/v2/pkg/client"
 	"github.com/loft-sh/loftctl/v2/pkg/client/helper"
+	"github.com/loft-sh/loftctl/v2/pkg/clihelper"
 	"github.com/loft-sh/loftctl/v2/pkg/log"
 	"github.com/loft-sh/loftctl/v2/pkg/upgrade"
 	"github.com/spf13/cobra"
 	"k8s.io/apimachinery/pkg/util/duration"
+	"strconv"
 	"time"
 )
 
 // SpacesCmd holds the login cmd flags
 type SpacesCmd struct {
 	*flags.GlobalFlags
+
+	ShowLegacy bool
 
 	log log.Logger
 }
@@ -46,7 +51,7 @@ devspace list spaces
 #######################################################
 	`
 	}
-	loginCmd := &cobra.Command{
+	listCmd := &cobra.Command{
 		Use:   "spaces",
 		Short: "Lists the loft spaces you have access to",
 		Long:  description,
@@ -55,8 +60,8 @@ devspace list spaces
 			return cmd.RunSpaces()
 		},
 	}
-
-	return loginCmd
+	listCmd.Flags().BoolVar(&cmd.ShowLegacy, "show-legacy", false, "If true, will always show the legacy spaces as well")
+	return listCmd
 }
 
 // RunSpaces executes the functionality
@@ -66,37 +71,54 @@ func (cmd *SpacesCmd) RunSpaces() error {
 		return err
 	}
 
-	spaces, err := helper.GetSpaces(baseClient, cmd.log)
-	if err != nil {
-		return err
-	}
-
 	header := []string{
 		"Name",
+		"Project",
 		"Cluster",
 		"Sleeping",
 		"Status",
 		"Age",
 	}
 	values := [][]string{}
-	for _, space := range spaces {
-		sleepModeConfig := space.Status.SleepModeConfig
-		sleeping := "false"
-		if sleepModeConfig.Status.SleepingSince != 0 {
-			sleeping = duration.HumanDuration(time.Now().Sub(time.Unix(sleepModeConfig.Status.SleepingSince, 0)))
-		}
-		spaceName := space.Name
-		if space.Annotations != nil && space.Annotations["loft.sh/display-name"] != "" {
-			spaceName = space.Annotations["loft.sh/display-name"] + " (" + spaceName + ")"
-		}
-
+	spaceInstances, err := helper.GetSpaceInstances(baseClient)
+	if err != nil {
+		return err
+	}
+	for _, space := range spaceInstances {
 		values = append(values, []string{
-			spaceName,
-			space.Cluster,
-			sleeping,
-			string(space.Space.Status.Phase),
-			duration.HumanDuration(time.Now().Sub(space.Space.CreationTimestamp.Time)),
+			clihelper.GetDisplayName(space.SpaceInstance.Name, space.SpaceInstance.Spec.DisplayName),
+			space.Project,
+			space.SpaceInstance.Spec.ClusterRef.Cluster,
+			strconv.FormatBool(space.SpaceInstance.Status.Phase == storagev1.InstanceSleeping),
+			string(space.SpaceInstance.Status.Phase),
+			duration.HumanDuration(time.Now().Sub(space.SpaceInstance.CreationTimestamp.Time)),
 		})
+	}
+	if len(spaceInstances) == 0 || cmd.ShowLegacy {
+		spaces, err := helper.GetSpaces(baseClient, cmd.log)
+		if err != nil {
+			return err
+		}
+		for _, space := range spaces {
+			sleepModeConfig := space.Status.SleepModeConfig
+			sleeping := "false"
+			if sleepModeConfig.Status.SleepingSince != 0 {
+				sleeping = duration.HumanDuration(time.Now().Sub(time.Unix(sleepModeConfig.Status.SleepingSince, 0)))
+			}
+			spaceName := space.Name
+			if space.Annotations != nil && space.Annotations["loft.sh/display-name"] != "" {
+				spaceName = space.Annotations["loft.sh/display-name"] + " (" + spaceName + ")"
+			}
+
+			values = append(values, []string{
+				spaceName,
+				"",
+				space.Cluster,
+				sleeping,
+				string(space.Space.Status.Phase),
+				duration.HumanDuration(time.Now().Sub(space.Space.CreationTimestamp.Time)),
+			})
+		}
 	}
 
 	log.PrintTable(cmd.log, header, values)

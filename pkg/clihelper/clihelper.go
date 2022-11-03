@@ -92,7 +92,16 @@ func WaitForReadyLoftAgentPod(kubeClient kubernetes.Interface, namespace string,
 			log.Warnf("Error trying to retrieve Loft Agent pod: %v", err)
 			return false, nil
 		} else if len(pods.Items) == 0 {
-			return false, nil
+			log.Debugf("No Loft Agent pod found in namespace %v, searching in all namespaces", namespace)
+			pods, err = kubeClient.CoreV1().Pods("").List(context.TODO(), metav1.ListOptions{
+				LabelSelector: "app=loft-agent",
+			})
+			if err != nil {
+				log.Warnf("Error trying to retrieve Loft Agent pod: %v", err)
+				return false, nil
+			} else if len(pods.Items) == 0 {
+				return false, nil
+			}
 		}
 
 		sort.Slice(pods.Items, func(i, j int) bool {

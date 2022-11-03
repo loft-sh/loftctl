@@ -1,6 +1,9 @@
 package client
 
-import metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+import (
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"time"
+)
 
 // Config defines the client config structure
 type Config struct {
@@ -29,6 +32,17 @@ type Config struct {
 	// last time the direct cluster endpoint token was requested
 	// +optional
 	DirectClusterEndpointTokenRequested *metav1.Time `json:"directClusterEndpointTokenRequested,omitempty"`
+
+	// map of cached certificates for "access point" mode virtual clusters
+	// +optional
+	VirtualClusterAccessPointCertificates map[string]VirtualClusterCertificatesEntry
+}
+
+type VirtualClusterCertificatesEntry struct {
+	CertificateData string
+	KeyData         string
+	LastRequested   metav1.Time
+	ExpirationTime  time.Time
 }
 
 // NewConfig creates a new config

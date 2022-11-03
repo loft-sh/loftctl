@@ -15,6 +15,10 @@ import (
 	"strings"
 )
 
+type ParametersFile struct {
+	Parameters map[string]interface{} `json:"parameters"`
+}
+
 type AppFile struct {
 	Apps []AppParameters `json:"apps,omitempty"`
 }
@@ -92,6 +96,69 @@ func GetDeepValue(parameters interface{}, path string) interface{} {
 	}
 
 	return nil
+}
+
+func ResolveTemplateParameters(templateName string, parameters []storagev1.AppParameter, fileName string, log log.Logger) (string, error) {
+	if len(parameters) == 0 {
+		return "", nil
+	}
+
+	var parametersFile *ParametersFile
+	if fileName != "" {
+		out, err := ioutil.ReadFile(fileName)
+		if err != nil {
+			return "", errors.Wrap(err, "read parameters file")
+		}
+
+		parametersFile = &ParametersFile{}
+		err = yaml.Unmarshal(out, parametersFile)
+		if err != nil {
+			return "", errors.Wrap(err, "parse parameters file")
+		}
+	}
+
+	if parametersFile != nil {
+		return fillParameters(parameters, parametersFile.Parameters)
+	}
+
+	log.WriteString("\n")
+	log.Infof("Please specify parameters for template %s", templateName)
+
+	target := map[string]interface{}{}
+	for _, parameter := range parameters {
+		question := fmt.Sprintf("%s", parameter.Label)
+		if parameter.Required {
+			question += " (Required)"
+		}
+
+		for {
+			value, err := log.Question(&survey.QuestionOptions{
+				Question:     question,
+				DefaultValue: parameter.DefaultValue,
+				Options:      parameter.Options,
+				IsPassword:   parameter.Type == "password",
+			})
+			if err != nil {
+				return "", err
+			}
+
+			outVal, err := verifyValue(value, parameter)
+			if err != nil {
+				log.Errorf(err.Error())
+				continue
+			}
+
+			SetDeepValue(target, parameter.Variable, outVal)
+			break
+		}
+	}
+
+	out, err := yaml.Marshal(target)
+	if err != nil {
+		return "", errors.Wrapf(err, "marshal parameters")
+	}
+
+	return string(out), nil
 }
 
 func ResolveAppParameters(apps []NamespacedApp, appFilename string, log log.Logger) ([]NamespacedAppWithParameters, error) {
@@ -280,42 +347,46 @@ func getParametersInAppFile(appObj *managementv1.App, appFile *AppFile) (string,
 
 	for _, app := range appFile.Apps {
 		if app.Name == appObj.Name {
-			if app.Parameters == nil {
-				app.Parameters = map[string]interface{}{}
-			}
-
-			for _, parameter := range appObj.Spec.Parameters {
-				val := GetDeepValue(app.Parameters, parameter.Variable)
-				strVal := ""
-				if val != nil {
-					switch t := val.(type) {
-					case string:
-						strVal = t
-					case int:
-						strVal = strconv.Itoa(t)
-					case bool:
-						strVal = strconv.FormatBool(t)
-					default:
-						return "", fmt.Errorf("unrecognized type for parameter %s (%s) in app %s in app file: %v", parameter.Label, parameter.Variable, clihelper.GetDisplayName(appObj.Name, appObj.Spec.DisplayName), t)
-					}
-				}
-
-				outVal, err := verifyValue(strVal, parameter)
-				if err != nil {
-					return "", errors.Wrapf(err, "validate app %s parameters", clihelper.GetDisplayName(appObj.Name, appObj.Spec.DisplayName))
-				}
-
-				SetDeepValue(app.Parameters, parameter.Variable, outVal)
-			}
-
-			out, err := yaml.Marshal(app.Parameters)
-			if err != nil {
-				return "", errors.Wrapf(err, "marshal app %s parameters", clihelper.GetDisplayName(appObj.Name, appObj.Spec.DisplayName))
-			}
-
-			return string(out), nil
+			return fillParameters(appObj.Spec.Parameters, app.Parameters)
 		}
 	}
 
 	return "", fmt.Errorf("couldn't find app %s (%s) in provided parameters file", clihelper.GetDisplayName(appObj.Name, appObj.Spec.DisplayName), appObj.Name)
+}
+
+func fillParameters(parameters []storagev1.AppParameter, values map[string]interface{}) (string, error) {
+	if values == nil {
+		values = map[string]interface{}{}
+	}
+
+	for _, parameter := range parameters {
+		val := GetDeepValue(values, parameter.Variable)
+		strVal := ""
+		if val != nil {
+			switch t := val.(type) {
+			case string:
+				strVal = t
+			case int:
+				strVal = strconv.Itoa(t)
+			case bool:
+				strVal = strconv.FormatBool(t)
+			default:
+				return "", fmt.Errorf("unrecognized type for parameter %s (%s) in file: %v", parameter.Label, parameter.Variable, t)
+			}
+		}
+
+		outVal, err := verifyValue(strVal, parameter)
+		if err != nil {
+			return "", errors.Wrap(err, "validate parameters")
+		}
+
+		SetDeepValue(values, parameter.Variable, outVal)
+	}
+
+	out, err := yaml.Marshal(values)
+	if err != nil {
+		return "", errors.Wrap(err, "marshal parameters")
+	}
+
+	return string(out), nil
 }

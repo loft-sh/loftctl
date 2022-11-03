@@ -3,6 +3,8 @@ package helper
 import (
 	"context"
 	"fmt"
+	"github.com/loft-sh/loftctl/v2/pkg/client/naming"
+	authorizationv1 "k8s.io/api/authorization/v1"
 	"sort"
 	"strings"
 
@@ -18,8 +20,398 @@ import (
 	"github.com/pkg/errors"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/client-go/kubernetes"
 )
+
+var noClusterAccessErr = fmt.Errorf("the user has no access to any cluster")
+
+type VirtualClusterInstanceProject struct {
+	VirtualCluster *managementv1.VirtualClusterInstance
+	Project        *managementv1.Project
+}
+
+type SpaceInstanceProject struct {
+	Space   *managementv1.SpaceInstance
+	Project *managementv1.Project
+}
+
+func SelectVirtualClusterTemplate(baseClient client.Client, projectName, templateName string, log log.Logger) (*managementv1.VirtualClusterTemplate, error) {
+	managementClient, err := baseClient.Management()
+	if err != nil {
+		return nil, err
+	}
+
+	projectTemplates, err := managementClient.Loft().ManagementV1().Projects().ListTemplates(context.TODO(), projectName, metav1.GetOptions{})
+	if err != nil {
+		return nil, err
+	}
+
+	// select default template
+	if templateName == "" && projectTemplates.DefaultVirtualClusterTemplate != "" {
+		templateName = projectTemplates.DefaultVirtualClusterTemplate
+	}
+
+	// try to find template
+	if templateName != "" {
+		for _, virtualClusterTemplate := range projectTemplates.VirtualClusterTemplates {
+			if virtualClusterTemplate.Name == templateName {
+				return &virtualClusterTemplate, nil
+			}
+		}
+
+		return nil, fmt.Errorf("couldn't find template %s as allowed template in project %s", templateName, projectName)
+	} else if len(projectTemplates.VirtualClusterTemplates) == 0 {
+		return nil, fmt.Errorf("there are no allowed virtual cluster templates in project %s", projectName)
+	} else if len(projectTemplates.VirtualClusterTemplates) == 1 {
+		return &projectTemplates.VirtualClusterTemplates[0], nil
+	}
+
+	templateNames := []string{}
+	for _, template := range projectTemplates.VirtualClusterTemplates {
+		templateNames = append(templateNames, clihelper.GetDisplayName(template.Name, template.Spec.DisplayName))
+	}
+	answer, err := log.Question(&survey.QuestionOptions{
+		Question:     "Please choose a template to use",
+		DefaultValue: templateNames[0],
+		Options:      templateNames,
+	})
+	if err != nil {
+		return nil, err
+	}
+	for _, template := range projectTemplates.VirtualClusterTemplates {
+		if answer == clihelper.GetDisplayName(template.Name, template.Spec.DisplayName) {
+			return &template, nil
+		}
+	}
+
+	return nil, fmt.Errorf("answer not found")
+}
+
+func SelectSpaceTemplate(baseClient client.Client, projectName, templateName string, log log.Logger) (*managementv1.SpaceTemplate, error) {
+	managementClient, err := baseClient.Management()
+	if err != nil {
+		return nil, err
+	}
+
+	projectTemplates, err := managementClient.Loft().ManagementV1().Projects().ListTemplates(context.TODO(), projectName, metav1.GetOptions{})
+	if err != nil {
+		return nil, err
+	}
+
+	// select default template
+	if templateName == "" && projectTemplates.DefaultSpaceTemplate != "" {
+		templateName = projectTemplates.DefaultSpaceTemplate
+	}
+
+	// try to find template
+	if templateName != "" {
+		for _, spaceTemplate := range projectTemplates.SpaceTemplates {
+			if spaceTemplate.Name == templateName {
+				return &spaceTemplate, nil
+			}
+		}
+
+		return nil, fmt.Errorf("couldn't find template %s as allowed template in project %s", templateName, projectName)
+	} else if len(projectTemplates.SpaceTemplates) == 0 {
+		return nil, fmt.Errorf("there are no allowed space templates in project %s", projectName)
+	} else if len(projectTemplates.SpaceTemplates) == 1 {
+		return &projectTemplates.SpaceTemplates[0], nil
+	}
+
+	templateNames := []string{}
+	for _, template := range projectTemplates.SpaceTemplates {
+		templateNames = append(templateNames, clihelper.GetDisplayName(template.Name, template.Spec.DisplayName))
+	}
+	answer, err := log.Question(&survey.QuestionOptions{
+		Question:     "Please choose a template to use",
+		DefaultValue: templateNames[0],
+		Options:      templateNames,
+	})
+	if err != nil {
+		return nil, err
+	}
+	for _, template := range projectTemplates.SpaceTemplates {
+		if answer == clihelper.GetDisplayName(template.Name, template.Spec.DisplayName) {
+			return &template, nil
+		}
+	}
+
+	return nil, fmt.Errorf("answer not found")
+}
+
+func SelectVirtualClusterInstanceOrVirtualCluster(baseClient client.Client, virtualClusterName, spaceName, projectName, clusterName string, log log.Logger) (cluster string, project string, space string, virtualCluster string, err error) {
+	if clusterName != "" || spaceName != "" {
+		virtualCluster, space, cluster, err := SelectVirtualClusterAndSpaceAndClusterName(baseClient, virtualClusterName, spaceName, clusterName, log)
+		return cluster, "", space, virtualCluster, err
+	}
+
+	managementClient, err := baseClient.Management()
+	if err != nil {
+		return "", "", "", "", err
+	}
+
+	// gather projects and virtual cluster instances to access
+	projects := []*managementv1.Project{}
+	if projectName != "" {
+		project, err := managementClient.Loft().ManagementV1().Projects().Get(context.TODO(), projectName, metav1.GetOptions{})
+		if err != nil {
+			if kerrors.IsNotFound(err) {
+				return "", "", "", "", fmt.Errorf("couldn't find or access project %s", projectName)
+			}
+
+			return "", "", "", "", err
+		}
+
+		projects = append(projects, project)
+	} else {
+		projectsList, err := managementClient.Loft().ManagementV1().Projects().List(context.TODO(), metav1.ListOptions{})
+		if err != nil || len(projectsList.Items) == 0 {
+			virtualCluster, space, cluster, err := SelectVirtualClusterAndSpaceAndClusterName(baseClient, virtualClusterName, spaceName, clusterName, log)
+			return cluster, "", space, virtualCluster, err
+		}
+
+		for _, p := range projectsList.Items {
+			proj := p
+			projects = append(projects, &proj)
+		}
+	}
+
+	// gather space instances in those projects
+	virtualClusters := []VirtualClusterInstanceProject{}
+	for _, p := range projects {
+		if virtualClusterName != "" {
+			virtualClusterInstance, err := managementClient.Loft().ManagementV1().VirtualClusterInstances(naming.ProjectNamespace(p.Name)).Get(context.TODO(), virtualClusterName, metav1.GetOptions{})
+			if err != nil {
+				continue
+			}
+
+			virtualClusters = append(virtualClusters, VirtualClusterInstanceProject{
+				VirtualCluster: virtualClusterInstance,
+				Project:        p,
+			})
+		} else {
+			virtualClusterInstanceList, err := managementClient.Loft().ManagementV1().VirtualClusterInstances(naming.ProjectNamespace(p.Name)).List(context.TODO(), metav1.ListOptions{})
+			if err != nil {
+				continue
+			}
+
+			for _, virtualClusterInstance := range virtualClusterInstanceList.Items {
+				s := virtualClusterInstance
+				virtualClusters = append(virtualClusters, VirtualClusterInstanceProject{
+					VirtualCluster: &s,
+					Project:        p,
+				})
+			}
+		}
+	}
+
+	// filter out virtualclusters we cannot access
+	newVirtualClusters := []VirtualClusterInstanceProject{}
+	optionsUnformatted := [][]string{}
+	for _, virtualCluster := range virtualClusters {
+		canAccess, err := CanAccessVirtualClusterInstance(managementClient, virtualCluster.VirtualCluster.Namespace, virtualCluster.VirtualCluster.Name)
+		if err != nil {
+			return "", "", "", "", err
+		} else if !canAccess {
+			continue
+		}
+
+		optionsUnformatted = append(optionsUnformatted, []string{"VCluster: " + clihelper.GetDisplayName(virtualCluster.VirtualCluster.Name, virtualCluster.VirtualCluster.Spec.DisplayName), "Project: " + clihelper.GetDisplayName(virtualCluster.Project.Name, virtualCluster.Project.Spec.DisplayName)})
+		newVirtualClusters = append(newVirtualClusters, virtualCluster)
+	}
+	virtualClusters = newVirtualClusters
+
+	// check if there are virtualclusters
+	if len(virtualClusters) == 0 {
+		if virtualCluster != "" {
+			return "", "", "", "", fmt.Errorf("couldn't find or access virtual cluster %s", virtualCluster)
+		}
+		return "", "", "", "", fmt.Errorf("couldn't find a virtual cluster you have access to")
+	} else if len(virtualClusters) == 1 {
+		return "", virtualClusters[0].Project.Name, "", virtualClusters[0].VirtualCluster.Name, nil
+	}
+
+	questionOptions := formatOptions("%s | %s", optionsUnformatted)
+	selectedOption, err := log.Question(&survey.QuestionOptions{
+		Question:     "Please choose a virtual cluster",
+		DefaultValue: questionOptions[0],
+		Options:      questionOptions,
+	})
+	if err != nil {
+		return "", "", "", "", err
+	}
+
+	for idx, s := range questionOptions {
+		if s == selectedOption {
+			return "", virtualClusters[idx].Project.Name, "", virtualClusters[idx].VirtualCluster.Name, nil
+		}
+	}
+
+	return "", "", "", "", fmt.Errorf("couldn't find answer")
+}
+
+func SelectSpaceInstanceOrSpace(baseClient client.Client, spaceName, projectName, clusterName string, log log.Logger) (cluster string, project string, space string, err error) {
+	if clusterName != "" {
+		space, cluster, err := SelectSpaceAndClusterName(baseClient, spaceName, clusterName, log)
+		return cluster, "", space, err
+	}
+
+	managementClient, err := baseClient.Management()
+	if err != nil {
+		return "", "", "", err
+	}
+
+	// gather projects and space instances to access
+	projects := []*managementv1.Project{}
+	if projectName != "" {
+		project, err := managementClient.Loft().ManagementV1().Projects().Get(context.TODO(), projectName, metav1.GetOptions{})
+		if err != nil {
+			if kerrors.IsNotFound(err) {
+				return "", "", "", fmt.Errorf("couldn't find or access project %s", projectName)
+			}
+
+			return "", "", "", err
+		}
+
+		projects = append(projects, project)
+	} else {
+		projectsList, err := managementClient.Loft().ManagementV1().Projects().List(context.TODO(), metav1.ListOptions{})
+		if err != nil || len(projectsList.Items) == 0 {
+			space, cluster, err := SelectSpaceAndClusterName(baseClient, spaceName, clusterName, log)
+			return cluster, "", space, err
+		}
+
+		for _, p := range projectsList.Items {
+			proj := p
+			projects = append(projects, &proj)
+		}
+	}
+
+	// gather space instances in those projects
+	spaces := []SpaceInstanceProject{}
+	for _, p := range projects {
+		if spaceName != "" {
+			spaceInstance, err := managementClient.Loft().ManagementV1().SpaceInstances(naming.ProjectNamespace(p.Name)).Get(context.TODO(), spaceName, metav1.GetOptions{})
+			if err != nil {
+				continue
+			}
+
+			spaces = append(spaces, SpaceInstanceProject{
+				Space:   spaceInstance,
+				Project: p,
+			})
+		} else {
+			spaceInstanceList, err := managementClient.Loft().ManagementV1().SpaceInstances(naming.ProjectNamespace(p.Name)).List(context.TODO(), metav1.ListOptions{})
+			if err != nil {
+				continue
+			}
+
+			for _, spaceInstance := range spaceInstanceList.Items {
+				s := spaceInstance
+				spaces = append(spaces, SpaceInstanceProject{
+					Space:   &s,
+					Project: p,
+				})
+			}
+		}
+	}
+
+	// filter out spaces we cannot access
+	newSpaces := []SpaceInstanceProject{}
+	optionsUnformatted := [][]string{}
+	for _, space := range spaces {
+		canAccess, err := CanAccessSpaceInstance(managementClient, space.Space.Namespace, space.Space.Name)
+		if err != nil {
+			return "", "", "", err
+		} else if !canAccess {
+			continue
+		}
+
+		optionsUnformatted = append(optionsUnformatted, []string{"Space: " + clihelper.GetDisplayName(space.Space.Name, space.Space.Spec.DisplayName), "Project: " + clihelper.GetDisplayName(space.Project.Name, space.Project.Spec.DisplayName)})
+		newSpaces = append(newSpaces, space)
+	}
+	spaces = newSpaces
+
+	// check if there are spaces
+	if len(spaces) == 0 {
+		if spaceName != "" {
+			return "", "", "", fmt.Errorf("couldn't find or access space %s", spaceName)
+		}
+		return "", "", "", fmt.Errorf("couldn't find a space you have access to")
+	} else if len(spaces) == 1 {
+		return spaces[0].Space.Spec.ClusterRef.Cluster, spaces[0].Project.Name, spaces[0].Space.Name, nil
+	}
+
+	questionOptions := formatOptions("%s | %s", optionsUnformatted)
+	selectedOption, err := log.Question(&survey.QuestionOptions{
+		Question:     "Please choose a space",
+		DefaultValue: questionOptions[0],
+		Options:      questionOptions,
+	})
+	if err != nil {
+		return "", "", "", err
+	}
+
+	for idx, s := range questionOptions {
+		if s == selectedOption {
+			return spaces[idx].Space.Spec.ClusterRef.Cluster, spaces[idx].Project.Name, spaces[idx].Space.Name, nil
+		}
+	}
+
+	return "", "", "", fmt.Errorf("couldn't find answer")
+}
+
+func SelectProjectOrCluster(baseClient client.Client, clusterName, projectName string, log log.Logger) (cluster string, project string, err error) {
+	if clusterName != "" {
+		return clusterName, "", nil
+	} else if projectName != "" {
+		return "", projectName, nil
+	}
+
+	managementClient, err := baseClient.Management()
+	if err != nil {
+		return "", "", err
+	}
+
+	projectList, err := managementClient.Loft().ManagementV1().Projects().List(context.TODO(), metav1.ListOptions{})
+	if err != nil {
+		return "", "", err
+	}
+
+	projectNames := []string{}
+	for _, project := range projectList.Items {
+		projectNames = append(projectNames, clihelper.GetDisplayName(project.Name, project.Spec.DisplayName))
+	}
+
+	if len(projectNames) == 0 {
+		cluster, err := SelectCluster(baseClient, log)
+		if err != nil {
+			if err == noClusterAccessErr {
+				return "", "", fmt.Errorf("the user has no access to a project")
+			}
+
+			return "", "", err
+		}
+
+		return "", cluster, nil
+	} else if len(projectNames) == 1 {
+		return "", projectList.Items[0].Name, nil
+	}
+
+	answer, err := log.Question(&survey.QuestionOptions{
+		Question:     "Please choose a project to use",
+		DefaultValue: projectNames[0],
+		Options:      projectNames,
+	})
+	if err != nil {
+		return "", "", err
+	}
+	for _, project := range projectList.Items {
+		if answer == clihelper.GetDisplayName(project.Name, project.Spec.DisplayName) {
+			return "", project.Name, nil
+		}
+	}
+	return "", "", fmt.Errorf("answer not found")
+}
 
 // SelectCluster lets the user select a cluster
 func SelectCluster(baseClient client.Client, log log.Logger) (string, error) {
@@ -39,7 +431,7 @@ func SelectCluster(baseClient client.Client, log log.Logger) (string, error) {
 	}
 
 	if len(clusterNames) == 0 {
-		return "", fmt.Errorf("the user has no access to any cluster")
+		return "", noClusterAccessErr
 	} else if len(clusterNames) == 1 {
 		return clusterList.Items[0].Name, nil
 	}
@@ -118,37 +510,6 @@ func SelectUserOrTeam(baseClient client.Client, clusterName string, log log.Logg
 	}
 
 	return nil, nil, fmt.Errorf("answer not found")
-}
-
-func SelectPod(client kubernetes.Interface, namespace string, log log.Logger) (string, error) {
-	podList, err := client.CoreV1().Pods(namespace).List(context.TODO(), metav1.ListOptions{
-		LabelSelector: "app=vcluster",
-	})
-	if err != nil {
-		return "", err
-	}
-
-	options := []string{}
-	for _, pod := range podList.Items {
-		options = append(options, pod.Name)
-	}
-
-	if len(options) == 0 {
-		return "", fmt.Errorf("no virtual cluster found in namespace %s", namespace)
-	} else if len(options) == 1 {
-		return options[0], nil
-	}
-
-	selectedPod, err := log.Question(&survey.QuestionOptions{
-		Question:     "Please choose a virtual cluster pod",
-		DefaultValue: options[0],
-		Options:      options,
-	})
-	if err != nil {
-		return "", err
-	}
-
-	return selectedPod, nil
 }
 
 type ClusterUserOrTeam struct {
@@ -238,6 +599,119 @@ func SelectClusterUserOrTeam(baseClient client.Client, clusterName, userName, te
 	}
 
 	return nil, fmt.Errorf("selected question option not found")
+}
+
+type ProjectVirtualCluster struct {
+	VirtualClusterInstance managementv1.VirtualClusterInstance
+	Project                string
+}
+
+func GetVirtualClusterInstances(baseClient client.Client) ([]ProjectVirtualCluster, error) {
+	managementClient, err := baseClient.Management()
+	if err != nil {
+		return nil, err
+	}
+
+	projectList, err := managementClient.Loft().ManagementV1().Projects().List(context.TODO(), metav1.ListOptions{})
+	if err != nil {
+		return nil, err
+	}
+
+	retVClusters := []ProjectVirtualCluster{}
+	for _, project := range projectList.Items {
+		virtualClusterInstances, err := managementClient.Loft().ManagementV1().VirtualClusterInstances(naming.ProjectNamespace(project.Name)).List(context.TODO(), metav1.ListOptions{})
+		if err != nil {
+			return nil, err
+		}
+
+		for _, virtualClusterInstance := range virtualClusterInstances.Items {
+			canAccess, err := CanAccessVirtualClusterInstance(managementClient, virtualClusterInstance.Namespace, virtualClusterInstance.Name)
+			if err != nil {
+				return nil, err
+			} else if !canAccess {
+				continue
+			}
+
+			retVClusters = append(retVClusters, ProjectVirtualCluster{
+				VirtualClusterInstance: virtualClusterInstance,
+				Project:                project.Name,
+			})
+		}
+	}
+
+	return retVClusters, nil
+}
+
+type ProjectSpace struct {
+	SpaceInstance managementv1.SpaceInstance
+	Project       string
+}
+
+func CanAccessVirtualClusterInstance(managementClient kube.Interface, namespace, name string) (bool, error) {
+	return canAccessInstance(managementClient, namespace, name, "virtualclusterinstances")
+}
+
+func CanAccessSpaceInstance(managementClient kube.Interface, namespace, name string) (bool, error) {
+	return canAccessInstance(managementClient, namespace, name, "spaceinstances")
+}
+
+func canAccessInstance(managementClient kube.Interface, namespace, name string, resource string) (bool, error) {
+	selfSubjectAccessReview, err := managementClient.Loft().ManagementV1().SelfSubjectAccessReviews().Create(context.TODO(), &managementv1.SelfSubjectAccessReview{
+		Spec: managementv1.SelfSubjectAccessReviewSpec{
+			SelfSubjectAccessReviewSpec: authorizationv1.SelfSubjectAccessReviewSpec{
+				ResourceAttributes: &authorizationv1.ResourceAttributes{
+					Verb:      "use",
+					Group:     managementv1.SchemeGroupVersion.Group,
+					Version:   managementv1.SchemeGroupVersion.Version,
+					Resource:  resource,
+					Namespace: namespace,
+					Name:      name,
+				},
+			},
+		},
+	}, metav1.CreateOptions{})
+	if err != nil {
+		return false, err
+	} else if !selfSubjectAccessReview.Status.Allowed || selfSubjectAccessReview.Status.Denied {
+		return false, nil
+	}
+	return true, nil
+}
+
+func GetSpaceInstances(baseClient client.Client) ([]ProjectSpace, error) {
+	managementClient, err := baseClient.Management()
+	if err != nil {
+		return nil, err
+	}
+
+	projectList, err := managementClient.Loft().ManagementV1().Projects().List(context.TODO(), metav1.ListOptions{})
+	if err != nil {
+		return nil, err
+	}
+
+	retSpaces := []ProjectSpace{}
+	for _, project := range projectList.Items {
+		spaceInstances, err := managementClient.Loft().ManagementV1().SpaceInstances(naming.ProjectNamespace(project.Name)).List(context.TODO(), metav1.ListOptions{})
+		if err != nil {
+			return nil, err
+		}
+
+		for _, spaceInstance := range spaceInstances.Items {
+			canAccess, err := CanAccessSpaceInstance(managementClient, spaceInstance.Namespace, spaceInstance.Name)
+			if err != nil {
+				return nil, err
+			} else if !canAccess {
+				continue
+			}
+
+			retSpaces = append(retSpaces, ProjectSpace{
+				SpaceInstance: spaceInstance,
+				Project:       project.Name,
+			})
+		}
+	}
+
+	return retSpaces, nil
 }
 
 type ClusterSpace struct {
@@ -357,6 +831,8 @@ func SelectSpaceAndClusterName(baseClient client.Client, spaceName, clusterName 
 			continue
 		} else if clusterName != "" && space.Cluster != clusterName {
 			continue
+		} else if len(matchedSpaces) > 20 {
+			break
 		}
 
 		if isLoftContext == true && vCluster == "" && cluster == space.Cluster && namespace == space.Space.Name {

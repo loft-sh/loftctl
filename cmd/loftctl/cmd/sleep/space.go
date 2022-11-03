@@ -1,63 +1,68 @@
-package cmd
+package sleep
 
 import (
 	"context"
 	"fmt"
+	clusterv1 "github.com/loft-sh/agentapi/v2/pkg/apis/loft/cluster/v1"
+	storagev1 "github.com/loft-sh/api/v2/pkg/apis/storage/v1"
 	"github.com/loft-sh/loftctl/v2/cmd/loftctl/flags"
 	"github.com/loft-sh/loftctl/v2/pkg/client"
 	"github.com/loft-sh/loftctl/v2/pkg/client/helper"
+	"github.com/loft-sh/loftctl/v2/pkg/client/naming"
 	"github.com/loft-sh/loftctl/v2/pkg/log"
 	"github.com/loft-sh/loftctl/v2/pkg/upgrade"
 	"github.com/spf13/cobra"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
+	"strconv"
 	"time"
 )
 
-// SleepCmd holds the cmd flags
-type SleepCmd struct {
+// SpaceCmd holds the cmd flags
+type SpaceCmd struct {
 	*flags.GlobalFlags
 
+	Project       string
 	Cluster       string
 	ForceDuration int64
 
 	Log log.Logger
 }
 
-// NewSleepCmd creates a new command
-func NewSleepCmd(globalFlags *flags.GlobalFlags) *cobra.Command {
-	cmd := &SleepCmd{
+// NewSpaceCmd creates a new command
+func NewSpaceCmd(globalFlags *flags.GlobalFlags) *cobra.Command {
+	cmd := &SpaceCmd{
 		GlobalFlags: globalFlags,
 		Log:         log.GetInstance(),
 	}
 
 	description := `
 #######################################################
-###################### loft sleep #####################
+################### loft sleep space ##################
 #######################################################
 Sleep puts a space to sleep
 
 Example:
-loft sleep myspace
-loft sleep myspace --cluster mycluster
+loft sleep space myspace
+loft sleep space myspace --project myproject
 #######################################################
 	`
 	if upgrade.IsPlugin == "true" {
 		description = `
 #######################################################
-#################### devspace sleep ###################
+################ devspace sleep space #################
 #######################################################
 Sleep puts a space to sleep
 
 Example:
-devspace sleep myspace
-devspace sleep myspace --cluster mycluster
+devspace sleep space myspace
+devspace sleep space myspace --project myproject
 #######################################################
 	`
 	}
 
 	c := &cobra.Command{
-		Use:   "sleep",
+		Use:   "space",
 		Short: "Put a space to sleep",
 		Long:  description,
 		Args:  cobra.MaximumNArgs(1),
@@ -66,13 +71,14 @@ devspace sleep myspace --cluster mycluster
 		},
 	}
 
+	c.Flags().StringVarP(&cmd.Project, "project", "p", "", "The project to use")
 	c.Flags().Int64Var(&cmd.ForceDuration, "prevent-wakeup", -1, "The amount of seconds this space should sleep until it can be woken up again (use 0 for infinite sleeping). During this time the space can only be woken up by `loft wakeup`, manually deleting the annotation on the namespace or through the loft UI")
 	c.Flags().StringVar(&cmd.Cluster, "cluster", "", "The cluster to use")
 	return c
 }
 
 // Run executes the functionality
-func (cmd *SleepCmd) Run(args []string) error {
+func (cmd *SpaceCmd) Run(args []string) error {
 	baseClient, err := client.NewClientFromPath(cmd.Config)
 	if err != nil {
 		return err
@@ -83,12 +89,63 @@ func (cmd *SleepCmd) Run(args []string) error {
 		spaceName = args[0]
 	}
 
-	spaceName, clusterName, err := helper.SelectSpaceAndClusterName(baseClient, spaceName, cmd.Cluster, cmd.Log)
+	cmd.Cluster, cmd.Project, spaceName, err = helper.SelectSpaceInstanceOrSpace(baseClient, spaceName, cmd.Project, cmd.Cluster, cmd.Log)
 	if err != nil {
 		return err
 	}
 
-	clusterClient, err := baseClient.Cluster(clusterName)
+	if cmd.Project == "" {
+		return cmd.legacySleepSpace(baseClient, spaceName)
+	}
+
+	return cmd.sleepSpace(baseClient, spaceName)
+}
+
+func (cmd *SpaceCmd) sleepSpace(baseClient client.Client, spaceName string) error {
+	managementClient, err := baseClient.Management()
+	if err != nil {
+		return err
+	}
+
+	spaceInstance, err := managementClient.Loft().ManagementV1().SpaceInstances(naming.ProjectNamespace(cmd.Project)).Get(context.TODO(), spaceName, metav1.GetOptions{})
+	if err != nil {
+		return err
+	}
+
+	if spaceInstance.Annotations == nil {
+		spaceInstance.Annotations = map[string]string{}
+	}
+	spaceInstance.Annotations[clusterv1.SleepModeForceAnnotation] = "true"
+	if cmd.ForceDuration >= 0 {
+		spaceInstance.Annotations[clusterv1.SleepModeForceDurationAnnotation] = strconv.FormatInt(cmd.ForceDuration, 10)
+	}
+
+	_, err = managementClient.Loft().ManagementV1().SpaceInstances(naming.ProjectNamespace(cmd.Project)).Update(context.TODO(), spaceInstance, metav1.UpdateOptions{})
+	if err != nil {
+		return err
+	}
+
+	// wait for sleeping
+	cmd.Log.StartWait("Wait until space is sleeping")
+	defer cmd.Log.StopWait()
+	err = wait.Poll(time.Second, time.Minute, func() (bool, error) {
+		spaceInstance, err := managementClient.Loft().ManagementV1().SpaceInstances(naming.ProjectNamespace(cmd.Project)).Get(context.TODO(), spaceName, metav1.GetOptions{})
+		if err != nil {
+			return false, err
+		}
+
+		return spaceInstance.Status.Phase == storagev1.InstanceSleeping, nil
+	})
+	if err != nil {
+		return fmt.Errorf("error waiting for space to start sleeping: %v", err)
+	}
+
+	cmd.Log.Donef("Successfully put space %s to sleep", spaceName)
+	return nil
+}
+
+func (cmd *SpaceCmd) legacySleepSpace(baseClient client.Client, spaceName string) error {
+	clusterClient, err := baseClient.Cluster(cmd.Cluster)
 	if err != nil {
 		return err
 	}

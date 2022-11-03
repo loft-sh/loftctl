@@ -13,16 +13,32 @@ import (
 )
 
 type ContextOptions struct {
-	Name                         string
-	Server                       string
-	CaData                       []byte
-	ConfigPath                   string
-	InsecureSkipTLSVerify        bool
-	DirectClusterEndpointEnabled bool
+	Name                             string
+	Server                           string
+	CaData                           []byte
+	ConfigPath                       string
+	InsecureSkipTLSVerify            bool
+	DirectClusterEndpointEnabled     bool
+	VirtualClusterAccessPointEnabled bool
 
-	Token            string
+	Token                 string
+	ClientKeyData         []byte
+	ClientCertificateData []byte
+
 	CurrentNamespace string
 	SetActive        bool
+}
+
+func SpaceInstanceContextName(projectName, spaceInstanceName string) string {
+	return "loft_" + spaceInstanceName + "_" + projectName
+}
+
+func VirtualClusterInstanceContextName(projectName, virtualClusterInstance string) string {
+	return "loft-vcluster_" + virtualClusterInstance + "_" + projectName
+}
+
+func virtualClusterInstanceProjectAndNameFromContextName(contextName string) (string, string) {
+	return strings.Split(contextName, "_")[2], strings.Split(contextName, "_")[1]
 }
 
 func SpaceContextName(clusterName, namespaceName string) string {
@@ -37,6 +53,10 @@ func SpaceContextName(clusterName, namespaceName string) string {
 
 func VirtualClusterContextName(clusterName, namespaceName, virtualClusterName string) string {
 	return "loft-vcluster_" + virtualClusterName + "_" + namespaceName + "_" + clusterName
+}
+
+func ManagementContextName() string {
+	return "loft-management"
 }
 
 func ParseContext(contextName string) (isLoftContext bool, cluster string, namespace string, vCluster string) {
@@ -194,8 +214,10 @@ func createContext(options ContextOptions) (string, *api.Cluster, *api.AuthInfo,
 	cluster.InsecureSkipTLSVerify = options.InsecureSkipTLSVerify
 
 	authInfo := api.NewAuthInfo()
-	if options.Token != "" {
+	if options.Token != "" || options.ClientCertificateData != nil || options.ClientKeyData != nil {
 		authInfo.Token = options.Token
+		authInfo.ClientKeyData = options.ClientKeyData
+		authInfo.ClientCertificateData = options.ClientCertificateData
 	} else {
 		command, err := os.Executable()
 		if err != nil {
@@ -207,13 +229,22 @@ func createContext(options ContextOptions) (string, *api.Cluster, *api.AuthInfo,
 			return "", nil, nil, err
 		}
 
-		authInfo.Exec = &api.ExecConfig{
-			APIVersion: v1beta1.SchemeGroupVersion.String(),
-			Command:    command,
-			Args:       []string{"token", "--silent", "--config", absConfigPath},
-		}
-		if options.DirectClusterEndpointEnabled {
-			authInfo.Exec.Args = append(authInfo.Exec.Args, "--direct-cluster-endpoint")
+		if options.VirtualClusterAccessPointEnabled {
+			projectName, virtualClusterName := virtualClusterInstanceProjectAndNameFromContextName(contextName)
+			authInfo.Exec = &api.ExecConfig{
+				APIVersion: v1beta1.SchemeGroupVersion.String(),
+				Command:    command,
+				Args:       []string{"token", "--silent", "--project", projectName, "--virtual-cluster", virtualClusterName},
+			}
+		} else {
+			authInfo.Exec = &api.ExecConfig{
+				APIVersion: v1beta1.SchemeGroupVersion.String(),
+				Command:    command,
+				Args:       []string{"token", "--silent", "--config", absConfigPath},
+			}
+			if options.DirectClusterEndpointEnabled {
+				authInfo.Exec.Args = append(authInfo.Exec.Args, "--direct-cluster-endpoint")
+			}
 		}
 	}
 

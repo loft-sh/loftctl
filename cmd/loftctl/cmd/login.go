@@ -25,6 +25,8 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
+const LoftUrl = "LOFT_URL"
+
 // LoginCmd holds the login cmd flags
 type LoginCmd struct {
 	*flags.GlobalFlags
@@ -93,25 +95,30 @@ func (cmd *LoginCmd) RunLogin(args []string) error {
 		return err
 	}
 
+	var url string
 	// Print login information
 	if len(args) == 0 {
-		config := loader.Config()
-		insecureFlag := ""
-		if config.Insecure {
-			insecureFlag = "--insecure"
+		url = os.Getenv(LoftUrl)
+		if url == "" {
+			config := loader.Config()
+			insecureFlag := ""
+			if config.Insecure {
+				insecureFlag = "--insecure"
+			}
+
+			err := cmd.printLoginDetails(loader, config)
+			if err != nil {
+				cmd.Log.Fatalf("%s\n\nYou may need to log in again via: %s login %s %s\n", err.Error(), os.Args[0], config.Host, insecureFlag)
+			}
+
+			cmd.Log.WriteString(fmt.Sprintf("\nTo log in as a different user, run: %s login %s %s\n\n", os.Args[0], config.Host, insecureFlag))
+
+			return nil
 		}
-
-		err := cmd.printLoginDetails(loader, config)
-		if err != nil {
-			cmd.Log.Fatalf("%s\n\nYou may need to log in again via: %s login %s %s\n", err.Error(), os.Args[0], config.Host, insecureFlag)
-		}
-
-		cmd.Log.WriteString(fmt.Sprintf("\nTo log in as a different user, run: %s login %s %s\n\n", os.Args[0], config.Host, insecureFlag))
-
-		return nil
+	} else {
+		url = args[0]
 	}
 
-	url := args[0]
 	if strings.HasPrefix(url, "http") == false {
 		url = "https://" + url
 	}

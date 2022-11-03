@@ -1,7 +1,6 @@
 package cmd
 
 import (
-	"github.com/loft-sh/loftctl/v2/cmd/loftctl/cmd/connect"
 	"github.com/loft-sh/loftctl/v2/cmd/loftctl/cmd/create"
 	"github.com/loft-sh/loftctl/v2/cmd/loftctl/cmd/delete"
 	"github.com/loft-sh/loftctl/v2/cmd/loftctl/cmd/generate"
@@ -10,8 +9,10 @@ import (
 	"github.com/loft-sh/loftctl/v2/cmd/loftctl/cmd/reset"
 	"github.com/loft-sh/loftctl/v2/cmd/loftctl/cmd/set"
 	"github.com/loft-sh/loftctl/v2/cmd/loftctl/cmd/share"
+	"github.com/loft-sh/loftctl/v2/cmd/loftctl/cmd/sleep"
 	"github.com/loft-sh/loftctl/v2/cmd/loftctl/cmd/use"
 	"github.com/loft-sh/loftctl/v2/cmd/loftctl/cmd/vars"
+	"github.com/loft-sh/loftctl/v2/cmd/loftctl/cmd/wakeup"
 	"github.com/loft-sh/loftctl/v2/cmd/loftctl/flags"
 	"github.com/loft-sh/loftctl/v2/pkg/log"
 	"github.com/loft-sh/loftctl/v2/pkg/upgrade"
@@ -67,14 +68,11 @@ func BuildRoot(log log.Logger) *cobra.Command {
 	rootCmd.AddCommand(NewStartCmd(globalFlags))
 	rootCmd.AddCommand(NewLoginCmd(globalFlags))
 	rootCmd.AddCommand(NewTokenCmd(globalFlags))
-	rootCmd.AddCommand(NewSleepCmd(globalFlags))
-	rootCmd.AddCommand(NewWakeUpCmd(globalFlags))
 	rootCmd.AddCommand(NewBackupCmd(globalFlags))
 	rootCmd.AddCommand(NewCompletionCmd(rootCmd, globalFlags))
 	rootCmd.AddCommand(NewUpgradeCmd())
 
 	// add subcommands
-	rootCmd.AddCommand(connect.NewConnectCmd(globalFlags))
 	rootCmd.AddCommand(list.NewListCmd(globalFlags))
 	rootCmd.AddCommand(use.NewUseCmd(globalFlags))
 	rootCmd.AddCommand(create.NewCreateCmd(globalFlags))
@@ -85,6 +83,8 @@ func BuildRoot(log log.Logger) *cobra.Command {
 	rootCmd.AddCommand(share.NewShareCmd(globalFlags))
 	rootCmd.AddCommand(set.NewSetCmd(globalFlags))
 	rootCmd.AddCommand(reset.NewResetCmd(globalFlags))
+	rootCmd.AddCommand(sleep.NewSleepCmd(globalFlags))
+	rootCmd.AddCommand(wakeup.NewWakeUpCmd(globalFlags))
 
 	return rootCmd
 }

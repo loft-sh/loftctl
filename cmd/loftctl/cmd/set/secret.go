@@ -2,10 +2,13 @@ package set
 
 import (
 	"context"
+	"strings"
+
 	managementv1 "github.com/loft-sh/api/v2/pkg/apis/management/v1"
 	storagev1 "github.com/loft-sh/api/v2/pkg/apis/storage/v1"
 	"github.com/loft-sh/loftctl/v2/cmd/loftctl/flags"
 	"github.com/loft-sh/loftctl/v2/pkg/client"
+	"github.com/loft-sh/loftctl/v2/pkg/kube"
 	"github.com/loft-sh/loftctl/v2/pkg/log"
 	"github.com/loft-sh/loftctl/v2/pkg/survey"
 	"github.com/loft-sh/loftctl/v2/pkg/upgrade"
@@ -13,20 +16,28 @@ import (
 	"github.com/spf13/cobra"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"strings"
 )
 
-// SharedSecretCmd holds the lags
-type SharedSecretCmd struct {
+type SecretType string
+
+const (
+	ProjectNamespacePrefix            = "loft-p-"
+	ProjectSecret          SecretType = "Project Secret"
+	SharedSecret           SecretType = "Shared Secret"
+)
+
+// SecretCmd holds the flags
+type SecretCmd struct {
 	*flags.GlobalFlags
 	Namespace string
+	Project   string
 
 	log log.Logger
 }
 
-// NewSharedSecretCmd creates a new command
-func NewSharedSecretCmd(globalFlags *flags.GlobalFlags) *cobra.Command {
-	cmd := &SharedSecretCmd{
+// NewSecretCmd creates a new command
+func NewSecretCmd(globalFlags *flags.GlobalFlags) *cobra.Command {
+	cmd := &SecretCmd{
 		GlobalFlags: globalFlags,
 		log:         log.GetInstance(),
 	}
@@ -34,10 +45,12 @@ func NewSharedSecretCmd(globalFlags *flags.GlobalFlags) *cobra.Command {
 #######################################################
 ################### loft set secret ###################
 #######################################################
-Sets the key value of a shared secret
+Sets the key value of a project / shared secret.
+
 
 Example:
 loft set secret test-secret.key value
+loft set secret test-secret.key value --project myproject
 #######################################################
 	`
 	if upgrade.IsPlugin == "true" {
@@ -45,16 +58,17 @@ loft set secret test-secret.key value
 #######################################################
 ################# devspace set secret #################
 #######################################################
-Sets the key value of a shared secret
+Sets the key value of a project / shared secret.
 
 Example:
 devspace set secret test-secret.key value
+devspace set secret test-secret.key value --project myproject
 #######################################################
 	`
 	}
 	c := &cobra.Command{
 		Use:   "secret [secret.key] [value]",
-		Short: "Sets the key value of a shared secret",
+		Short: "Sets the key value of a project / shared secret",
 		Long:  description,
 		Args:  cobra.ExactArgs(2),
 		RunE: func(cobraCmd *cobra.Command, args []string) error {
@@ -63,11 +77,13 @@ devspace set secret test-secret.key value
 	}
 
 	c.Flags().StringVarP(&cmd.Namespace, "namespace", "n", "", "The namespace in the loft cluster to create the secret in. If omitted will use the namespace were loft is installed in")
+	c.Flags().StringVarP(&cmd.Project, "project", "p", "", "The project to create the project secret in.")
+
 	return c
 }
 
 // RunUsers executes the functionality
-func (cmd *SharedSecretCmd) Run(cobraCmd *cobra.Command, args []string) error {
+func (cmd *SecretCmd) Run(cobraCmd *cobra.Command, args []string) error {
 	baseClient, err := client.NewClientFromPath(cmd.Config)
 	if err != nil {
 		return err
@@ -90,12 +106,103 @@ func (cmd *SharedSecretCmd) Run(cobraCmd *cobra.Command, args []string) error {
 		keyName = secretArg[idx+1:]
 	}
 
-	// get target namespace
-	namespace, err := GetSharedSecretNamespace(cmd.Namespace)
-	if err != nil {
-		return errors.Wrap(err, "get shared secrets namespace")
+	var secretType SecretType
+
+	if cmd.Project != "" {
+		secretType = ProjectSecret
+	} else {
+		secretType = SharedSecret
 	}
 
+	switch secretType {
+	case ProjectSecret:
+		// get target namespace
+		namespace, err := GetProjectSecretNamespace(cmd.Project)
+		if err != nil {
+			return errors.Wrap(err, "get project secrets namespace")
+		}
+
+		return cmd.setProjectSecret(managementClient, args, namespace, secretName, keyName)
+	case SharedSecret:
+		namespace, err := GetSharedSecretNamespace(cmd.Namespace)
+		if err != nil {
+			return errors.Wrap(err, "get shared secrets namespace")
+		}
+
+		return cmd.setSharedSecret(managementClient, args, namespace, secretName, keyName)
+	}
+
+	return nil
+}
+
+func (cmd *SecretCmd) setProjectSecret(managementClient kube.Interface, args []string, namespace, secretName, keyName string) error {
+	secret, err := managementClient.Loft().ManagementV1().ProjectSecrets(namespace).Get(context.TODO(), secretName, metav1.GetOptions{})
+	if err != nil {
+		if kerrors.IsNotFound(err) == false {
+			return errors.Wrap(err, "get secret")
+		}
+
+		secret = nil
+	}
+
+	if keyName == "" {
+		if secret == nil {
+			return errors.Errorf("please specify a secret key to set. For example 'set secret my-secret.key value'")
+		}
+		if len(secret.Spec.Data) == 0 {
+			return errors.Errorf("secret %s has no keys. Please specify a key like `loft set secret name.key value`", secretName)
+		}
+
+		keyNames := []string{}
+		for k := range secret.Spec.Data {
+			keyNames = append(keyNames, k)
+		}
+
+		keyName, err = cmd.log.Question(&survey.QuestionOptions{
+			Question:     "Please select a secret key to set",
+			DefaultValue: keyNames[0],
+			Options:      keyNames,
+		})
+		if err != nil {
+			return errors.Wrap(err, "ask question")
+		}
+	}
+
+	// create the secret
+	if secret == nil {
+		_, err = managementClient.Loft().ManagementV1().ProjectSecrets(namespace).Create(context.TODO(), &managementv1.ProjectSecret{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: secretName,
+			},
+			Spec: managementv1.ProjectSecretSpec{
+				Data: map[string][]byte{
+					keyName: []byte(args[1]),
+				},
+			},
+		}, metav1.CreateOptions{})
+		if err != nil {
+			return err
+		}
+
+		cmd.log.Donef("Successfully created secret %s with key %s", secretName, keyName)
+		return nil
+	}
+
+	// Update the secret
+	if secret.Spec.Data == nil {
+		secret.Spec.Data = map[string][]byte{}
+	}
+	secret.Spec.Data[keyName] = []byte(args[1])
+	_, err = managementClient.Loft().ManagementV1().ProjectSecrets(namespace).Update(context.TODO(), secret, metav1.UpdateOptions{})
+	if err != nil {
+		return errors.Wrap(err, "update secret")
+	}
+
+	cmd.log.Donef("Successfully set secret key %s.%s", secretName, keyName)
+	return nil
+}
+
+func (cmd *SecretCmd) setSharedSecret(managementClient kube.Interface, args []string, namespace, secretName, keyName string) error {
 	secret, err := managementClient.Loft().ManagementV1().SharedSecrets(namespace).Get(context.TODO(), secretName, metav1.GetOptions{})
 	if err != nil {
 		if kerrors.IsNotFound(err) == false {
@@ -170,4 +277,8 @@ func GetSharedSecretNamespace(namespace string) (string, error) {
 	}
 
 	return namespace, nil
+}
+
+func GetProjectSecretNamespace(project string) (string, error) {
+	return ProjectNamespacePrefix + project, nil
 }

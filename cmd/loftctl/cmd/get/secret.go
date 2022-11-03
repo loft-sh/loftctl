@@ -3,6 +3,9 @@ package get
 import (
 	"context"
 	"fmt"
+	"os"
+	"strings"
+
 	"github.com/loft-sh/loftctl/v2/cmd/loftctl/cmd/set"
 	"github.com/loft-sh/loftctl/v2/cmd/loftctl/flags"
 	"github.com/loft-sh/loftctl/v2/pkg/client"
@@ -12,21 +15,20 @@ import (
 	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"os"
-	"strings"
 )
 
-// SharedSecretCmd holds the lags
-type SharedSecretCmd struct {
+// SecretCmd holds the flags
+type SecretCmd struct {
 	*flags.GlobalFlags
 	Namespace string
+	Project   string
 
 	log log.Logger
 }
 
-// NewSharedSecretCmd creates a new command
-func NewSharedSecretCmd(globalFlags *flags.GlobalFlags) *cobra.Command {
-	cmd := &SharedSecretCmd{
+// NewSecretCmd creates a new command
+func NewSecretCmd(globalFlags *flags.GlobalFlags) *cobra.Command {
+	cmd := &SecretCmd{
 		GlobalFlags: globalFlags,
 		log:         log.GetInstance(),
 	}
@@ -34,10 +36,11 @@ func NewSharedSecretCmd(globalFlags *flags.GlobalFlags) *cobra.Command {
 #######################################################
 ################### loft get secret ###################
 #######################################################
-Returns the key value of a shared secret.
+Returns the key value of a project / shared secret.
 
 Example:
 loft get secret test-secret.key
+loft get secret test-secret.key --project myproject
 #######################################################
 	`
 	if upgrade.IsPlugin == "true" {
@@ -45,16 +48,17 @@ loft get secret test-secret.key
 #######################################################
 ################# devspace get secret #################
 #######################################################
-Returns the key value of a shared secret.
+Returns the key value of a project / shared secret.
 
 Example:
 devspace get secret test-secret.key
+devspace get secret test-secret.key --project myproject
 #######################################################
 	`
 	}
 	c := &cobra.Command{
 		Use:   "secret",
-		Short: "Returns the key value of a shared secret",
+		Short: "Returns the key value of a project / shared secret",
 		Long:  description,
 		Args:  cobra.MaximumNArgs(1),
 		RunE: func(cobraCmd *cobra.Command, args []string) error {
@@ -62,12 +66,13 @@ devspace get secret test-secret.key
 		},
 	}
 
+	c.Flags().StringVarP(&cmd.Project, "project", "p", "", "The project to read the project secret from.")
 	c.Flags().StringVarP(&cmd.Namespace, "namespace", "n", "", "The namespace in the loft cluster to read the secret from. If omitted will use the namespace were loft is installed in")
 	return c
 }
 
 // RunUsers executes the functionality
-func (cmd *SharedSecretCmd) Run(args []string) error {
+func (cmd *SecretCmd) Run(args []string) error {
 	baseClient, err := client.NewClientFromPath(cmd.Config)
 	if err != nil {
 		return err
@@ -78,10 +83,28 @@ func (cmd *SharedSecretCmd) Run(args []string) error {
 		return err
 	}
 
+	var secretType set.SecretType
+
+	if cmd.Project != "" {
+		secretType = set.ProjectSecret
+	} else {
+		secretType = set.SharedSecret
+	}
+
 	// get target namespace
-	namespace, err := set.GetSharedSecretNamespace(cmd.Namespace)
-	if err != nil {
-		return errors.Wrap(err, "get shared secrets namespace")
+	var namespace string
+
+	switch secretType {
+	case set.ProjectSecret:
+		namespace, err = set.GetProjectSecretNamespace(cmd.Project)
+		if err != nil {
+			return errors.Wrap(err, "get project secrets namespace")
+		}
+	case set.SharedSecret:
+		namespace, err = set.GetSharedSecretNamespace(cmd.Namespace)
+		if err != nil {
+			return errors.Wrap(err, "get shared secrets namespace")
+		}
 	}
 
 	// get secret
@@ -97,14 +120,27 @@ func (cmd *SharedSecretCmd) Run(args []string) error {
 			keyName = secret[idx+1:]
 		}
 	} else {
-		secrets, err := managementClient.Loft().ManagementV1().SharedSecrets(namespace).List(context.TODO(), metav1.ListOptions{})
-		if err != nil {
-			return errors.Wrap(err, "list shared secrets")
-		}
-
 		secretNameList := []string{}
-		for _, s := range secrets.Items {
-			secretNameList = append(secretNameList, s.Name)
+
+		switch secretType {
+		case set.ProjectSecret:
+			secrets, err := managementClient.Loft().ManagementV1().ProjectSecrets(namespace).List(context.TODO(), metav1.ListOptions{})
+			if err != nil {
+				return errors.Wrap(err, "list project secrets")
+			}
+
+			for _, s := range secrets.Items {
+				secretNameList = append(secretNameList, s.Name)
+			}
+		case set.SharedSecret:
+			secrets, err := managementClient.Loft().ManagementV1().SharedSecrets(namespace).List(context.TODO(), metav1.ListOptions{})
+			if err != nil {
+				return errors.Wrap(err, "list shared secrets")
+			}
+
+			for _, s := range secrets.Items {
+				secretNameList = append(secretNameList, s.Name)
+			}
 		}
 
 		if len(secretNameList) == 0 {
@@ -121,16 +157,33 @@ func (cmd *SharedSecretCmd) Run(args []string) error {
 		}
 	}
 
-	secret, err := managementClient.Loft().ManagementV1().SharedSecrets(namespace).Get(context.TODO(), secretName, metav1.GetOptions{})
-	if err != nil {
-		return errors.Wrap(err, "get secrets")
-	} else if len(secret.Spec.Data) == 0 {
-		return errors.Errorf("secret %s has no keys to read. Please set a key before trying to read it", secretName)
+	var secretData map[string][]byte
+
+	switch secretType {
+	case set.ProjectSecret:
+		pSecret, err := managementClient.Loft().ManagementV1().ProjectSecrets(namespace).Get(context.TODO(), secretName, metav1.GetOptions{})
+		if err != nil {
+			return errors.Wrap(err, "get secrets")
+		} else if len(pSecret.Spec.Data) == 0 {
+			return errors.Errorf("secret %s has no keys to read. Please set a key before trying to read it", secretName)
+		}
+
+		secretData = pSecret.Spec.Data
+	case set.SharedSecret:
+		sSecret, err := managementClient.Loft().ManagementV1().SharedSecrets(namespace).Get(context.TODO(), secretName, metav1.GetOptions{})
+		if err != nil {
+			return errors.Wrap(err, "get secrets")
+		} else if len(sSecret.Spec.Data) == 0 {
+			return errors.Errorf("secret %s has no keys to read. Please set a key before trying to read it", secretName)
+		}
+
+		secretData = sSecret.Spec.Data
 	}
 
 	if keyName == "" {
 		keyNames := []string{}
-		for k := range secret.Spec.Data {
+
+		for k := range secretData {
 			keyNames = append(keyNames, k)
 		}
 
@@ -144,7 +197,7 @@ func (cmd *SharedSecretCmd) Run(args []string) error {
 		}
 	}
 
-	keyValue, ok := secret.Spec.Data[keyName]
+	keyValue, ok := secretData[keyName]
 	if !ok {
 		return errors.Errorf("key %s does not exist in secret %s", keyName, secretName)
 	}

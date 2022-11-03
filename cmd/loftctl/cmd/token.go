@@ -18,6 +18,8 @@ type TokenCmd struct {
 	*flags.GlobalFlags
 
 	DirectClusterEndpoint bool
+	Project               string
+	VirtualCluster        string
 	log                   log.Logger
 }
 
@@ -64,6 +66,8 @@ devspace token
 	}
 
 	tokenCmd.Flags().BoolVar(&cmd.DirectClusterEndpoint, "direct-cluster-endpoint", false, "When enabled prints a direct cluster endpoint token")
+	tokenCmd.Flags().StringVar(&cmd.Project, "project", "", "The project containing the virtual cluster")
+	tokenCmd.Flags().StringVar(&cmd.VirtualCluster, "virtual-cluster", "", "The virtual cluster")
 	return tokenCmd
 }
 
@@ -74,6 +78,17 @@ func (cmd *TokenCmd) Run() error {
 		return err
 	}
 
+	tokenFunc := getToken
+
+	if cmd.Project != "" && cmd.VirtualCluster != "" {
+		cmd.log.Debug("project and virtual cluster set, attempting fetch virtual cluster certificate data")
+		tokenFunc = getCertificate
+	}
+
+	return tokenFunc(cmd, baseClient)
+}
+
+func getToken(cmd *TokenCmd, baseClient client.Client) error {
 	// get config
 	config := baseClient.Config()
 	if config == nil {
@@ -87,6 +102,7 @@ func (cmd *TokenCmd) Run() error {
 
 	// check if we should print a cluster gateway token instead
 	if cmd.DirectClusterEndpoint {
+		var err error
 		token, err = baseClient.DirectClusterEndpointToken(false)
 		if err != nil {
 			return err
@@ -105,6 +121,37 @@ func printToken(token string) error {
 		},
 		Status: &v1beta1.ExecCredentialStatus{
 			Token: token,
+		},
+	}
+
+	bytes, err := json.Marshal(response)
+	if err != nil {
+		return errors.Wrap(err, "json marshal")
+	}
+
+	_, err = os.Stdout.Write(bytes)
+	return err
+}
+
+func getCertificate(cmd *TokenCmd, baseClient client.Client) error {
+	certificateData, keyData, err := baseClient.VirtualClusterAccessPointCertificate(cmd.Project, cmd.VirtualCluster, false)
+	if err != nil {
+		return err
+	}
+
+	return printCertificate(certificateData, keyData)
+}
+
+func printCertificate(certificateData, keyData string) error {
+	// Print certificate-based exec credential to stdout
+	response := &v1beta1.ExecCredential{
+		TypeMeta: metav1.TypeMeta{
+			Kind:       "ExecCredential",
+			APIVersion: v1beta1.SchemeGroupVersion.String(),
+		},
+		Status: &v1beta1.ExecCredentialStatus{
+			ClientCertificateData: certificateData,
+			ClientKeyData:         keyData,
 		},
 	}
 

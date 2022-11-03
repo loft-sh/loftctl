@@ -1,4 +1,4 @@
-package get
+package sleep
 
 import (
 	"github.com/loft-sh/loftctl/v2/cmd/loftctl/flags"
@@ -6,28 +6,28 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// NewGetCmd creates a new cobra command
-func NewGetCmd(globalFlags *flags.GlobalFlags) *cobra.Command {
+// NewSleepCmd creates a new cobra command
+func NewSleepCmd(globalFlags *flags.GlobalFlags) *cobra.Command {
 	description := `
 #######################################################
-###################### loft get #######################
+##################### loft sleep ######################
 #######################################################
 	`
 	if upgrade.IsPlugin == "true" {
 		description = `
 #######################################################
-#################### devspace get #####################
+################### devspace sleep ####################
 #######################################################
 	`
 	}
-	c := &cobra.Command{
-		Use:   "get",
-		Short: "Get configuration",
+	cmd := &cobra.Command{
+		Use:   "sleep",
+		Short: "Puts spaces or vclusters to sleep",
 		Long:  description,
 		Args:  cobra.NoArgs,
 	}
 
-	c.AddCommand(NewUserCmd(globalFlags))
-	c.AddCommand(NewSecretCmd(globalFlags))
-	return c
+	cmd.AddCommand(NewSpaceCmd(globalFlags))
+	cmd.AddCommand(NewVClusterCmd(globalFlags))
+	return cmd
 }

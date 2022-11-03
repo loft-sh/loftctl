@@ -4,6 +4,7 @@ import (
 	"github.com/loft-sh/loftctl/v2/cmd/loftctl/flags"
 	"github.com/loft-sh/loftctl/v2/pkg/client"
 	"github.com/loft-sh/loftctl/v2/pkg/client/helper"
+	"github.com/loft-sh/loftctl/v2/pkg/clihelper"
 	"github.com/loft-sh/loftctl/v2/pkg/log"
 	"github.com/loft-sh/loftctl/v2/pkg/upgrade"
 	"github.com/spf13/cobra"
@@ -15,7 +16,8 @@ import (
 type VirtualClustersCmd struct {
 	*flags.GlobalFlags
 
-	log log.Logger
+	ShowLegacy bool
+	log        log.Logger
 }
 
 // NewVirtualClustersCmd creates a new command
@@ -46,7 +48,7 @@ devspace list vclusters
 #######################################################
 	`
 	}
-	loginCmd := &cobra.Command{
+	listCmd := &cobra.Command{
 		Use:   "vclusters",
 		Short: "Lists the loft virtual clusters you have access to",
 		Long:  description,
@@ -55,8 +57,8 @@ devspace list vclusters
 			return cmd.Run()
 		},
 	}
-
-	return loginCmd
+	listCmd.Flags().BoolVar(&cmd.ShowLegacy, "show-legacy", false, "If true, will always show the legacy virtual clusters as well")
+	return listCmd
 }
 
 // Run executes the functionality
@@ -66,36 +68,55 @@ func (cmd *VirtualClustersCmd) Run() error {
 		return err
 	}
 
-	virtualClusters, err := helper.GetVirtualClusters(baseClient, cmd.log)
-	if err != nil {
-		return err
-	}
-
 	header := []string{
 		"Name",
-		"Space",
+		"Project",
 		"Cluster",
+		"Namespace",
 		"Status",
 		"Age",
 	}
 	values := [][]string{}
-	for _, virtualCluster := range virtualClusters {
-		status := "Active"
-		if virtualCluster.VirtualCluster.Status.HelmRelease != nil {
-			status = string(virtualCluster.VirtualCluster.Status.HelmRelease.Phase)
-		}
-		vClusterName := virtualCluster.VirtualCluster.Name
-		if virtualCluster.VirtualCluster.Annotations != nil && virtualCluster.VirtualCluster.Annotations["loft.sh/display-name"] != "" {
-			vClusterName = virtualCluster.VirtualCluster.Annotations["loft.sh/display-name"] + " (" + vClusterName + ")"
-		}
 
+	virtualClusterInstances, err := helper.GetVirtualClusterInstances(baseClient)
+	if err != nil {
+		return err
+	}
+
+	for _, virtualCluster := range virtualClusterInstances {
 		values = append(values, []string{
-			vClusterName,
-			virtualCluster.VirtualCluster.Namespace,
-			virtualCluster.Cluster,
-			status,
-			duration.HumanDuration(time.Now().Sub(virtualCluster.VirtualCluster.CreationTimestamp.Time)),
+			clihelper.GetDisplayName(virtualCluster.VirtualClusterInstance.Name, virtualCluster.VirtualClusterInstance.Spec.DisplayName),
+			virtualCluster.Project,
+			virtualCluster.VirtualClusterInstance.Spec.ClusterRef.Cluster,
+			virtualCluster.VirtualClusterInstance.Spec.ClusterRef.Namespace,
+			string(virtualCluster.VirtualClusterInstance.Status.Phase),
+			duration.HumanDuration(time.Now().Sub(virtualCluster.VirtualClusterInstance.CreationTimestamp.Time)),
 		})
+	}
+	if len(virtualClusterInstances) == 0 || cmd.ShowLegacy {
+		virtualClusters, err := helper.GetVirtualClusters(baseClient, cmd.log)
+		if err != nil {
+			return err
+		}
+		for _, virtualCluster := range virtualClusters {
+			status := "Active"
+			if virtualCluster.VirtualCluster.Status.HelmRelease != nil {
+				status = string(virtualCluster.VirtualCluster.Status.HelmRelease.Phase)
+			}
+			vClusterName := virtualCluster.VirtualCluster.Name
+			if virtualCluster.VirtualCluster.Annotations != nil && virtualCluster.VirtualCluster.Annotations["loft.sh/display-name"] != "" {
+				vClusterName = virtualCluster.VirtualCluster.Annotations["loft.sh/display-name"] + " (" + vClusterName + ")"
+			}
+
+			values = append(values, []string{
+				vClusterName,
+				"",
+				virtualCluster.Cluster,
+				virtualCluster.VirtualCluster.Namespace,
+				status,
+				duration.HumanDuration(time.Now().Sub(virtualCluster.VirtualCluster.CreationTimestamp.Time)),
+			})
+		}
 	}
 
 	log.PrintTable(cmd.log, header, values)

@@ -110,15 +110,6 @@ func (cmd *BackupCmd) Run(cobraCmd *cobra.Command, args []string) error {
 	}
 
 	objects := []runtime.Object{}
-	if contains(cmd.Skip, "clusteraccounttemplates") == false {
-		cmd.Log.Info("Backing up cluster account templates...")
-		objs, err := backupClusterAccountTemplates(kubeConfig)
-		if err != nil {
-			cmd.Log.Warn(errors.Wrap(err, "backup cluster account templates"))
-		} else {
-			objects = append(objects, objs...)
-		}
-	}
 	if contains(cmd.Skip, "clusterroletemplates") == false {
 		cmd.Log.Info("Backing up clusterroletemplates...")
 		objs, err := backupClusterRoles(kubeConfig)
@@ -343,32 +334,6 @@ func backupClusterAccess(rest *rest.Config) ([]runtime.Object, error) {
 	for _, o := range objs.Items {
 		u := o
 		u.Status = storagev1.ClusterAccessStatus{}
-		err := resetMetadata(&u)
-		if err != nil {
-			return nil, err
-		}
-
-		retList = append(retList, &u)
-	}
-
-	return retList, nil
-}
-
-func backupClusterAccountTemplates(rest *rest.Config) ([]runtime.Object, error) {
-	loftClient, err := loftclient.NewForConfig(rest)
-	if err != nil {
-		return nil, err
-	}
-
-	clusterAccountTemplateList, err := loftClient.StorageV1().ClusterAccountTemplates().List(context.TODO(), metav1.ListOptions{})
-	if err != nil {
-		return nil, err
-	}
-
-	retList := []runtime.Object{}
-	for _, o := range clusterAccountTemplateList.Items {
-		u := o
-		u.Status = storagev1.ClusterAccountTemplateStatus{}
 		err := resetMetadata(&u)
 		if err != nil {
 			return nil, err

@@ -5,7 +5,9 @@ import (
 	"crypto/x509"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
+	"github.com/loft-sh/loftctl/v2/pkg/client/naming"
+	"github.com/loft-sh/loftctl/v2/pkg/kubeconfig"
+	"k8s.io/utils/pointer"
 	"net/http"
 	"net/url"
 	"os"
@@ -56,6 +58,12 @@ type Client interface {
 	Management() (kube.Interface, error)
 	ManagementConfig() (*rest.Config, error)
 
+	SpaceInstance(project, name string) (kube.Interface, error)
+	SpaceInstanceConfig(project, name string) (*rest.Config, error)
+
+	VirtualClusterInstance(project, name string) (kube.Interface, error)
+	VirtualClusterInstanceConfig(project, name string) (*rest.Config, error)
+
 	Cluster(cluster string) (kube.Interface, error)
 	ClusterConfig(cluster string) (*rest.Config, error)
 
@@ -69,6 +77,7 @@ type Client interface {
 	Version() (*auth.Version, error)
 	Config() *Config
 	DirectClusterEndpointToken(forceRefresh bool) (string, error)
+	VirtualClusterAccessPointCertificate(project, virtualCluster string, forceRefresh bool) (string, string, error)
 	Save() error
 }
 
@@ -101,7 +110,7 @@ func (c *client) initConfig() error {
 	var retErr error
 	c.configOnce.Do(func() {
 		// load the config or create new one if not found
-		content, err := ioutil.ReadFile(c.configPath)
+		content, err := os.ReadFile(c.configPath)
 		if err != nil {
 			if os.IsNotExist(err) {
 				c.config = NewConfig()
@@ -112,7 +121,9 @@ func (c *client) initConfig() error {
 			return
 		}
 
-		config := &Config{}
+		config := &Config{
+			VirtualClusterAccessPointCertificates: make(map[string]VirtualClusterCertificatesEntry),
+		}
 		err = json.Unmarshal(content, config)
 		if err != nil {
 			retErr = err
@@ -123,6 +134,74 @@ func (c *client) initConfig() error {
 	})
 
 	return retErr
+}
+
+func (c *client) VirtualClusterAccessPointCertificate(project, virtualCluster string, forceRefresh bool) (string, string, error) {
+	if c.config == nil {
+		return "", "", errors.New("no config loaded")
+	}
+
+	contextName := kubeconfig.VirtualClusterInstanceContextName(project, virtualCluster)
+
+	// see if we have stored cert data for this vci
+	now := metav1.Now()
+	cachedVirtualClusterAccessPointCertificate, ok := c.config.VirtualClusterAccessPointCertificates[contextName]
+	if !forceRefresh && ok && cachedVirtualClusterAccessPointCertificate.LastRequested.Add(RefreshToken).After(now.Time) && cachedVirtualClusterAccessPointCertificate.ExpirationTime.After(now.Time) {
+		return cachedVirtualClusterAccessPointCertificate.CertificateData, cachedVirtualClusterAccessPointCertificate.KeyData, nil
+	}
+
+	// refresh token
+	managementClient, err := c.Management()
+	if err != nil {
+		return "", "", err
+	}
+
+	kubeConfigResponse, err := managementClient.Loft().ManagementV1().VirtualClusterInstances(naming.ProjectNamespace(project)).GetKubeConfig(
+		context.Background(),
+		virtualCluster,
+		&managementv1.VirtualClusterInstanceKubeConfig{
+			RequestOptions: managementv1.VirtualClusterInstanceKubeConfigRequestOptions{
+				CertificateTTL: pointer.Int32(86_400),
+			},
+		},
+		metav1.CreateOptions{},
+	)
+	if err != nil {
+		return "", "", errors.Wrap(err, "fetch certificate data")
+	}
+
+	certificateData, keyData, err := getCertificateAndKeyDataFromKubeConfig(kubeConfigResponse.Status.KubeConfig)
+
+	if c.config.VirtualClusterAccessPointCertificates == nil {
+		c.config.VirtualClusterAccessPointCertificates = make(map[string]VirtualClusterCertificatesEntry)
+	}
+	c.config.VirtualClusterAccessPointCertificates[contextName] = VirtualClusterCertificatesEntry{
+		CertificateData: certificateData,
+		KeyData:         keyData,
+		LastRequested:   now,
+		ExpirationTime:  now.Add(86_400 * time.Second),
+	}
+
+	err = c.Save()
+	if err != nil {
+		return "", "", errors.Wrap(err, "save config")
+	}
+
+	return certificateData, keyData, nil
+}
+
+func getCertificateAndKeyDataFromKubeConfig(config string) (string, string, error) {
+	clientCfg, err := clientcmd.NewClientConfigFromBytes([]byte(config))
+	if err != nil {
+		return "", "", err
+	}
+
+	apiCfg, err := clientCfg.RawConfig()
+	if err != nil {
+		return "", "", err
+	}
+
+	return string(apiCfg.AuthInfos["vcluster"].ClientCertificateData), string(apiCfg.AuthInfos["vcluster"].ClientKeyData), nil
 }
 
 func (c *client) DirectClusterEndpointToken(forceRefresh bool) (string, error) {
@@ -187,7 +266,7 @@ func (c *client) Save() error {
 		return err
 	}
 
-	return ioutil.WriteFile(c.configPath, out, 0666)
+	return os.WriteFile(c.configPath, out, 0666)
 }
 
 func (c *client) ManagementConfig() (*rest.Config, error) {
@@ -196,6 +275,32 @@ func (c *client) ManagementConfig() (*rest.Config, error) {
 
 func (c *client) Management() (kube.Interface, error) {
 	restConfig, err := c.ManagementConfig()
+	if err != nil {
+		return nil, err
+	}
+
+	return kube.NewForConfig(restConfig)
+}
+
+func (c *client) SpaceInstanceConfig(project, name string) (*rest.Config, error) {
+	return c.restConfig("/kubernetes/project/" + project + "/space/" + name)
+}
+
+func (c *client) SpaceInstance(project, name string) (kube.Interface, error) {
+	restConfig, err := c.SpaceInstanceConfig(project, name)
+	if err != nil {
+		return nil, err
+	}
+
+	return kube.NewForConfig(restConfig)
+}
+
+func (c *client) VirtualClusterInstanceConfig(project, name string) (*rest.Config, error) {
+	return c.restConfig("/kubernetes/project/" + project + "/virtualcluster/" + name)
+}
+
+func (c *client) VirtualClusterInstance(project, name string) (kube.Interface, error) {
+	restConfig, err := c.VirtualClusterInstanceConfig(project, name)
 	if err != nil {
 		return nil, err
 	}

@@ -27,6 +27,6 @@ func NewSetCmd(globalFlags *flags.GlobalFlags) *cobra.Command {
 		Args:  cobra.NoArgs,
 	}
 
-	c.AddCommand(NewSharedSecretCmd(globalFlags))
+	c.AddCommand(NewSecretCmd(globalFlags))
 	return c
 }

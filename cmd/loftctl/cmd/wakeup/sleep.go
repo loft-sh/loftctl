@@ -1,4 +1,4 @@
-package connect
+package wakeup
 
 import (
 	"github.com/loft-sh/loftctl/v2/cmd/loftctl/flags"
@@ -6,27 +6,28 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// NewConnectCmd creates a new cobra command
-func NewConnectCmd(globalFlags *flags.GlobalFlags) *cobra.Command {
+// NewWakeUpCmd creates a new cobra command
+func NewWakeUpCmd(globalFlags *flags.GlobalFlags) *cobra.Command {
 	description := `
 #######################################################
-#################### loft connect #####################
+##################### loft wakeup #####################
 #######################################################
 	`
 	if upgrade.IsPlugin == "true" {
 		description = `
 #######################################################
-################## devspace connect ###################
+################### devspace wakeup ###################
 #######################################################
 	`
 	}
-	c := &cobra.Command{
-		Use:   "connect",
-		Short: "Connects to loft resources",
+	cmd := &cobra.Command{
+		Use:   "wakeup",
+		Short: "Wakes up a space or vcluster",
 		Long:  description,
 		Args:  cobra.NoArgs,
 	}
 
-	c.AddCommand(NewVirtualClusterCmd(globalFlags))
-	return c
+	cmd.AddCommand(NewSpaceCmd(globalFlags))
+	cmd.AddCommand(NewVClusterCmd(globalFlags))
+	return cmd
 }
