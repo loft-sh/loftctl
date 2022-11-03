@@ -9,7 +9,7 @@ import (
 	"github.com/loft-sh/loftctl/v2/pkg/log"
 	"github.com/loft-sh/loftctl/v2/pkg/survey"
 	"github.com/pkg/errors"
-	"io/ioutil"
+	"os"
 	"regexp"
 	"strconv"
 	"strings"
@@ -105,7 +105,7 @@ func ResolveTemplateParameters(templateName string, parameters []storagev1.AppPa
 
 	var parametersFile *ParametersFile
 	if fileName != "" {
-		out, err := ioutil.ReadFile(fileName)
+		out, err := os.ReadFile(fileName)
 		if err != nil {
 			return "", errors.Wrap(err, "read parameters file")
 		}
@@ -164,7 +164,7 @@ func ResolveTemplateParameters(templateName string, parameters []storagev1.AppPa
 func ResolveAppParameters(apps []NamespacedApp, appFilename string, log log.Logger) ([]NamespacedAppWithParameters, error) {
 	var appFile *AppFile
 	if appFilename != "" {
-		out, err := ioutil.ReadFile(appFilename)
+		out, err := os.ReadFile(appFilename)
 		if err != nil {
 			return nil, errors.Wrap(err, "read parameters file")
 		}

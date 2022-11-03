@@ -6,7 +6,7 @@ import (
 	"crypto/tls"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net"
 	"net/http"
 	"net/url"
@@ -209,7 +209,7 @@ func StartPortForwarding(config *rest.Config, client kubernetes.Interface, pod *
 	readyChan := make(chan struct{})
 	stopChan := make(chan struct{})
 	targetPort := getPortForwardingTargetPort(pod)
-	forwarder, err := portforward.New(dialer, []string{localPort + ":" + strconv.Itoa(targetPort)}, stopChan, readyChan, errChan, ioutil.Discard, ioutil.Discard)
+	forwarder, err := portforward.New(dialer, []string{localPort + ":" + strconv.Itoa(targetPort)}, stopChan, readyChan, errChan, io.Discard, io.Discard)
 	if err != nil {
 		return nil, err
 	}
@@ -285,7 +285,7 @@ func IsLoftReachable(host string) (bool, error) {
 	url := "https://" + host + "/version"
 	resp, err := client.Get(url)
 	if err == nil && resp.StatusCode == http.StatusOK {
-		out, err := ioutil.ReadAll(resp.Body)
+		out, err := io.ReadAll(resp.Body)
 		if err != nil {
 			return false, nil
 		}

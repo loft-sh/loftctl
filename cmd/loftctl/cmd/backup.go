@@ -3,7 +3,7 @@ package cmd
 import (
 	"context"
 	"fmt"
-	"io/ioutil"
+	"os"
 	"strings"
 
 	"github.com/ghodss/yaml"
@@ -222,7 +222,7 @@ func (cmd *BackupCmd) Run(cobraCmd *cobra.Command, args []string) error {
 	}
 
 	cmd.Log.Infof("Writing backup to %s...", cmd.Filename)
-	err = ioutil.WriteFile(cmd.Filename, []byte(strings.Join(retString, "\n---\n")), 0644)
+	err = os.WriteFile(cmd.Filename, []byte(strings.Join(retString, "\n---\n")), 0644)
 	if err != nil {
 		return err
 	}

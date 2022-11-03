@@ -266,7 +266,7 @@ func (c *client) Save() error {
 		return err
 	}
 
-	return os.WriteFile(c.configPath, out, 0666)
+	return os.WriteFile(c.configPath, out, 0660)
 }
 
 func (c *client) ManagementConfig() (*rest.Config, error) {
