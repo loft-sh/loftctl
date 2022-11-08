@@ -47,7 +47,7 @@ func WaitForVirtualClusterInstance(ctx context.Context, managementClient kube.In
 
 		if virtualClusterInstance.Status.Phase != storagev1.InstanceReady && virtualClusterInstance.Status.Phase != storagev1.InstanceSleeping {
 			if time.Now().After(nextMessage) {
-				log.Warnf("Cannot reach virtual cluster because: %v. Loft will continue waiting, but this operation may timeout", virtualClusterInstance.Status.Message, virtualClusterInstance.Status.Reason)
+				log.Warnf("Cannot reach virtual cluster because: %s (%s). Loft will continue waiting, but this operation may timeout", virtualClusterInstance.Status.Message, virtualClusterInstance.Status.Reason)
 				nextMessage = time.Now().Add(waitDuration)
 			}
 			return false, nil
