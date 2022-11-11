@@ -18,7 +18,7 @@ func SetGlobalFlags(flags *flag.FlagSet) *GlobalFlags {
 
 	flags.StringVar(&globalFlags.Config, "config", client.DefaultCacheConfig, "The loft config to use (will be created if it does not exist)")
 	flags.BoolVar(&globalFlags.Debug, "debug", false, "Prints the stack trace if an error occurs")
-	flags.BoolVar(&globalFlags.Silent, "silent", false, "Run in silent mode and prevents any devspace log output except panics & fatals")
+	flags.BoolVar(&globalFlags.Silent, "silent", false, "Run in silent mode and prevents any loft log output except panics & fatals")
 
 	return globalFlags
 }
