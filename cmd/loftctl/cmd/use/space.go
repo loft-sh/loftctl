@@ -27,6 +27,7 @@ type SpaceCmd struct {
 	Cluster                      string
 	Project                      string
 	Print                        bool
+	SkipWait                     bool
 	DisableDirectClusterEndpoint bool
 
 	log log.Logger
@@ -83,6 +84,7 @@ devspace use space myspace --project myproject
 	c.Flags().StringVar(&cmd.Cluster, "cluster", "", "The cluster to use")
 	c.Flags().StringVarP(&cmd.Project, "project", "p", "", "The project to use")
 	c.Flags().BoolVar(&cmd.Print, "print", false, "When enabled prints the context to stdout")
+	c.Flags().BoolVar(&cmd.SkipWait, "skip-wait", false, "If true, will not wait until the space is running")
 	c.Flags().BoolVar(&cmd.DisableDirectClusterEndpoint, "disable-direct-cluster-endpoint", false, "When enabled does not use an available direct cluster endpoint to connect to the cluster")
 	return c
 }
@@ -122,7 +124,8 @@ func (cmd *SpaceCmd) useSpace(baseClient client.Client, spaceName string) error 
 		return err
 	}
 
-	spaceInstance, err := vcluster.WaitForSpaceInstance(context.TODO(), managementClient, naming.ProjectNamespace(cmd.Project), spaceName, cmd.log)
+	// wait until space is ready
+	spaceInstance, err := vcluster.WaitForSpaceInstance(context.TODO(), managementClient, naming.ProjectNamespace(cmd.Project), spaceName, !cmd.SkipWait, cmd.log)
 	if err != nil {
 		return err
 	}

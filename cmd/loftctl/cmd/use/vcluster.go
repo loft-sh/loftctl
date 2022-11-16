@@ -30,6 +30,7 @@ type VirtualClusterCmd struct {
 	Space                        string
 	Cluster                      string
 	Project                      string
+	SkipWait                     bool
 	Print                        bool
 	PrintToken                   bool
 	DisableDirectClusterEndpoint bool
@@ -92,6 +93,7 @@ devspace use vcluster myvcluster --cluster mycluster --space myspace
 	c.Flags().StringVar(&cmd.Space, "space", "", "The space to use")
 	c.Flags().StringVar(&cmd.Cluster, "cluster", "", "The cluster to use")
 	c.Flags().StringVarP(&cmd.Project, "project", "p", "", "The project to use")
+	c.Flags().BoolVar(&cmd.SkipWait, "skip-wait", false, "If true, will not wait until the virtual cluster is running")
 	c.Flags().BoolVar(&cmd.Print, "print", false, "When enabled prints the context to stdout")
 	c.Flags().BoolVar(&cmd.DisableDirectClusterEndpoint, "disable-direct-cluster-endpoint", false, "When enabled does not use an available direct cluster endpoint to connect to the vcluster")
 	return c
@@ -132,7 +134,7 @@ func (cmd *VirtualClusterCmd) useVirtualCluster(baseClient client.Client, virtua
 		return err
 	}
 
-	virtualClusterInstance, err := vcluster.WaitForVirtualClusterInstance(context.TODO(), managementClient, naming.ProjectNamespace(cmd.Project), virtualClusterName, cmd.Log)
+	virtualClusterInstance, err := vcluster.WaitForVirtualClusterInstance(context.TODO(), managementClient, naming.ProjectNamespace(cmd.Project), virtualClusterName, !cmd.SkipWait, cmd.Log)
 	if err != nil {
 		return err
 	}

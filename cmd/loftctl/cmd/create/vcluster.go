@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"github.com/loft-sh/loftctl/v2/pkg/client/naming"
+	"github.com/loft-sh/loftctl/v2/pkg/vcluster"
 	"io"
 	"os"
 	"strconv"
@@ -27,7 +28,6 @@ import (
 	"github.com/loft-sh/loftctl/v2/pkg/random"
 	"github.com/loft-sh/loftctl/v2/pkg/task"
 	"github.com/loft-sh/loftctl/v2/pkg/upgrade"
-	"github.com/loft-sh/loftctl/v2/pkg/vcluster"
 	"github.com/loft-sh/loftctl/v2/pkg/version"
 	"github.com/mgutz/ansi"
 	"github.com/pkg/errors"
@@ -50,6 +50,8 @@ type VirtualClusterCmd struct {
 	CreateContext  bool
 	SwitchContext  bool
 	Print          bool
+	SkipWait       bool
+	UseExisting    bool
 	ParametersFile string
 	Version        string
 
@@ -126,6 +128,8 @@ devspace create vcluster test --project myproject
 	c.Flags().Int64Var(&cmd.DeleteAfter, "delete-after", 0, "DEPRECATED: If set to non zero, will tell loft to delete the space after specified seconds of inactivity")
 	c.Flags().BoolVar(&cmd.CreateContext, "create-context", true, "If loft should create a kube context for the space")
 	c.Flags().BoolVar(&cmd.SwitchContext, "switch-context", true, "If loft should switch the current context to the new context")
+	c.Flags().BoolVar(&cmd.SkipWait, "skip-wait", false, "If true, will not wait until the virtual cluster is running")
+	c.Flags().BoolVar(&cmd.UseExisting, "use", false, "If loft should use the virtual cluster if its already there")
 	c.Flags().StringVar(&cmd.Template, "template", "", "The virtual cluster template to use to create the virtual cluster")
 	c.Flags().StringVar(&cmd.Version, "version", "", "The template version to use")
 	c.Flags().StringVar(&cmd.ParametersFile, "parameters", "", "The file where the parameter values for the apps are specified")
@@ -164,6 +168,7 @@ func (cmd *VirtualClusterCmd) Run(args []string) error {
 }
 
 func (cmd *VirtualClusterCmd) createVirtualCluster(baseClient client.Client, virtualClusterName string) error {
+	virtualClusterNamespace := naming.ProjectNamespace(cmd.Project)
 	managementClient, err := baseClient.Management()
 	if err != nil {
 		return err
@@ -182,79 +187,91 @@ func (cmd *VirtualClusterCmd) createVirtualCluster(baseClient client.Client, vir
 		}
 	}
 
-	// determine space template to use
-	virtualClusterTemplate, err := helper.SelectVirtualClusterTemplate(baseClient, cmd.Project, cmd.Template, cmd.Log)
-	if err != nil {
-		return err
-	}
-
-	// get parameters
-	var templateParameters []storagev1.AppParameter
-	if len(virtualClusterTemplate.Spec.Versions) > 0 {
-		if cmd.Version == "" {
-			latestVersion := version.GetLatestVersion(virtualClusterTemplate)
-			if latestVersion == nil {
-				return fmt.Errorf("couldn't find any version in template")
-			}
-
-			templateParameters = latestVersion.(*storagev1.SpaceTemplateVersion).Parameters
-		} else {
-			_, latestMatched, err := version.GetLatestMatchedVersion(virtualClusterTemplate, cmd.Version)
-			if err != nil {
-				return err
-			} else if latestMatched == nil {
-				return fmt.Errorf("couldn't find any matching version to %s", cmd.Version)
-			}
-
-			templateParameters = latestMatched.(*storagev1.SpaceTemplateVersion).Parameters
+	var virtualClusterInstance *managementv1.VirtualClusterInstance
+	if cmd.UseExisting {
+		virtualClusterInstance, err = managementClient.Loft().ManagementV1().VirtualClusterInstances(virtualClusterNamespace).Get(context.TODO(), virtualClusterName, metav1.GetOptions{})
+		if err != nil && !kerrors.IsNotFound(err) {
+			cmd.Log.Debugf("Couldn't retrieve space instance: %v", err)
 		}
-	} else {
-		templateParameters = virtualClusterTemplate.Spec.Parameters
 	}
 
-	// resolve space template parameters
-	resolvedParameters, err := parameters.ResolveTemplateParameters(clihelper.GetDisplayName(virtualClusterTemplate.Name, virtualClusterTemplate.Spec.DisplayName), templateParameters, cmd.ParametersFile, cmd.Log)
-	if err != nil {
-		return err
-	}
+	// create virtual cluster if necessary
+	if virtualClusterInstance == nil {
 
-	// create space instance
-	zone, offset := time.Now().Zone()
-	virtualClusterInstance := &managementv1.VirtualClusterInstance{
-		ObjectMeta: metav1.ObjectMeta{
-			Namespace: naming.ProjectNamespace(cmd.Project),
-			Name:      virtualClusterName,
-			Annotations: map[string]string{
-				clusterv1.SleepModeTimezoneAnnotation: zone + "#" + strconv.Itoa(offset),
+		// determine space template to use
+		virtualClusterTemplate, err := helper.SelectVirtualClusterTemplate(baseClient, cmd.Project, cmd.Template, cmd.Log)
+		if err != nil {
+			return err
+		}
+
+		// get parameters
+		var templateParameters []storagev1.AppParameter
+		if len(virtualClusterTemplate.Spec.Versions) > 0 {
+			if cmd.Version == "" {
+				latestVersion := version.GetLatestVersion(virtualClusterTemplate)
+				if latestVersion == nil {
+					return fmt.Errorf("couldn't find any version in template")
+				}
+
+				templateParameters = latestVersion.(*storagev1.SpaceTemplateVersion).Parameters
+			} else {
+				_, latestMatched, err := version.GetLatestMatchedVersion(virtualClusterTemplate, cmd.Version)
+				if err != nil {
+					return err
+				} else if latestMatched == nil {
+					return fmt.Errorf("couldn't find any matching version to %s", cmd.Version)
+				}
+
+				templateParameters = latestMatched.(*storagev1.SpaceTemplateVersion).Parameters
+			}
+		} else {
+			templateParameters = virtualClusterTemplate.Spec.Parameters
+		}
+
+		// resolve space template parameters
+		resolvedParameters, err := parameters.ResolveTemplateParameters(clihelper.GetDisplayName(virtualClusterTemplate.Name, virtualClusterTemplate.Spec.DisplayName), templateParameters, cmd.ParametersFile, cmd.Log)
+		if err != nil {
+			return err
+		}
+
+		// create space instance
+		zone, offset := time.Now().Zone()
+		virtualClusterInstance = &managementv1.VirtualClusterInstance{
+			ObjectMeta: metav1.ObjectMeta{
+				Namespace: naming.ProjectNamespace(cmd.Project),
+				Name:      virtualClusterName,
+				Annotations: map[string]string{
+					clusterv1.SleepModeTimezoneAnnotation: zone + "#" + strconv.Itoa(offset),
+				},
 			},
-		},
-		Spec: managementv1.VirtualClusterInstanceSpec{
-			VirtualClusterInstanceSpec: storagev1.VirtualClusterInstanceSpec{
-				DisplayName: cmd.DisplayName,
-				Description: cmd.Description,
-				Owner: &storagev1.UserOrTeam{
-					User: cmd.User,
-					Team: cmd.Team,
+			Spec: managementv1.VirtualClusterInstanceSpec{
+				VirtualClusterInstanceSpec: storagev1.VirtualClusterInstanceSpec{
+					DisplayName: cmd.DisplayName,
+					Description: cmd.Description,
+					Owner: &storagev1.UserOrTeam{
+						User: cmd.User,
+						Team: cmd.Team,
+					},
+					TemplateRef: &storagev1.TemplateRef{
+						Name: virtualClusterTemplate.Name,
+					},
+					ClusterRef: storagev1.VirtualClusterClusterRef{
+						ClusterRef: storagev1.ClusterRef{Cluster: cmd.Cluster},
+					},
+					Parameters: resolvedParameters,
 				},
-				TemplateRef: &storagev1.TemplateRef{
-					Name: virtualClusterTemplate.Name,
-				},
-				ClusterRef: storagev1.VirtualClusterClusterRef{
-					ClusterRef: storagev1.ClusterRef{Cluster: cmd.Cluster},
-				},
-				Parameters: resolvedParameters,
 			},
-		},
-	}
-	// create space
-	cmd.Log.Infof("Creating virtual cluster %s in project %s...", ansi.Color(virtualClusterName, "white+b"), ansi.Color(cmd.Project, "white+b"))
-	virtualClusterInstance, err = managementClient.Loft().ManagementV1().VirtualClusterInstances(virtualClusterInstance.Namespace).Create(context.TODO(), virtualClusterInstance, metav1.CreateOptions{})
-	if err != nil {
-		return errors.Wrap(err, "create virtual cluster")
+		}
+		// create space
+		cmd.Log.Infof("Creating virtual cluster %s in project %s...", ansi.Color(virtualClusterName, "white+b"), ansi.Color(cmd.Project, "white+b"))
+		virtualClusterInstance, err = managementClient.Loft().ManagementV1().VirtualClusterInstances(virtualClusterInstance.Namespace).Create(context.TODO(), virtualClusterInstance, metav1.CreateOptions{})
+		if err != nil {
+			return errors.Wrap(err, "create virtual cluster")
+		}
 	}
 
-	// wait until space is ready
-	virtualClusterInstance, err = vcluster.WaitForVirtualClusterInstance(context.TODO(), managementClient, virtualClusterInstance.Namespace, virtualClusterInstance.Name, cmd.Log)
+	// wait until virtual cluster is ready
+	virtualClusterInstance, err = vcluster.WaitForVirtualClusterInstance(context.TODO(), managementClient, virtualClusterInstance.Namespace, virtualClusterInstance.Name, !cmd.SkipWait, cmd.Log)
 	if err != nil {
 		return err
 	}
@@ -281,6 +298,13 @@ func (cmd *VirtualClusterCmd) createVirtualCluster(baseClient client.Client, vir
 }
 
 func (cmd *VirtualClusterCmd) legacyCreateVirtualCluster(baseClient client.Client, virtualClusterName string) error {
+	if cmd.UseExisting {
+		cmd.Log.Warnf("--use is not supported for legacy virtual cluster creation, please specify a project instead")
+	}
+	if cmd.SkipWait {
+		cmd.Log.Warnf("--skip-wait is not supported for legacy virtual cluster creation, please specify a project instead")
+	}
+
 	ctx := context.Background()
 
 	// determine space name

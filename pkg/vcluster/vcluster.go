@@ -34,11 +34,20 @@ func WaitForVCluster(ctx context.Context, baseClient client.Client, clusterName,
 	})
 }
 
-func WaitForVirtualClusterInstance(ctx context.Context, managementClient kube.Interface, namespace, name string, log log.Logger) (*managementv1.VirtualClusterInstance, error) {
+func WaitForVirtualClusterInstance(ctx context.Context, managementClient kube.Interface, namespace, name string, waitUntilReady bool, log log.Logger) (*managementv1.VirtualClusterInstance, error) {
 	now := time.Now()
 	nextMessage := now.Add(waitDuration)
 	var virtualClusterInstance *managementv1.VirtualClusterInstance
 	var err error
+	if !waitUntilReady {
+		virtualClusterInstance, err = managementClient.Loft().ManagementV1().VirtualClusterInstances(namespace).Get(ctx, name, metav1.GetOptions{})
+		if err != nil {
+			return nil, err
+		}
+
+		return virtualClusterInstance, nil
+	}
+
 	return virtualClusterInstance, wait.PollImmediate(time.Second, time.Minute*6, func() (bool, error) {
 		virtualClusterInstance, err = managementClient.Loft().ManagementV1().VirtualClusterInstances(namespace).Get(ctx, name, metav1.GetOptions{})
 		if err != nil {
@@ -57,11 +66,20 @@ func WaitForVirtualClusterInstance(ctx context.Context, managementClient kube.In
 	})
 }
 
-func WaitForSpaceInstance(ctx context.Context, managementClient kube.Interface, namespace, name string, log log.Logger) (*managementv1.SpaceInstance, error) {
+func WaitForSpaceInstance(ctx context.Context, managementClient kube.Interface, namespace, name string, waitUntilReady bool, log log.Logger) (*managementv1.SpaceInstance, error) {
 	now := time.Now()
 	nextMessage := now.Add(waitDuration)
 	var spaceInstance *managementv1.SpaceInstance
 	var err error
+	if !waitUntilReady {
+		spaceInstance, err = managementClient.Loft().ManagementV1().SpaceInstances(namespace).Get(ctx, name, metav1.GetOptions{})
+		if err != nil {
+			return nil, err
+		}
+
+		return spaceInstance, nil
+	}
+
 	return spaceInstance, wait.PollImmediate(time.Second, time.Minute*6, func() (bool, error) {
 		spaceInstance, err = managementClient.Loft().ManagementV1().SpaceInstances(namespace).Get(ctx, name, metav1.GetOptions{})
 		if err != nil {

@@ -10,7 +10,7 @@ require (
 	github.com/ghodss/yaml v1.0.0
 	github.com/k0kubun/go-ansi v0.0.0-20180517002512-3bf9e2903213
 	github.com/loft-sh/agentapi/v2 v2.3.3-0.20221114142151-372d21ba35e3
-	github.com/loft-sh/api/v2 v2.0.3-beta.5.0.20221114142214-115c58e63b60
+	github.com/loft-sh/api/v2 v2.0.3-beta.5.0.20221115101132-4f7e3c78655e
 	github.com/loft-sh/apiserver v0.0.0-20220507140345-294e3e3117e3
 	github.com/mgutz/ansi v0.0.0-20200706080929-d51e80ef957d
 	github.com/mitchellh/go-homedir v1.1.0
