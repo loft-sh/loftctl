@@ -130,6 +130,9 @@ func (cmd *VClusterCmd) shareVCluster(baseClient client.Client, vClusterName str
 		accessRule.Teams = append(accessRule.Teams, cmd.Team)
 	}
 	virtualClusterInstance.Spec.ExtraAccessRules = append(virtualClusterInstance.Spec.ExtraAccessRules, accessRule)
+	if virtualClusterInstance.Spec.TemplateRef != nil {
+		virtualClusterInstance.Spec.TemplateRef.SyncOnce = true
+	}
 	_, err = managementClient.Loft().ManagementV1().VirtualClusterInstances(naming.ProjectNamespace(cmd.Project)).Update(context.TODO(), virtualClusterInstance, metav1.UpdateOptions{})
 	if err != nil {
 		return err

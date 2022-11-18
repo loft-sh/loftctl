@@ -130,6 +130,9 @@ func (cmd *SpaceCmd) shareSpace(baseClient client.Client, spaceName string) erro
 		accessRule.Teams = append(accessRule.Teams, cmd.Team)
 	}
 	spaceInstance.Spec.ExtraAccessRules = append(spaceInstance.Spec.ExtraAccessRules, accessRule)
+	if spaceInstance.Spec.TemplateRef != nil {
+		spaceInstance.Spec.TemplateRef.SyncOnce = true
+	}
 	_, err = managementClient.Loft().ManagementV1().SpaceInstances(naming.ProjectNamespace(cmd.Project)).Update(context.TODO(), spaceInstance, metav1.UpdateOptions{})
 	if err != nil {
 		return err
