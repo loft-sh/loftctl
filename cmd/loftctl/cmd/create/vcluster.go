@@ -213,7 +213,7 @@ func (cmd *VirtualClusterCmd) createVirtualCluster(baseClient client.Client, vir
 					return fmt.Errorf("couldn't find any version in template")
 				}
 
-				templateParameters = latestVersion.(*storagev1.SpaceTemplateVersion).Parameters
+				templateParameters = latestVersion.(*storagev1.VirtualClusterTemplateVersion).Parameters
 			} else {
 				_, latestMatched, err := version.GetLatestMatchedVersion(virtualClusterTemplate, cmd.Version)
 				if err != nil {
@@ -222,7 +222,7 @@ func (cmd *VirtualClusterCmd) createVirtualCluster(baseClient client.Client, vir
 					return fmt.Errorf("couldn't find any matching version to %s", cmd.Version)
 				}
 
-				templateParameters = latestMatched.(*storagev1.SpaceTemplateVersion).Parameters
+				templateParameters = latestMatched.(*storagev1.VirtualClusterTemplateVersion).Parameters
 			}
 		} else {
 			templateParameters = virtualClusterTemplate.Spec.Parameters
