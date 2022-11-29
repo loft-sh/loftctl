@@ -18,12 +18,10 @@ import (
 type VClusterCmd struct {
 	*flags.GlobalFlags
 
-	VClusterName        string
 	VClusterClusterName string
 	VClusterNamespace   string
 	Project             string
 	ImportName          string
-	Print               bool
 
 	log log.Logger
 }
@@ -66,9 +64,7 @@ devspace import vcluster my-vcluster --cluster connected-cluster my-vcluster \
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cobraCmd *cobra.Command, args []string) error {
 			// Check for newer version
-			if cmd.Print == false {
-				upgrade.PrintNewerVersionWarning()
-			}
+			upgrade.PrintNewerVersionWarning()
 
 			return cmd.Run(args)
 		},
@@ -78,7 +74,6 @@ devspace import vcluster my-vcluster --cluster connected-cluster my-vcluster \
 	c.Flags().StringVar(&cmd.VClusterNamespace, "namespace", "", "The namespace of the vcluster")
 	c.Flags().StringVar(&cmd.Project, "project", "", "The project to import the vcluster into")
 	c.Flags().StringVar(&cmd.ImportName, "importname", "", "The name of the vcluster under projects. If unspecified, will use the vcluster name")
-	c.Flags().BoolVar(&cmd.Print, "print", false, "When enabled prints the context to stdout")
 
 	c.MarkFlagRequired("cluster")
 	c.MarkFlagRequired("namespace")
@@ -88,8 +83,8 @@ devspace import vcluster my-vcluster --cluster connected-cluster my-vcluster \
 }
 
 func (cmd *VClusterCmd) Run(args []string) error {
-	// Get VClusterName from command argument
-	cmd.VClusterName = args[0]
+	// Get vclusterName from command argument
+	var vclusterName string = args[0]
 
 	baseClient, err := client.NewClientFromPath(cmd.Config)
 	if err != nil {
@@ -108,7 +103,7 @@ func (cmd *VClusterCmd) Run(args []string) error {
 
 	if _, err = managementClient.Loft().ManagementV1().Projects().ImportVirtualCluster(context.TODO(), cmd.Project, &managementv1.ProjectImportVirtualCluster{
 		SourceVirtualCluster: managementv1.ProjectImportVirtualClusterSource{
-			Name:       cmd.VClusterName,
+			Name:       vclusterName,
 			Namespace:  cmd.VClusterNamespace,
 			Cluster:    cmd.VClusterClusterName,
 			ImportName: cmd.ImportName,
@@ -117,7 +112,7 @@ func (cmd *VClusterCmd) Run(args []string) error {
 		return err
 	}
 
-	cmd.log.Donef("Successfully imported vcluster %s into project %s", ansi.Color(cmd.VClusterName, "white+b"), ansi.Color(cmd.Project, "white+b"))
+	cmd.log.Donef("Successfully imported vcluster %s into project %s", ansi.Color(vclusterName, "white+b"), ansi.Color(cmd.Project, "white+b"))
 
 	return nil
 }

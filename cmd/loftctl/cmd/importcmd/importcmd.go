@@ -32,5 +32,6 @@ Imports a specified resource into a Loft project.
 	}
 
 	importCmd.AddCommand(NewVClusterCmd(globalFlags))
+	importCmd.AddCommand(NewSpaceCmd(globalFlags))
 	return importCmd
 }
