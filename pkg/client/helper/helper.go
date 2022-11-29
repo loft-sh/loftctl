@@ -215,7 +215,7 @@ func SelectVirtualClusterInstanceOrVirtualCluster(baseClient client.Client, virt
 			continue
 		}
 
-		optionsUnformatted = append(optionsUnformatted, []string{"VCluster: " + clihelper.GetDisplayName(virtualCluster.VirtualCluster.Name, virtualCluster.VirtualCluster.Spec.DisplayName), "Project: " + clihelper.GetDisplayName(virtualCluster.Project.Name, virtualCluster.Project.Spec.DisplayName)})
+		optionsUnformatted = append(optionsUnformatted, []string{"vcluster: " + clihelper.GetDisplayName(virtualCluster.VirtualCluster.Name, virtualCluster.VirtualCluster.Spec.DisplayName), "Project: " + clihelper.GetDisplayName(virtualCluster.Project.Name, virtualCluster.Project.Spec.DisplayName)})
 		newVirtualClusters = append(newVirtualClusters, virtualCluster)
 	}
 	virtualClusters = newVirtualClusters
