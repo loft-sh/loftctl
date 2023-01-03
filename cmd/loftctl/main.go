@@ -3,8 +3,8 @@ package main
 import (
 	"os"
 
-	"github.com/loft-sh/loftctl/v2/cmd/loftctl/cmd"
-	"github.com/loft-sh/loftctl/v2/pkg/upgrade"
+	"github.com/loft-sh/loftctl/v3/cmd/loftctl/cmd"
+	"github.com/loft-sh/loftctl/v3/pkg/upgrade"
 
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
 )

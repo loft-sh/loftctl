@@ -1,22 +1,23 @@
 package cmd
 
 import (
-	"github.com/loft-sh/loftctl/v2/cmd/loftctl/cmd/create"
-	"github.com/loft-sh/loftctl/v2/cmd/loftctl/cmd/delete"
-	"github.com/loft-sh/loftctl/v2/cmd/loftctl/cmd/generate"
-	"github.com/loft-sh/loftctl/v2/cmd/loftctl/cmd/get"
-	"github.com/loft-sh/loftctl/v2/cmd/loftctl/cmd/importcmd"
-	"github.com/loft-sh/loftctl/v2/cmd/loftctl/cmd/list"
-	"github.com/loft-sh/loftctl/v2/cmd/loftctl/cmd/reset"
-	"github.com/loft-sh/loftctl/v2/cmd/loftctl/cmd/set"
-	"github.com/loft-sh/loftctl/v2/cmd/loftctl/cmd/share"
-	"github.com/loft-sh/loftctl/v2/cmd/loftctl/cmd/sleep"
-	"github.com/loft-sh/loftctl/v2/cmd/loftctl/cmd/use"
-	"github.com/loft-sh/loftctl/v2/cmd/loftctl/cmd/vars"
-	"github.com/loft-sh/loftctl/v2/cmd/loftctl/cmd/wakeup"
-	"github.com/loft-sh/loftctl/v2/cmd/loftctl/flags"
-	"github.com/loft-sh/loftctl/v2/pkg/log"
-	"github.com/loft-sh/loftctl/v2/pkg/upgrade"
+	"github.com/loft-sh/loftctl/v3/cmd/loftctl/cmd/connect"
+	"github.com/loft-sh/loftctl/v3/cmd/loftctl/cmd/create"
+	"github.com/loft-sh/loftctl/v3/cmd/loftctl/cmd/delete"
+	"github.com/loft-sh/loftctl/v3/cmd/loftctl/cmd/generate"
+	"github.com/loft-sh/loftctl/v3/cmd/loftctl/cmd/get"
+	"github.com/loft-sh/loftctl/v3/cmd/loftctl/cmd/importcmd"
+	"github.com/loft-sh/loftctl/v3/cmd/loftctl/cmd/list"
+	"github.com/loft-sh/loftctl/v3/cmd/loftctl/cmd/reset"
+	"github.com/loft-sh/loftctl/v3/cmd/loftctl/cmd/set"
+	"github.com/loft-sh/loftctl/v3/cmd/loftctl/cmd/share"
+	"github.com/loft-sh/loftctl/v3/cmd/loftctl/cmd/sleep"
+	"github.com/loft-sh/loftctl/v3/cmd/loftctl/cmd/use"
+	"github.com/loft-sh/loftctl/v3/cmd/loftctl/cmd/vars"
+	"github.com/loft-sh/loftctl/v3/cmd/loftctl/cmd/wakeup"
+	"github.com/loft-sh/loftctl/v3/cmd/loftctl/flags"
+	"github.com/loft-sh/loftctl/v3/pkg/log"
+	"github.com/loft-sh/loftctl/v3/pkg/upgrade"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 )
@@ -87,6 +88,7 @@ func BuildRoot(log log.Logger) *cobra.Command {
 	rootCmd.AddCommand(sleep.NewSleepCmd(globalFlags))
 	rootCmd.AddCommand(wakeup.NewWakeUpCmd(globalFlags))
 	rootCmd.AddCommand(importcmd.NewImportCmd(globalFlags))
+	rootCmd.AddCommand(connect.NewConnectCmd(globalFlags))
 
 	return rootCmd
 }

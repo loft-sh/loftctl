@@ -3,20 +3,19 @@ package wakeup
 import (
 	"context"
 	"fmt"
-	clusterv1 "github.com/loft-sh/agentapi/v2/pkg/apis/loft/cluster/v1"
-	managementv1 "github.com/loft-sh/api/v2/pkg/apis/management/v1"
-	storagev1 "github.com/loft-sh/api/v2/pkg/apis/storage/v1"
-	"github.com/loft-sh/loftctl/v2/pkg/client/naming"
-	"github.com/pkg/errors"
-	"k8s.io/apimachinery/pkg/util/wait"
-	"strconv"
 	"time"
 
-	"github.com/loft-sh/loftctl/v2/cmd/loftctl/flags"
-	"github.com/loft-sh/loftctl/v2/pkg/client"
-	"github.com/loft-sh/loftctl/v2/pkg/client/helper"
-	"github.com/loft-sh/loftctl/v2/pkg/log"
-	"github.com/loft-sh/loftctl/v2/pkg/upgrade"
+	managementv1 "github.com/loft-sh/api/v3/pkg/apis/management/v1"
+	"github.com/loft-sh/loftctl/v3/pkg/space"
+	"github.com/pkg/errors"
+	"k8s.io/apimachinery/pkg/util/wait"
+
+	"github.com/loft-sh/loftctl/v3/cmd/loftctl/flags"
+	"github.com/loft-sh/loftctl/v3/pkg/client"
+	"github.com/loft-sh/loftctl/v3/pkg/client/helper"
+	"github.com/loft-sh/loftctl/v3/pkg/client/naming"
+	"github.com/loft-sh/loftctl/v3/pkg/log"
+	"github.com/loft-sh/loftctl/v3/pkg/upgrade"
 	"github.com/spf13/cobra"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -107,39 +106,11 @@ func (cmd *SpaceCmd) spaceWakeUp(baseClient client.Client, spaceName string) err
 		return err
 	}
 
-	spaceInstance, err := managementClient.Loft().ManagementV1().SpaceInstances(naming.ProjectNamespace(cmd.Project)).Get(context.TODO(), spaceName, metav1.GetOptions{})
+	_, err = space.WaitForSpaceInstance(context.TODO(), managementClient, naming.ProjectNamespace(cmd.Project), spaceName, true, cmd.Log)
 	if err != nil {
 		return err
 	}
 
-	if spaceInstance.Annotations == nil {
-		spaceInstance.Annotations = map[string]string{}
-	}
-	delete(spaceInstance.Annotations, clusterv1.SleepModeForceAnnotation)
-	delete(spaceInstance.Annotations, clusterv1.SleepModeForceDurationAnnotation)
-	spaceInstance.Annotations[clusterv1.SleepModeLastActivityAnnotation] = strconv.FormatInt(time.Now().Unix(), 10)
-
-	_, err = managementClient.Loft().ManagementV1().SpaceInstances(naming.ProjectNamespace(cmd.Project)).Update(context.TODO(), spaceInstance, metav1.UpdateOptions{})
-	if err != nil {
-		return err
-	}
-
-	// wait for sleeping
-	cmd.Log.StartWait("Wait until space wakes up")
-	defer cmd.Log.StopWait()
-	err = wait.Poll(time.Second, time.Minute, func() (bool, error) {
-		spaceInstance, err := managementClient.Loft().ManagementV1().SpaceInstances(naming.ProjectNamespace(cmd.Project)).Get(context.TODO(), spaceName, metav1.GetOptions{})
-		if err != nil {
-			return false, err
-		}
-
-		return spaceInstance.Status.Phase != storagev1.InstanceSleeping, nil
-	})
-	if err != nil {
-		return fmt.Errorf("error waiting for space to wake up: %v", err)
-	}
-
-	cmd.Log.Donef("Successfully woken up space %s", spaceName)
 	return nil
 }
 

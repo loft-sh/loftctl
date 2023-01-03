@@ -7,7 +7,7 @@ import (
 )
 
 func ProjectNamespace(projectName string) string {
-	return SafeConcatName("loft", "p", projectName)
+	return "loft-p-" + projectName
 }
 
 func SafeConcatName(name ...string) string {

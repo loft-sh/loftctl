@@ -5,8 +5,8 @@ import (
 	"crypto/x509"
 	"encoding/json"
 	"fmt"
-	"github.com/loft-sh/loftctl/v2/pkg/client/naming"
-	"github.com/loft-sh/loftctl/v2/pkg/kubeconfig"
+	"github.com/loft-sh/loftctl/v3/pkg/client/naming"
+	"github.com/loft-sh/loftctl/v3/pkg/kubeconfig"
 	"k8s.io/utils/pointer"
 	"net/http"
 	"net/url"
@@ -17,16 +17,16 @@ import (
 	"sync"
 	"time"
 
-	"github.com/loft-sh/api/v2/pkg/auth"
+	"github.com/loft-sh/api/v3/pkg/auth"
 
-	managementv1 "github.com/loft-sh/api/v2/pkg/apis/management/v1"
-	storagev1 "github.com/loft-sh/api/v2/pkg/apis/storage/v1"
+	managementv1 "github.com/loft-sh/api/v3/pkg/apis/management/v1"
+	storagev1 "github.com/loft-sh/api/v3/pkg/apis/storage/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	"github.com/loft-sh/loftctl/v2/pkg/constants"
-	"github.com/loft-sh/loftctl/v2/pkg/kube"
-	"github.com/loft-sh/loftctl/v2/pkg/log"
-	"github.com/loft-sh/loftctl/v2/pkg/upgrade"
+	"github.com/loft-sh/loftctl/v3/pkg/constants"
+	"github.com/loft-sh/loftctl/v3/pkg/kube"
+	"github.com/loft-sh/loftctl/v3/pkg/log"
+	"github.com/loft-sh/loftctl/v3/pkg/upgrade"
 	"github.com/mitchellh/go-homedir"
 	"github.com/pkg/errors"
 	"github.com/skratchdot/open-golang/open"
@@ -160,7 +160,7 @@ func (c *client) VirtualClusterAccessPointCertificate(project, virtualCluster st
 		context.Background(),
 		virtualCluster,
 		&managementv1.VirtualClusterInstanceKubeConfig{
-			RequestOptions: managementv1.VirtualClusterInstanceKubeConfigRequestOptions{
+			Spec: managementv1.VirtualClusterInstanceKubeConfigSpec{
 				CertificateTTL: pointer.Int32(86_400),
 			},
 		},

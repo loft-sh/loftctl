@@ -5,10 +5,10 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/loft-sh/loftctl/v2/cmd/loftctl/flags"
-	"github.com/loft-sh/loftctl/v2/pkg/kubeconfig"
-	"github.com/loft-sh/loftctl/v2/pkg/log"
-	"github.com/loft-sh/loftctl/v2/pkg/upgrade"
+	"github.com/loft-sh/loftctl/v3/cmd/loftctl/flags"
+	"github.com/loft-sh/loftctl/v3/pkg/kubeconfig"
+	"github.com/loft-sh/loftctl/v3/pkg/log"
+	"github.com/loft-sh/loftctl/v3/pkg/upgrade"
 	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
 	corev1 "k8s.io/api/core/v1"
@@ -85,45 +85,55 @@ devspace generate admin-kube-config --namespace mynamespace
 
 // Run executes the command
 func (cmd *AdminKubeConfigCmd) Run(c *rest.Config, cobraCmd *cobra.Command, args []string) error {
+	token, err := GetAuthToken(c, cmd.Namespace, cmd.ServiceAccount)
+	if err != nil {
+		return errors.Wrap(err, "get auth token")
+	}
+
+	// print kube config
+	return kubeconfig.PrintTokenKubeConfig(c, string(token))
+}
+
+func GetAuthToken(c *rest.Config, namespace, serviceAccount string) ([]byte, error) {
 	client, err := kubernetes.NewForConfig(c)
 	if err != nil {
-		return errors.Wrap(err, "create kube client")
+		return []byte{}, errors.Wrap(err, "create kube client")
 	}
 
 	// make sure namespace exists
 	_, err = client.CoreV1().Namespaces().Create(context.TODO(), &corev1.Namespace{
 		ObjectMeta: v1.ObjectMeta{
-			Name: cmd.Namespace,
+			Name: namespace,
 		},
 	}, v1.CreateOptions{})
 	if err != nil {
 		if kerrors.IsAlreadyExists(err) == false {
-			return err
+			return []byte{}, err
 		}
 	}
 
 	// create service account
-	_, err = client.CoreV1().ServiceAccounts(cmd.Namespace).Create(context.TODO(), &corev1.ServiceAccount{
+	_, err = client.CoreV1().ServiceAccounts(namespace).Create(context.TODO(), &corev1.ServiceAccount{
 		ObjectMeta: v1.ObjectMeta{
-			Name: cmd.ServiceAccount,
+			Name: serviceAccount,
 		},
 	}, v1.CreateOptions{})
 	if err != nil {
 		if kerrors.IsAlreadyExists(err) == false {
-			return err
+			return []byte{}, err
 		}
 	}
 
 	// create clusterrolebinding
 	_, err = client.RbacV1().ClusterRoleBindings().Create(context.TODO(), &rbacv1.ClusterRoleBinding{
 		ObjectMeta: v1.ObjectMeta{
-			Name: cmd.ServiceAccount + "-binding",
+			Name: serviceAccount + "-binding",
 		},
 		Subjects: []rbacv1.Subject{
 			{
 				Kind:      "ServiceAccount",
-				Name:      cmd.ServiceAccount,
-				Namespace: cmd.Namespace,
+				Name:      serviceAccount,
+				Namespace: namespace,
 			},
 		},
 		RoleRef: rbacv1.RoleRef{
@@ -134,32 +144,32 @@ func (cmd *AdminKubeConfigCmd) Run(c *rest.Config, cobraCmd *cobra.Command, args
 	}, v1.CreateOptions{})
 	if err != nil {
 		if kerrors.IsAlreadyExists(err) == false {
-			return err
+			return []byte{}, err
 		}
 	}
 
 	// manually create token secret. This approach works for all kubernetes versions
-	tokenSecretName := cmd.ServiceAccount + "-token"
-	_, err = client.CoreV1().Secrets(cmd.Namespace).Create(context.TODO(), &corev1.Secret{
+	tokenSecretName := serviceAccount + "-token"
+	_, err = client.CoreV1().Secrets(namespace).Create(context.TODO(), &corev1.Secret{
 		ObjectMeta: v1.ObjectMeta{
 			Name:      tokenSecretName,
-			Namespace: cmd.Namespace,
+			Namespace: namespace,
 			Annotations: map[string]string{
-				corev1.ServiceAccountNameKey: cmd.ServiceAccount,
+				corev1.ServiceAccountNameKey: serviceAccount,
 			},
 		},
 		Type: corev1.SecretTypeServiceAccountToken,
 	}, v1.CreateOptions{})
 	if err != nil {
 		if kerrors.IsAlreadyExists(err) == false {
-			return err
+			return []byte{}, err
 		}
 	}
 
 	// wait for secret token to be populated
 	token := []byte{}
 	err = wait.Poll(time.Millisecond*250, time.Minute*2, func() (bool, error) {
-		secret, err := client.CoreV1().Secrets(cmd.Namespace).Get(context.TODO(), tokenSecretName, v1.GetOptions{})
+		secret, err := client.CoreV1().Secrets(namespace).Get(context.TODO(), tokenSecretName, v1.GetOptions{})
 		if err != nil {
 			return false, errors.Wrap(err, "get service account secret")
 		}
@@ -173,9 +183,8 @@ func (cmd *AdminKubeConfigCmd) Run(c *rest.Config, cobraCmd *cobra.Command, args
 		return true, nil
 	})
 	if err != nil {
-		return err
+		return []byte{}, err
 	}
 
-	// print kube config
-	return kubeconfig.PrintTokenKubeConfig(c, string(token))
+	return token, nil
 }

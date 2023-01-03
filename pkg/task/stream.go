@@ -4,10 +4,10 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	managementv1 "github.com/loft-sh/api/v2/pkg/apis/management/v1"
+	managementv1 "github.com/loft-sh/api/v3/pkg/apis/management/v1"
 	"github.com/loft-sh/apiserver/pkg/builders"
-	"github.com/loft-sh/loftctl/v2/pkg/kube"
-	"github.com/loft-sh/loftctl/v2/pkg/log"
+	"github.com/loft-sh/loftctl/v3/pkg/kube"
+	"github.com/loft-sh/loftctl/v3/pkg/log"
 	"github.com/pkg/errors"
 	"io"
 	corev1 "k8s.io/api/core/v1"
@@ -19,7 +19,7 @@ import (
 	"syscall"
 	"time"
 
-	_ "github.com/loft-sh/api/v2/pkg/apis/management/install" // Install the management group
+	_ "github.com/loft-sh/api/v3/pkg/apis/management/install" // Install the management group
 )
 
 func StreamTask(ctx context.Context, managementClient kube.Interface, task *managementv1.Task, out io.Writer, log log.Logger) (err error) {

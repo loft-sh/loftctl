@@ -3,24 +3,25 @@ package use
 import (
 	"context"
 	"fmt"
-	managementv1 "github.com/loft-sh/api/v2/pkg/apis/management/v1"
-	"github.com/loft-sh/loftctl/v2/cmd/loftctl/flags"
-	"github.com/loft-sh/loftctl/v2/pkg/client"
-	"github.com/loft-sh/loftctl/v2/pkg/client/helper"
-	"github.com/loft-sh/loftctl/v2/pkg/client/naming"
-	"github.com/loft-sh/loftctl/v2/pkg/kubeconfig"
-	"github.com/loft-sh/loftctl/v2/pkg/log"
-	"github.com/loft-sh/loftctl/v2/pkg/upgrade"
-	"github.com/loft-sh/loftctl/v2/pkg/vcluster"
+	"io"
+	"os"
+
+	managementv1 "github.com/loft-sh/api/v3/pkg/apis/management/v1"
+	"github.com/loft-sh/loftctl/v3/cmd/loftctl/flags"
+	"github.com/loft-sh/loftctl/v3/pkg/client"
+	"github.com/loft-sh/loftctl/v3/pkg/client/helper"
+	"github.com/loft-sh/loftctl/v3/pkg/client/naming"
+	"github.com/loft-sh/loftctl/v3/pkg/kubeconfig"
+	"github.com/loft-sh/loftctl/v3/pkg/log"
+	"github.com/loft-sh/loftctl/v3/pkg/upgrade"
+	"github.com/loft-sh/loftctl/v3/pkg/vcluster"
 	"github.com/mgutz/ansi"
 	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
-	"io"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/client-go/tools/clientcmd/api"
-	"os"
 )
 
 // VirtualClusterCmd holds the cmd flags
@@ -295,7 +296,7 @@ func getVirtualClusterInstanceAccessConfig(baseClient client.Client, virtualClus
 		context.TODO(),
 		virtualClusterInstance.Name,
 		&managementv1.VirtualClusterInstanceKubeConfig{
-			RequestOptions: managementv1.VirtualClusterInstanceKubeConfigRequestOptions{},
+			Spec: managementv1.VirtualClusterInstanceKubeConfigSpec{},
 		},
 		metav1.CreateOptions{},
 	)

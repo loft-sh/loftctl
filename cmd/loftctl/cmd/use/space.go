@@ -3,21 +3,22 @@ package use
 import (
 	"context"
 	"fmt"
-	managementv1 "github.com/loft-sh/api/v2/pkg/apis/management/v1"
-	"github.com/loft-sh/loftctl/v2/cmd/loftctl/flags"
-	"github.com/loft-sh/loftctl/v2/pkg/client"
-	"github.com/loft-sh/loftctl/v2/pkg/client/helper"
-	"github.com/loft-sh/loftctl/v2/pkg/client/naming"
-	"github.com/loft-sh/loftctl/v2/pkg/kubeconfig"
-	"github.com/loft-sh/loftctl/v2/pkg/log"
-	"github.com/loft-sh/loftctl/v2/pkg/upgrade"
-	"github.com/loft-sh/loftctl/v2/pkg/vcluster"
+	"os"
+
+	managementv1 "github.com/loft-sh/api/v3/pkg/apis/management/v1"
+	"github.com/loft-sh/loftctl/v3/cmd/loftctl/flags"
+	"github.com/loft-sh/loftctl/v3/pkg/client"
+	"github.com/loft-sh/loftctl/v3/pkg/client/helper"
+	"github.com/loft-sh/loftctl/v3/pkg/client/naming"
+	"github.com/loft-sh/loftctl/v3/pkg/kubeconfig"
+	"github.com/loft-sh/loftctl/v3/pkg/log"
+	"github.com/loft-sh/loftctl/v3/pkg/space"
+	"github.com/loft-sh/loftctl/v3/pkg/upgrade"
 	"github.com/mgutz/ansi"
 	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"os"
 )
 
 // SpaceCmd holds the cmd flags
@@ -125,7 +126,7 @@ func (cmd *SpaceCmd) useSpace(baseClient client.Client, spaceName string) error 
 	}
 
 	// wait until space is ready
-	spaceInstance, err := vcluster.WaitForSpaceInstance(context.TODO(), managementClient, naming.ProjectNamespace(cmd.Project), spaceName, !cmd.SkipWait, cmd.log)
+	spaceInstance, err := space.WaitForSpaceInstance(context.TODO(), managementClient, naming.ProjectNamespace(cmd.Project), spaceName, !cmd.SkipWait, cmd.log)
 	if err != nil {
 		return err
 	}

@@ -7,7 +7,7 @@ import (
 	"runtime"
 	"time"
 
-	"github.com/loft-sh/loftctl/v2/pkg/terminal"
+	"github.com/loft-sh/loftctl/v3/pkg/terminal"
 	"github.com/mgutz/ansi"
 )
 

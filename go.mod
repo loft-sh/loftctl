@@ -1,4 +1,4 @@
-module github.com/loft-sh/loftctl/v2
+module github.com/loft-sh/loftctl/v3
 
 go 1.19
 
@@ -9,8 +9,7 @@ require (
 	github.com/evanphx/json-patch v5.6.0+incompatible
 	github.com/ghodss/yaml v1.0.0
 	github.com/k0kubun/go-ansi v0.0.0-20180517002512-3bf9e2903213
-	github.com/loft-sh/agentapi/v2 v2.3.3-0.20221125083603-6094cede9a8e
-	github.com/loft-sh/api/v2 v2.0.3-beta.5.0.20221129143917-24edfe9469c9
+	github.com/loft-sh/agentapi/v3 v3.0.0-20221220165844-780a717f4cf5
 	github.com/loft-sh/apiserver v0.0.0-20221118114023-11a52e0a20c2
 	github.com/mgutz/ansi v0.0.0-20200706080929-d51e80ef957d
 	github.com/mitchellh/go-homedir v1.1.0
@@ -143,8 +142,8 @@ require (
 )
 
 replace (
-	github.com/loft-sh/agentapi/v2 => ../../agentapi/v2
-	github.com/loft-sh/api/v2 => ../../api/v2
+	github.com/loft-sh/agentapi/v3 => ./../../agentapi/v3
+	github.com/loft-sh/api/v3 => ./../../api/v3
 )
 
 // modules imported by k8s.io that are replaced in kubernetes/kubernetes/go.mod

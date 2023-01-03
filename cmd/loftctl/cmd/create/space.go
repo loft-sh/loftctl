@@ -3,31 +3,34 @@ package create
 import (
 	"context"
 	"fmt"
-	"github.com/loft-sh/loftctl/v2/pkg/client/naming"
 	"os"
 	"strconv"
 	"time"
 
-	clusterv1 "github.com/loft-sh/agentapi/v2/pkg/apis/loft/cluster/v1"
-	agentstoragev1 "github.com/loft-sh/agentapi/v2/pkg/apis/loft/storage/v1"
-	storagev1 "github.com/loft-sh/api/v2/pkg/apis/storage/v1"
-	"github.com/loft-sh/loftctl/v2/cmd/loftctl/cmd/use"
-	"github.com/loft-sh/loftctl/v2/pkg/clihelper"
-	"github.com/loft-sh/loftctl/v2/pkg/constants"
-	"github.com/loft-sh/loftctl/v2/pkg/kube"
-	"github.com/loft-sh/loftctl/v2/pkg/parameters"
-	"github.com/loft-sh/loftctl/v2/pkg/task"
-	"github.com/loft-sh/loftctl/v2/pkg/vcluster"
-	"github.com/loft-sh/loftctl/v2/pkg/version"
+	"github.com/loft-sh/loftctl/v3/pkg/client/naming"
+	"github.com/loft-sh/loftctl/v3/pkg/space"
+	"k8s.io/apimachinery/pkg/util/wait"
+	client2 "sigs.k8s.io/controller-runtime/pkg/client"
+
+	clusterv1 "github.com/loft-sh/agentapi/v3/pkg/apis/loft/cluster/v1"
+	agentstoragev1 "github.com/loft-sh/agentapi/v3/pkg/apis/loft/storage/v1"
+	storagev1 "github.com/loft-sh/api/v3/pkg/apis/storage/v1"
+	"github.com/loft-sh/loftctl/v3/cmd/loftctl/cmd/use"
+	"github.com/loft-sh/loftctl/v3/pkg/clihelper"
+	"github.com/loft-sh/loftctl/v3/pkg/constants"
+	"github.com/loft-sh/loftctl/v3/pkg/kube"
+	"github.com/loft-sh/loftctl/v3/pkg/parameters"
+	"github.com/loft-sh/loftctl/v3/pkg/task"
+	"github.com/loft-sh/loftctl/v3/pkg/version"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 
-	managementv1 "github.com/loft-sh/api/v2/pkg/apis/management/v1"
-	"github.com/loft-sh/loftctl/v2/cmd/loftctl/flags"
-	"github.com/loft-sh/loftctl/v2/pkg/client"
-	"github.com/loft-sh/loftctl/v2/pkg/client/helper"
-	"github.com/loft-sh/loftctl/v2/pkg/kubeconfig"
-	"github.com/loft-sh/loftctl/v2/pkg/log"
-	"github.com/loft-sh/loftctl/v2/pkg/upgrade"
+	managementv1 "github.com/loft-sh/api/v3/pkg/apis/management/v1"
+	"github.com/loft-sh/loftctl/v3/cmd/loftctl/flags"
+	"github.com/loft-sh/loftctl/v3/pkg/client"
+	"github.com/loft-sh/loftctl/v3/pkg/client/helper"
+	"github.com/loft-sh/loftctl/v3/pkg/kubeconfig"
+	"github.com/loft-sh/loftctl/v3/pkg/log"
+	"github.com/loft-sh/loftctl/v3/pkg/upgrade"
 	"github.com/mgutz/ansi"
 	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
@@ -47,9 +50,13 @@ type SpaceCmd struct {
 	DisableDirectClusterEndpoint bool
 	Template                     string
 	Version                      string
+	Set                          []string
 	ParametersFile               string
-	UseExisting                  bool
 	SkipWait                     bool
+
+	UseExisting bool
+	Recreate    bool
+	Update      bool
 
 	DisplayName string
 	Description string
@@ -107,8 +114,8 @@ devspace create space myspace --project myproject --team myteam
 		},
 	}
 
-	c.Flags().StringVar(&cmd.DisplayName, "display-name", "", "The display name to show in the UI for this virtual cluster")
-	c.Flags().StringVar(&cmd.Description, "description", "", "The description to show in the UI for this virtual cluster")
+	c.Flags().StringVar(&cmd.DisplayName, "display-name", "", "The display name to show in the UI for this space")
+	c.Flags().StringVar(&cmd.Description, "description", "", "The description to show in the UI for this space")
 	c.Flags().StringVar(&cmd.Cluster, "cluster", "", "The cluster to use")
 	c.Flags().StringVarP(&cmd.Project, "project", "p", "", "The project to use")
 	c.Flags().StringVar(&cmd.User, "user", "", "The user to create the space for")
@@ -118,9 +125,12 @@ devspace create space myspace --project myproject --team myteam
 	c.Flags().BoolVar(&cmd.CreateContext, "create-context", true, "If loft should create a kube context for the space")
 	c.Flags().BoolVar(&cmd.SwitchContext, "switch-context", true, "If loft should switch the current context to the new context")
 	c.Flags().BoolVar(&cmd.SkipWait, "skip-wait", false, "If true, will not wait until the space is running")
+	c.Flags().BoolVar(&cmd.Recreate, "recreate", false, "If enabled and there already exists a space with this name, Loft will delete it first")
+	c.Flags().BoolVar(&cmd.Update, "update", false, "If enabled and a space already exists, will update the template, version and parameters")
 	c.Flags().BoolVar(&cmd.UseExisting, "use", false, "If loft should use the space if its already there")
 	c.Flags().StringVar(&cmd.Template, "template", "", "The space template to use")
 	c.Flags().StringVar(&cmd.Version, "version", "", "The template version to use")
+	c.Flags().StringSliceVar(&cmd.Set, "set", []string{}, "Allows specific template parameters to be set. E.g. --set myParameter=myValue")
 	c.Flags().StringVar(&cmd.ParametersFile, "parameters", "", "The file where the parameter values for the apps are specified")
 	c.Flags().BoolVar(&cmd.DisableDirectClusterEndpoint, "disable-direct-cluster-endpoint", false, "When enabled does not use an available direct cluster endpoint to connect to the space")
 	return c
@@ -175,57 +185,65 @@ func (cmd *SpaceCmd) createSpace(baseClient client.Client, spaceName string) err
 		}
 	}
 
-	var spaceInstance *managementv1.SpaceInstance
-	if cmd.UseExisting {
-		spaceInstance, err = managementClient.Loft().ManagementV1().SpaceInstances(spaceNamespace).Get(context.TODO(), spaceName, metav1.GetOptions{})
+	// delete the existing cluster if needed
+	if cmd.Recreate {
+		_, err := managementClient.Loft().ManagementV1().SpaceInstances(spaceNamespace).Get(context.TODO(), spaceName, metav1.GetOptions{})
 		if err != nil && !kerrors.IsNotFound(err) {
-			cmd.Log.Debugf("Couldn't retrieve space instance: %v", err)
+			return fmt.Errorf("couldn't retrieve space instance: %v", err)
+		} else if err == nil {
+			// delete the space
+			err = managementClient.Loft().ManagementV1().SpaceInstances(spaceNamespace).Delete(context.TODO(), spaceName, metav1.DeleteOptions{})
+			if err != nil && !kerrors.IsNotFound(err) {
+				return fmt.Errorf("couldn't delete space instance: %v", err)
+			}
 		}
 	}
 
-	// create space if necessary
-	if spaceInstance == nil {
-		// determine space template to use
-		spaceTemplate, err := helper.SelectSpaceTemplate(baseClient, cmd.Project, cmd.Template, cmd.Log)
-		if err != nil {
-			return err
-		}
+	// make sure we wait until space is deleted
+	existingSpace, err := managementClient.Loft().ManagementV1().SpaceInstances(spaceNamespace).Get(context.TODO(), spaceName, metav1.GetOptions{})
+	if err != nil && !kerrors.IsNotFound(err) {
+		return fmt.Errorf("couldn't retrieve space instance: %v", err)
+	} else if err == nil && existingSpace.DeletionTimestamp != nil {
+		cmd.Log.Infof("Waiting until space is deleted...")
 
-		// get parameters
-		var templateParameters []storagev1.AppParameter
-		if len(spaceTemplate.Spec.Versions) > 0 {
-			if cmd.Version == "" {
-				latestVersion := version.GetLatestVersion(spaceTemplate)
-				if latestVersion == nil {
-					return fmt.Errorf("couldn't find any version in template")
-				}
-
-				templateParameters = latestVersion.(*storagev1.SpaceTemplateVersion).Parameters
-			} else {
-				_, latestMatched, err := version.GetLatestMatchedVersion(spaceTemplate, cmd.Version)
-				if err != nil {
-					return err
-				} else if latestMatched == nil {
-					return fmt.Errorf("couldn't find any matching version to %s", cmd.Version)
-				}
-
-				templateParameters = latestMatched.(*storagev1.SpaceTemplateVersion).Parameters
+		// wait until the space instance is deleted
+		waitErr := wait.Poll(time.Second, time.Minute*5, func() (done bool, err error) {
+			existingSpace, err = managementClient.Loft().ManagementV1().SpaceInstances(spaceNamespace).Get(context.TODO(), spaceName, metav1.GetOptions{})
+			if err != nil && !kerrors.IsNotFound(err) {
+				return false, err
+			} else if err == nil && existingSpace.DeletionTimestamp != nil {
+				return false, nil
 			}
-		} else {
-			templateParameters = spaceTemplate.Spec.Parameters
+
+			return true, nil
+		})
+		if waitErr != nil {
+			return errors.Wrap(err, "get space instance")
 		}
 
-		// resolve space template parameters
-		resolvedParameters, err := parameters.ResolveTemplateParameters(clihelper.GetDisplayName(spaceTemplate.Name, spaceTemplate.Spec.DisplayName), templateParameters, cmd.ParametersFile, cmd.Log)
+		existingSpace = nil
+	} else if kerrors.IsNotFound(err) {
+		existingSpace = nil
+	}
+
+	// if the space already exists and flag is not set, we terminate
+	if !cmd.Update && !cmd.UseExisting && existingSpace != nil {
+		return fmt.Errorf("space %s already exists in project %s", spaceName, cmd.Project)
+	}
+
+	// create space if necessary
+	if existingSpace == nil {
+		// resolve template
+		spaceTemplate, resolvedParameters, err := cmd.resolveTemplate(baseClient)
 		if err != nil {
 			return err
 		}
 
 		// create space instance
 		zone, offset := time.Now().Zone()
-		spaceInstance = &managementv1.SpaceInstance{
+		existingSpace = &managementv1.SpaceInstance{
 			ObjectMeta: metav1.ObjectMeta{
-				Namespace: spaceNamespace,
+				Namespace: naming.ProjectNamespace(cmd.Project),
 				Name:      spaceName,
 				Annotations: map[string]string{
 					clusterv1.SleepModeTimezoneAnnotation: zone + "#" + strconv.Itoa(offset),
@@ -250,17 +268,48 @@ func (cmd *SpaceCmd) createSpace(baseClient client.Client, spaceName string) err
 				},
 			},
 		}
-
 		// create space
-		cmd.Log.Infof("Creating space %s in project %s...", ansi.Color(spaceName, "white+b"), ansi.Color(cmd.Project, "white+b"))
-		spaceInstance, err = managementClient.Loft().ManagementV1().SpaceInstances(spaceInstance.Namespace).Create(context.TODO(), spaceInstance, metav1.CreateOptions{})
+		cmd.Log.Infof("Creating space %s in project %s with template %s...", ansi.Color(spaceName, "white+b"), ansi.Color(cmd.Project, "white+b"), ansi.Color(spaceTemplate.Name, "white+b"))
+		existingSpace, err = managementClient.Loft().ManagementV1().SpaceInstances(existingSpace.Namespace).Create(context.TODO(), existingSpace, metav1.CreateOptions{})
 		if err != nil {
-			return errors.Wrap(err, "create virtual cluster")
+			return errors.Wrap(err, "create space")
+		}
+	} else if cmd.Update {
+		// resolve template
+		spaceTemplate, resolvedParameters, err := cmd.resolveTemplate(baseClient)
+		if err != nil {
+			return err
+		}
+
+		// update space instance
+		if existingSpace.Spec.TemplateRef == nil {
+			return fmt.Errorf("space instance doesn't use a template, cannot update space")
+		}
+
+		// check if update is needed
+		if existingSpace.Spec.TemplateRef.Name != spaceTemplate.Name || existingSpace.Spec.Parameters != resolvedParameters || (cmd.Version != "" && existingSpace.Spec.TemplateRef.Version != cmd.Version) {
+			oldSpace := existingSpace.DeepCopy()
+			existingSpace.Spec.TemplateRef.Name = spaceTemplate.Name
+			existingSpace.Spec.TemplateRef.Version = cmd.Version
+			existingSpace.Spec.Parameters = resolvedParameters
+
+			patch := client2.MergeFrom(oldSpace)
+			patchData, err := patch.Data(existingSpace)
+			if err != nil {
+				return errors.Wrap(err, "calculate update patch")
+			}
+			cmd.Log.Infof("Updating space %s in project %s...", ansi.Color(spaceName, "white+b"), ansi.Color(cmd.Project, "white+b"))
+			existingSpace, err = managementClient.Loft().ManagementV1().SpaceInstances(existingSpace.Namespace).Patch(context.TODO(), existingSpace.Name, patch.Type(), patchData, metav1.PatchOptions{})
+			if err != nil {
+				return errors.Wrap(err, "patch space")
+			}
+		} else {
+			cmd.Log.Infof("Skip updating space...")
 		}
 	}
 
 	// wait until space is ready
-	spaceInstance, err = vcluster.WaitForSpaceInstance(context.TODO(), managementClient, spaceInstance.Namespace, spaceInstance.Name, !cmd.SkipWait, cmd.Log)
+	existingSpace, err = space.WaitForSpaceInstance(context.TODO(), managementClient, existingSpace.Namespace, existingSpace.Name, !cmd.SkipWait, cmd.Log)
 	if err != nil {
 		return err
 	}
@@ -269,7 +318,7 @@ func (cmd *SpaceCmd) createSpace(baseClient client.Client, spaceName string) err
 	// should we create a kube context for the space
 	if cmd.CreateContext {
 		// create kube context options
-		contextOptions, err := use.CreateSpaceInstanceOptions(baseClient, cmd.Config, cmd.Project, spaceInstance, cmd.DisableDirectClusterEndpoint, cmd.SwitchContext, cmd.Log)
+		contextOptions, err := use.CreateSpaceInstanceOptions(baseClient, cmd.Config, cmd.Project, existingSpace, cmd.DisableDirectClusterEndpoint, cmd.SwitchContext, cmd.Log)
 		if err != nil {
 			return err
 		}
@@ -284,6 +333,46 @@ func (cmd *SpaceCmd) createSpace(baseClient client.Client, spaceName string) err
 	}
 
 	return nil
+}
+
+func (cmd *SpaceCmd) resolveTemplate(baseClient client.Client) (*managementv1.SpaceTemplate, string, error) {
+	// determine space template to use
+	spaceTemplate, err := helper.SelectSpaceTemplate(baseClient, cmd.Project, cmd.Template, cmd.Log)
+	if err != nil {
+		return nil, "", err
+	}
+
+	// get parameters
+	var templateParameters []storagev1.AppParameter
+	if len(spaceTemplate.Spec.Versions) > 0 {
+		if cmd.Version == "" {
+			latestVersion := version.GetLatestVersion(spaceTemplate)
+			if latestVersion == nil {
+				return nil, "", fmt.Errorf("couldn't find any version in template")
+			}
+
+			templateParameters = latestVersion.(*storagev1.SpaceTemplateVersion).Parameters
+		} else {
+			_, latestMatched, err := version.GetLatestMatchedVersion(spaceTemplate, cmd.Version)
+			if err != nil {
+				return nil, "", err
+			} else if latestMatched == nil {
+				return nil, "", fmt.Errorf("couldn't find any matching version to %s", cmd.Version)
+			}
+
+			templateParameters = latestMatched.(*storagev1.SpaceTemplateVersion).Parameters
+		}
+	} else {
+		templateParameters = spaceTemplate.Spec.Parameters
+	}
+
+	// resolve space template parameters
+	resolvedParameters, err := parameters.ResolveTemplateParameters(cmd.Set, templateParameters, cmd.ParametersFile)
+	if err != nil {
+		return nil, "", err
+	}
+
+	return spaceTemplate, resolvedParameters, nil
 }
 
 func (cmd *SpaceCmd) legacyCreateSpace(baseClient client.Client, spaceName string) error {

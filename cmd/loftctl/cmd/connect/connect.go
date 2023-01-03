@@ -1,4 +1,4 @@
-package delete
+package connect
 
 import (
 	"github.com/loft-sh/loftctl/v3/cmd/loftctl/flags"
@@ -6,28 +6,27 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// NewDeleteCmd creates a new cobra command
-func NewDeleteCmd(globalFlags *flags.GlobalFlags) *cobra.Command {
+// NewConnectCmd creates a new command
+func NewConnectCmd(globalFlags *flags.GlobalFlags) *cobra.Command {
 	description := `
 #######################################################
-##################### loft delete #####################
+#################### loft connect #####################
 #######################################################
 	`
 	if upgrade.IsPlugin == "true" {
 		description = `
 #######################################################
-##################### loft delete #####################
+################### devspace connect ##################
 #######################################################
 	`
 	}
-	c := &cobra.Command{
-		Use:   "delete",
-		Short: "Deletes loft resources",
+	connectCmd := &cobra.Command{
+		Use:   "connect",
+		Short: "Connects a cluster to Loft",
 		Long:  description,
 		Args:  cobra.NoArgs,
 	}
 
-	c.AddCommand(NewSpaceCmd(globalFlags))
-	c.AddCommand(NewVirtualClusterCmd(globalFlags))
-	return c
+	connectCmd.AddCommand(NewClusterCmd(globalFlags))
+	return connectCmd
 }

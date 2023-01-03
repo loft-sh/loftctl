@@ -2,14 +2,20 @@ package vcluster
 
 import (
 	"context"
-	managementv1 "github.com/loft-sh/api/v2/pkg/apis/management/v1"
-	storagev1 "github.com/loft-sh/api/v2/pkg/apis/storage/v1"
-	"github.com/loft-sh/loftctl/v2/pkg/client"
-	"github.com/loft-sh/loftctl/v2/pkg/kube"
-	"github.com/loft-sh/loftctl/v2/pkg/log"
+	"fmt"
+	"strconv"
+	"time"
+
+	clusterv1 "github.com/loft-sh/agentapi/v3/pkg/apis/loft/cluster/v1"
+	managementv1 "github.com/loft-sh/api/v3/pkg/apis/management/v1"
+	storagev1 "github.com/loft-sh/api/v3/pkg/apis/storage/v1"
+	"github.com/loft-sh/loftctl/v3/pkg/client"
+	"github.com/loft-sh/loftctl/v3/pkg/kube"
+	"github.com/loft-sh/loftctl/v3/pkg/log"
+	"github.com/loft-sh/loftctl/v3/pkg/util"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
-	"time"
+	client2 "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 var waitDuration = 20 * time.Second
@@ -46,19 +52,26 @@ func WaitForVCluster(ctx context.Context, baseClient client.Client, clusterName,
 func WaitForVirtualClusterInstance(ctx context.Context, managementClient kube.Interface, namespace, name string, waitUntilReady bool, log log.Logger) (*managementv1.VirtualClusterInstance, error) {
 	now := time.Now()
 	nextMessage := now.Add(waitDuration)
-	var virtualClusterInstance *managementv1.VirtualClusterInstance
-	var err error
-	if !waitUntilReady {
-		virtualClusterInstance, err = managementClient.Loft().ManagementV1().VirtualClusterInstances(namespace).Get(ctx, name, metav1.GetOptions{})
-		if err != nil {
-			return nil, err
-		}
+	virtualClusterInstance, err := managementClient.Loft().ManagementV1().VirtualClusterInstances(namespace).Get(ctx, name, metav1.GetOptions{})
+	if err != nil {
+		return nil, err
+	}
 
+	if virtualClusterInstance.Status.Phase == storagev1.InstanceSleeping {
+		log.StartWait("Wait until vcluster wakes up")
+		defer log.StopWait()
+		defer log.Donef("Successfully woken up vcluster %s", name)
+		err := wakeup(ctx, managementClient, virtualClusterInstance)
+		if err != nil {
+			return nil, fmt.Errorf("Error waking up vcluster %s: %s", name, util.GetCause(err))
+		}
+	}
+
+	if !waitUntilReady {
 		return virtualClusterInstance, nil
 	}
 
 	warnCounter := 0
-
 	return virtualClusterInstance, wait.PollImmediate(time.Second, time.Minute*6, func() (bool, error) {
 		virtualClusterInstance, err = managementClient.Loft().ManagementV1().VirtualClusterInstances(namespace).Get(ctx, name, metav1.GetOptions{})
 		if err != nil {
@@ -82,41 +95,27 @@ func WaitForVirtualClusterInstance(ctx context.Context, managementClient kube.In
 	})
 }
 
-func WaitForSpaceInstance(ctx context.Context, managementClient kube.Interface, namespace, name string, waitUntilReady bool, log log.Logger) (*managementv1.SpaceInstance, error) {
-	now := time.Now()
-	nextMessage := now.Add(waitDuration)
-	var spaceInstance *managementv1.SpaceInstance
-	var err error
-	if !waitUntilReady {
-		spaceInstance, err = managementClient.Loft().ManagementV1().SpaceInstances(namespace).Get(ctx, name, metav1.GetOptions{})
-		if err != nil {
-			return nil, err
-		}
+func wakeup(ctx context.Context, managementClient kube.Interface, virtualClusterInstance *managementv1.VirtualClusterInstance) error {
+	// Update instance to wake up
+	oldVirtualClusterInstance := virtualClusterInstance.DeepCopy()
+	if virtualClusterInstance.Annotations == nil {
+		virtualClusterInstance.Annotations = map[string]string{}
+	}
+	delete(virtualClusterInstance.Annotations, clusterv1.SleepModeForceAnnotation)
+	delete(virtualClusterInstance.Annotations, clusterv1.SleepModeForceDurationAnnotation)
+	virtualClusterInstance.Annotations[clusterv1.SleepModeLastActivityAnnotation] = strconv.FormatInt(time.Now().Unix(), 10)
 
-		return spaceInstance, nil
+	// Calculate patch
+	patch := client2.MergeFrom(oldVirtualClusterInstance)
+	patchData, err := patch.Data(virtualClusterInstance)
+	if err != nil {
+		return err
 	}
 
-	warnCounter := 0
+	_, err = managementClient.Loft().ManagementV1().VirtualClusterInstances(virtualClusterInstance.Namespace).Patch(ctx, virtualClusterInstance.Name, patch.Type(), patchData, metav1.PatchOptions{})
+	if err != nil {
+		return err
+	}
 
-	return spaceInstance, wait.PollImmediate(time.Second, time.Minute*6, func() (bool, error) {
-		spaceInstance, err = managementClient.Loft().ManagementV1().SpaceInstances(namespace).Get(ctx, name, metav1.GetOptions{})
-		if err != nil {
-			return false, err
-		}
-
-		if spaceInstance.Status.Phase != storagev1.InstanceReady && spaceInstance.Status.Phase != storagev1.InstanceSleeping {
-			if time.Now().After(nextMessage) {
-				if warnCounter > 1 {
-					log.Warnf("Cannot reach space because: %s (%s). Loft will continue waiting, but this operation may timeout", spaceInstance.Status.Message, spaceInstance.Status.Reason)
-				} else {
-					log.Info("Waiting for space to be available...")
-				}
-				nextMessage = time.Now().Add(waitDuration)
-				warnCounter++
-			}
-			return false, nil
-		}
-
-		return true, nil
-	})
+	return nil
 }

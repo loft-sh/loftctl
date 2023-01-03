@@ -3,19 +3,15 @@ package wakeup
 import (
 	"context"
 	"fmt"
-	clusterv1 "github.com/loft-sh/agentapi/v2/pkg/apis/loft/cluster/v1"
-	storagev1 "github.com/loft-sh/api/v2/pkg/apis/storage/v1"
-	"github.com/loft-sh/loftctl/v2/cmd/loftctl/flags"
-	"github.com/loft-sh/loftctl/v2/pkg/client"
-	"github.com/loft-sh/loftctl/v2/pkg/client/helper"
-	"github.com/loft-sh/loftctl/v2/pkg/client/naming"
-	"github.com/loft-sh/loftctl/v2/pkg/log"
-	"github.com/loft-sh/loftctl/v2/pkg/upgrade"
+
+	"github.com/loft-sh/loftctl/v3/cmd/loftctl/flags"
+	"github.com/loft-sh/loftctl/v3/pkg/client"
+	"github.com/loft-sh/loftctl/v3/pkg/client/helper"
+	"github.com/loft-sh/loftctl/v3/pkg/client/naming"
+	"github.com/loft-sh/loftctl/v3/pkg/log"
+	"github.com/loft-sh/loftctl/v3/pkg/upgrade"
+	"github.com/loft-sh/loftctl/v3/pkg/vcluster"
 	"github.com/spf13/cobra"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/util/wait"
-	"strconv"
-	"time"
 )
 
 // VClusterCmd holds the cmd flags
@@ -103,38 +99,10 @@ func (cmd *VClusterCmd) wakeUpVCluster(baseClient client.Client, vClusterName st
 		return err
 	}
 
-	virtualClusterInstance, err := managementClient.Loft().ManagementV1().VirtualClusterInstances(naming.ProjectNamespace(cmd.Project)).Get(context.TODO(), vClusterName, metav1.GetOptions{})
+	_, err = vcluster.WaitForVirtualClusterInstance(context.TODO(), managementClient, naming.ProjectNamespace(cmd.Project), vClusterName, true, cmd.Log)
 	if err != nil {
 		return err
 	}
 
-	if virtualClusterInstance.Annotations == nil {
-		virtualClusterInstance.Annotations = map[string]string{}
-	}
-	delete(virtualClusterInstance.Annotations, clusterv1.SleepModeForceAnnotation)
-	delete(virtualClusterInstance.Annotations, clusterv1.SleepModeForceDurationAnnotation)
-	virtualClusterInstance.Annotations[clusterv1.SleepModeLastActivityAnnotation] = strconv.FormatInt(time.Now().Unix(), 10)
-
-	_, err = managementClient.Loft().ManagementV1().VirtualClusterInstances(naming.ProjectNamespace(cmd.Project)).Update(context.TODO(), virtualClusterInstance, metav1.UpdateOptions{})
-	if err != nil {
-		return err
-	}
-
-	// wait for sleeping
-	cmd.Log.StartWait("Wait until virtual cluster wakes up")
-	defer cmd.Log.StopWait()
-	err = wait.Poll(time.Second, time.Minute, func() (bool, error) {
-		virtualClusterInstance, err := managementClient.Loft().ManagementV1().VirtualClusterInstances(naming.ProjectNamespace(cmd.Project)).Get(context.TODO(), vClusterName, metav1.GetOptions{})
-		if err != nil {
-			return false, err
-		}
-
-		return virtualClusterInstance.Status.Phase != storagev1.InstanceSleeping, nil
-	})
-	if err != nil {
-		return fmt.Errorf("error waiting for vcluster to wake up: %v", err)
-	}
-
-	cmd.Log.Donef("Successfully woken up vcluster %s", vClusterName)
 	return nil
 }

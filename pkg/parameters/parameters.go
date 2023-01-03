@@ -3,11 +3,11 @@ package parameters
 import (
 	"fmt"
 	"github.com/ghodss/yaml"
-	managementv1 "github.com/loft-sh/api/v2/pkg/apis/management/v1"
-	storagev1 "github.com/loft-sh/api/v2/pkg/apis/storage/v1"
-	"github.com/loft-sh/loftctl/v2/pkg/clihelper"
-	"github.com/loft-sh/loftctl/v2/pkg/log"
-	"github.com/loft-sh/loftctl/v2/pkg/survey"
+	managementv1 "github.com/loft-sh/api/v3/pkg/apis/management/v1"
+	storagev1 "github.com/loft-sh/api/v3/pkg/apis/storage/v1"
+	"github.com/loft-sh/loftctl/v3/pkg/clihelper"
+	"github.com/loft-sh/loftctl/v3/pkg/log"
+	"github.com/loft-sh/loftctl/v3/pkg/survey"
 	"github.com/pkg/errors"
 	"os"
 	"regexp"
@@ -98,67 +98,22 @@ func GetDeepValue(parameters interface{}, path string) interface{} {
 	return nil
 }
 
-func ResolveTemplateParameters(templateName string, parameters []storagev1.AppParameter, fileName string, log log.Logger) (string, error) {
-	if len(parameters) == 0 {
-		return "", nil
-	}
-
-	var parametersFile *ParametersFile
+func ResolveTemplateParameters(set []string, parameters []storagev1.AppParameter, fileName string) (string, error) {
+	var parametersFile map[string]interface{}
 	if fileName != "" {
 		out, err := os.ReadFile(fileName)
 		if err != nil {
 			return "", errors.Wrap(err, "read parameters file")
 		}
 
-		parametersFile = &ParametersFile{}
-		err = yaml.Unmarshal(out, parametersFile)
+		parametersFile = map[string]interface{}{}
+		err = yaml.Unmarshal(out, &parametersFile)
 		if err != nil {
 			return "", errors.Wrap(err, "parse parameters file")
 		}
 	}
 
-	if parametersFile != nil {
-		return fillParameters(parameters, parametersFile.Parameters)
-	}
-
-	log.WriteString("\n")
-	log.Infof("Please specify parameters for template %s", templateName)
-
-	target := map[string]interface{}{}
-	for _, parameter := range parameters {
-		question := fmt.Sprintf("%s", parameter.Label)
-		if parameter.Required {
-			question += " (Required)"
-		}
-
-		for {
-			value, err := log.Question(&survey.QuestionOptions{
-				Question:     question,
-				DefaultValue: parameter.DefaultValue,
-				Options:      parameter.Options,
-				IsPassword:   parameter.Type == "password",
-			})
-			if err != nil {
-				return "", err
-			}
-
-			outVal, err := verifyValue(value, parameter)
-			if err != nil {
-				log.Errorf(err.Error())
-				continue
-			}
-
-			SetDeepValue(target, parameter.Variable, outVal)
-			break
-		}
-	}
-
-	out, err := yaml.Marshal(target)
-	if err != nil {
-		return "", errors.Wrapf(err, "marshal parameters")
-	}
-
-	return string(out), nil
+	return fillParameters(parameters, set, parametersFile)
 }
 
 func ResolveAppParameters(apps []NamespacedApp, appFilename string, log log.Logger) ([]NamespacedAppWithParameters, error) {
@@ -347,31 +302,40 @@ func getParametersInAppFile(appObj *managementv1.App, appFile *AppFile) (string,
 
 	for _, app := range appFile.Apps {
 		if app.Name == appObj.Name {
-			return fillParameters(appObj.Spec.Parameters, app.Parameters)
+			return fillParameters(appObj.Spec.Parameters, nil, app.Parameters)
 		}
 	}
 
 	return "", fmt.Errorf("couldn't find app %s (%s) in provided parameters file", clihelper.GetDisplayName(appObj.Name, appObj.Spec.DisplayName), appObj.Name)
 }
 
-func fillParameters(parameters []storagev1.AppParameter, values map[string]interface{}) (string, error) {
+func fillParameters(parameters []storagev1.AppParameter, set []string, values map[string]interface{}) (string, error) {
 	if values == nil {
 		values = map[string]interface{}{}
 	}
 
+	// parse set array
+	setMap, err := parseSet(parameters, set)
+	if err != nil {
+		return "", err
+	}
+
+	// apply parameters
 	for _, parameter := range parameters {
-		val := GetDeepValue(values, parameter.Variable)
-		strVal := ""
-		if val != nil {
-			switch t := val.(type) {
-			case string:
-				strVal = t
-			case int:
-				strVal = strconv.Itoa(t)
-			case bool:
-				strVal = strconv.FormatBool(t)
-			default:
-				return "", fmt.Errorf("unrecognized type for parameter %s (%s) in file: %v", parameter.Label, parameter.Variable, t)
+		strVal, ok := setMap[parameter.Variable]
+		if !ok {
+			val := GetDeepValue(values, parameter.Variable)
+			if val != nil {
+				switch t := val.(type) {
+				case string:
+					strVal = t
+				case int:
+					strVal = strconv.Itoa(t)
+				case bool:
+					strVal = strconv.FormatBool(t)
+				default:
+					return "", fmt.Errorf("unrecognized type for parameter %s (%s) in file: %v", parameter.Label, parameter.Variable, t)
+				}
 			}
 		}
 
@@ -389,4 +353,31 @@ func fillParameters(parameters []storagev1.AppParameter, values map[string]inter
 	}
 
 	return string(out), nil
+}
+
+func parseSet(parameters []storagev1.AppParameter, set []string) (map[string]string, error) {
+	setValues := map[string]string{}
+	for _, s := range set {
+		splitted := strings.Split(s, "=")
+		if len(splitted) <= 1 {
+			return nil, fmt.Errorf("error parsing --set %s: need parameter=value format", s)
+		}
+
+		key := splitted[0]
+		value := strings.Join(splitted[1:], "=")
+		found := false
+		for _, parameter := range parameters {
+			if parameter.Variable == key {
+				found = true
+				break
+			}
+		}
+		if !found {
+			return nil, fmt.Errorf("parameter %s doesn't exist on template", key)
+		}
+
+		setValues[key] = value
+	}
+
+	return setValues, nil
 }

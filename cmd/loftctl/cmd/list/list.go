@@ -1,8 +1,8 @@
 package list
 
 import (
-	"github.com/loft-sh/loftctl/v2/cmd/loftctl/flags"
-	"github.com/loft-sh/loftctl/v2/pkg/upgrade"
+	"github.com/loft-sh/loftctl/v3/cmd/loftctl/flags"
+	"github.com/loft-sh/loftctl/v3/pkg/upgrade"
 	"github.com/spf13/cobra"
 )
 

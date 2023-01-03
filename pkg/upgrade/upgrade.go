@@ -4,13 +4,14 @@ import (
 	"fmt"
 	"os"
 	"regexp"
+	"strings"
 	"sync"
 
 	"github.com/pkg/errors"
 	klog "k8s.io/klog/v2"
 
 	"github.com/blang/semver"
-	"github.com/loft-sh/loftctl/v2/pkg/log"
+	"github.com/loft-sh/loftctl/v3/pkg/log"
 	"github.com/rhysd/go-github-selfupdate/selfupdate"
 )
 
@@ -33,6 +34,14 @@ func eraseVersionPrefix(version string) (string, error) {
 	}
 
 	return version, nil
+}
+
+func attachVersionPrefix(version string) string {
+	if !strings.HasPrefix(version, "v") {
+		version = "v" + version
+	}
+
+	return version
 }
 
 func PrintNewerVersionWarning() {
@@ -120,6 +129,8 @@ func NewerVersionAvailable() string {
 // Upgrade downloads the latest release from github and replaces loft if a new version is found
 func Upgrade(flagVersion string, log log.Logger) error {
 	if flagVersion != "" {
+		flagVersion = attachVersionPrefix(flagVersion)
+
 		release, found, err := selfupdate.DetectVersion(githubSlug, flagVersion)
 		if err != nil {
 			return errors.Wrap(err, "find version")

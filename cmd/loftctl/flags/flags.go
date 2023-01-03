@@ -1,7 +1,7 @@
 package flags
 
 import (
-	"github.com/loft-sh/loftctl/v2/pkg/client"
+	"github.com/loft-sh/loftctl/v3/pkg/client"
 	flag "github.com/spf13/pflag"
 )
 

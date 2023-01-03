@@ -192,7 +192,21 @@ func PrintKubeConfigTo(options ContextOptions, writer io.Writer) error {
 
 // PrintTokenKubeConfig writes the kube config to the os.Stdout
 func PrintTokenKubeConfig(restConfig *rest.Config, token string) error {
+	contextName, cluster, authInfo := createTokenContext(restConfig, token)
+
+	return printKubeConfigTo(contextName, cluster, authInfo, "", os.Stdout)
+}
+
+// WriteTokenKubeConfig writes the kube config to the io.Writer
+func WriteTokenKubeConfig(restConfig *rest.Config, token string, w io.Writer) error {
+	contextName, cluster, authInfo := createTokenContext(restConfig, token)
+
+	return printKubeConfigTo(contextName, cluster, authInfo, "", w)
+}
+
+func createTokenContext(restConfig *rest.Config, token string) (string, *api.Cluster, *api.AuthInfo) {
 	contextName := "default"
+
 	cluster := api.NewCluster()
 	cluster.Server = restConfig.Host
 	cluster.InsecureSkipTLSVerify = restConfig.Insecure
@@ -203,7 +217,7 @@ func PrintTokenKubeConfig(restConfig *rest.Config, token string) error {
 	authInfo := api.NewAuthInfo()
 	authInfo.Token = token
 
-	return printKubeConfigTo(contextName, cluster, authInfo, "", os.Stdout)
+	return contextName, cluster, authInfo
 }
 
 func createContext(options ContextOptions) (string, *api.Cluster, *api.AuthInfo, error) {

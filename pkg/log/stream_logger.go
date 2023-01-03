@@ -7,7 +7,7 @@ import (
 	"os"
 	"sync"
 
-	"github.com/loft-sh/loftctl/v2/pkg/survey"
+	"github.com/loft-sh/loftctl/v3/pkg/survey"
 	"github.com/sirupsen/logrus"
 )
 

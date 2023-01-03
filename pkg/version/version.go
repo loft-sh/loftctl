@@ -3,7 +3,7 @@ package version
 import (
 	"fmt"
 	"github.com/blang/semver"
-	storagev1 "github.com/loft-sh/api/v2/pkg/apis/storage/v1"
+	storagev1 "github.com/loft-sh/api/v3/pkg/apis/storage/v1"
 	"strconv"
 	"strings"
 )
@@ -20,15 +20,6 @@ func GetLatestVersion(versions storagev1.VersionsAccessor) storagev1.VersionAcce
 		parsedVersion, err := semver.Parse(strings.TrimPrefix(version.GetVersion(), "v"))
 		if err != nil {
 			continue
-		}
-
-		// special case: if the template has a 0.0.0 version, we prefer that
-		if version.GetVersion() == "0.0.0" {
-			latestVersion = &matchedVersion{
-				Object:  version,
-				Version: parsedVersion,
-			}
-			break
 		}
 
 		// latest available version

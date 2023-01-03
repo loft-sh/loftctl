@@ -1,7 +1,7 @@
 package printhelper
 
 import (
-	"github.com/loft-sh/loftctl/v2/pkg/log"
+	"github.com/loft-sh/loftctl/v3/pkg/log"
 	"github.com/mgutz/ansi"
 )
 

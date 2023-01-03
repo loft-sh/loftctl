@@ -3,14 +3,14 @@ package importcmd
 import (
 	"context"
 
-	"github.com/loft-sh/loftctl/v2/pkg/client"
-	"github.com/loft-sh/loftctl/v2/pkg/log"
+	"github.com/loft-sh/loftctl/v3/pkg/client"
+	"github.com/loft-sh/loftctl/v3/pkg/log"
 	"github.com/mgutz/ansi"
 
-	managementv1 "github.com/loft-sh/api/v2/pkg/apis/management/v1"
+	managementv1 "github.com/loft-sh/api/v3/pkg/apis/management/v1"
 
-	"github.com/loft-sh/loftctl/v2/cmd/loftctl/flags"
-	"github.com/loft-sh/loftctl/v2/pkg/upgrade"
+	"github.com/loft-sh/loftctl/v3/cmd/loftctl/flags"
+	"github.com/loft-sh/loftctl/v3/pkg/upgrade"
 	"github.com/spf13/cobra"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )

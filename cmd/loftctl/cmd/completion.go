@@ -2,8 +2,8 @@ package cmd
 
 import (
 	"bytes"
-	"github.com/loft-sh/loftctl/v2/cmd/loftctl/flags"
-	"github.com/loft-sh/loftctl/v2/pkg/log"
+	"github.com/loft-sh/loftctl/v3/cmd/loftctl/flags"
+	"github.com/loft-sh/loftctl/v3/pkg/log"
 	"github.com/spf13/cobra"
 	"os"
 	"text/template"
