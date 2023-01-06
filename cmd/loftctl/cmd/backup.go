@@ -10,6 +10,7 @@ import (
 	storagev1 "github.com/loft-sh/api/v3/pkg/apis/storage/v1"
 	loftclient "github.com/loft-sh/api/v3/pkg/client/clientset_generated/clientset"
 	"github.com/loft-sh/loftctl/v3/cmd/loftctl/flags"
+	"github.com/loft-sh/loftctl/v3/pkg/client/naming"
 	"github.com/loft-sh/loftctl/v3/pkg/clihelper"
 	"github.com/loft-sh/loftctl/v3/pkg/log"
 	"github.com/loft-sh/loftctl/v3/pkg/survey"
@@ -209,6 +210,47 @@ func (cmd *BackupCmd) Run(cobraCmd *cobra.Command, args []string) error {
 			objects = append(objects, objs...)
 		}
 	}
+	projects := []string{}
+	if contains(cmd.Skip, "projects") == false {
+		cmd.Log.Info("Backing up projects...")
+		objs, projectNames, err := backupProjects(kubeConfig)
+		if err != nil {
+			cmd.Log.Warn(errors.Wrap(err, "backup projects"))
+		} else {
+			objects = append(objects, objs...)
+		}
+
+		projects = projectNames
+	}
+	if len(projects) > 0 {
+		if contains(cmd.Skip, "virtualclusterinstances") == false {
+			cmd.Log.Info("Backing up virtualcluster instances...")
+			objs, err := backupVirtualClusterInstances(kubeConfig, projects)
+			if err != nil {
+				cmd.Log.Warn(errors.Wrap(err, "backup virtualcluster instances"))
+			} else {
+				objects = append(objects, objs...)
+			}
+		}
+		if contains(cmd.Skip, "spaceinstances") == false {
+			cmd.Log.Info("Backing up space instances...")
+			objs, err := backupSpaceInstances(kubeConfig, projects)
+			if err != nil {
+				cmd.Log.Warn(errors.Wrap(err, "backup space instances"))
+			} else {
+				objects = append(objects, objs...)
+			}
+		}
+		if contains(cmd.Skip, "projectsecrets") == false {
+			cmd.Log.Info("Backing up project secrets...")
+			objs, err := backupProjectSecrets(kubeClient, projects)
+			if err != nil {
+				cmd.Log.Warn(errors.Wrap(err, "backup project secrets"))
+			} else {
+				objects = append(objects, objs...)
+			}
+		}
+	}
 
 	// create a file
 	retString := []string{}
@@ -229,6 +271,118 @@ func (cmd *BackupCmd) Run(cobraCmd *cobra.Command, args []string) error {
 
 	cmd.Log.Donef("Wrote backup to %s", cmd.Filename)
 	return nil
+}
+
+func backupProjects(rest *rest.Config) ([]runtime.Object, []string, error) {
+	loftClient, err := loftclient.NewForConfig(rest)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	projectList, err := loftClient.StorageV1().Projects().List(context.TODO(), metav1.ListOptions{})
+	if err != nil {
+		return nil, nil, err
+	}
+
+	retList := []runtime.Object{}
+
+	projectNames := []string{}
+	for _, project := range projectList.Items {
+		u := project
+
+		err := resetMetadata(&u)
+		if err != nil {
+			return nil, nil, err
+		}
+
+		retList = append(retList, &u)
+		projectNames = append(projectNames, u.Name)
+	}
+
+	return retList, projectNames, nil
+}
+
+func backupVirtualClusterInstances(rest *rest.Config, projects []string) ([]runtime.Object, error) {
+	loftClient, err := loftclient.NewForConfig(rest)
+	if err != nil {
+		return nil, err
+	}
+
+	retList := []runtime.Object{}
+	for _, projectName := range projects {
+		virtualClusterInstanceList, err := loftClient.StorageV1().VirtualClusterInstances(naming.ProjectNamespace(projectName)).List(context.TODO(), metav1.ListOptions{})
+		if err != nil {
+			return nil, err
+		}
+
+		for _, o := range virtualClusterInstanceList.Items {
+			u := o
+			u.Status = storagev1.VirtualClusterInstanceStatus{}
+			err := resetMetadata(&u)
+			if err != nil {
+				return nil, err
+			}
+
+			retList = append(retList, &u)
+		}
+	}
+
+	return retList, nil
+}
+
+func backupSpaceInstances(rest *rest.Config, projects []string) ([]runtime.Object, error) {
+	loftClient, err := loftclient.NewForConfig(rest)
+	if err != nil {
+		return nil, err
+	}
+
+	retList := []runtime.Object{}
+	for _, projectName := range projects {
+		spaceInstanceList, err := loftClient.StorageV1().SpaceInstances(naming.ProjectNamespace(projectName)).List(context.TODO(), metav1.ListOptions{})
+		if err != nil {
+			return nil, err
+		}
+
+		for _, o := range spaceInstanceList.Items {
+			u := o
+			u.Status = storagev1.SpaceInstanceStatus{}
+			err := resetMetadata(&u)
+			if err != nil {
+				return nil, err
+			}
+
+			retList = append(retList, &u)
+		}
+	}
+
+	return retList, nil
+}
+
+func backupProjectSecrets(kubeClient kubernetes.Interface, projects []string) ([]runtime.Object, error) {
+	retList := []runtime.Object{}
+	for _, projectName := range projects {
+		secretList, err := kubeClient.CoreV1().Secrets(naming.ProjectNamespace(projectName)).List(context.TODO(), metav1.ListOptions{})
+		if err != nil {
+			return nil, err
+		}
+
+		for _, secret := range secretList.Items {
+			u := secret
+
+			if !isProjectSecret(u) {
+				continue
+			}
+
+			err := resetMetadata(&u)
+			if err != nil {
+				return nil, err
+			}
+
+			retList = append(retList, &u)
+		}
+	}
+
+	return retList, nil
 }
 
 func backupClusters(kubeClient kubernetes.Interface, rest *rest.Config) ([]runtime.Object, error) {
@@ -603,6 +757,16 @@ func contains(arr []string, s string) bool {
 			return true
 		}
 	}
+	return false
+}
+
+func isProjectSecret(secret corev1.Secret) bool {
+	for k, v := range secret.Labels {
+		if k == "loft.sh/project-secret" && v == "true" {
+			return true
+		}
+	}
+
 	return false
 }
 
