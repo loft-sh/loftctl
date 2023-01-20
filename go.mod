@@ -22,6 +22,7 @@ require (
 	go.uber.org/atomic v1.10.0
 	gopkg.in/AlecAivazis/survey.v1 v1.8.8
 	gotest.tools v2.2.0+incompatible
+	gotest.tools/v3 v3.0.3
 	k8s.io/api v0.25.4
 	k8s.io/apimachinery v0.25.4
 	k8s.io/client-go v0.25.4

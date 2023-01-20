@@ -3,20 +3,22 @@ package create
 import (
 	"context"
 	"fmt"
-	"github.com/loft-sh/loftctl/v3/pkg/client/naming"
-	"github.com/loft-sh/loftctl/v3/pkg/vcluster"
 	"io"
-	"k8s.io/apimachinery/pkg/util/wait"
 	"os"
-	client2 "sigs.k8s.io/controller-runtime/pkg/client"
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/loft-sh/loftctl/v3/pkg/client/naming"
+	"github.com/loft-sh/loftctl/v3/pkg/vcluster"
+	"k8s.io/apimachinery/pkg/util/wait"
+	client2 "sigs.k8s.io/controller-runtime/pkg/client"
 
 	clusterv1 "github.com/loft-sh/agentapi/v3/pkg/apis/loft/cluster/v1"
 	agentstoragev1 "github.com/loft-sh/agentapi/v3/pkg/apis/loft/storage/v1"
 	managementv1 "github.com/loft-sh/api/v3/pkg/apis/management/v1"
 	storagev1 "github.com/loft-sh/api/v3/pkg/apis/storage/v1"
+
 	"github.com/loft-sh/loftctl/v3/cmd/loftctl/cmd/use"
 	"github.com/loft-sh/loftctl/v3/cmd/loftctl/flags"
 	"github.com/loft-sh/loftctl/v3/pkg/client"
@@ -64,6 +66,7 @@ type VirtualClusterCmd struct {
 
 	DisplayName string
 	Description string
+	Links       []string
 
 	User string
 	Team string
@@ -125,6 +128,7 @@ devspace create vcluster test --project myproject
 
 	c.Flags().StringVar(&cmd.DisplayName, "display-name", "", "The display name to show in the UI for this virtual cluster")
 	c.Flags().StringVar(&cmd.Description, "description", "", "The description to show in the UI for this virtual cluster")
+	c.Flags().StringSliceVar(&cmd.Links, "link", []string{}, linksHelpText)
 	c.Flags().StringVar(&cmd.Cluster, "cluster", "", "The cluster to create the virtual cluster in")
 	c.Flags().StringVarP(&cmd.Project, "project", "p", "", "The project to use")
 	c.Flags().StringVar(&cmd.Space, "space", "", "The space to create the virtual cluster in")
@@ -211,19 +215,21 @@ func (cmd *VirtualClusterCmd) createVirtualCluster(baseClient client.Client, vir
 		}
 	}
 
-	// make sure we wait until virtual cluster is deleted
-	existingVirtualClusterInstance, err := managementClient.Loft().ManagementV1().VirtualClusterInstances(virtualClusterNamespace).Get(context.TODO(), virtualClusterName, metav1.GetOptions{})
+	var virtualClusterInstance *managementv1.VirtualClusterInstance
+
+	// make sure there is not existing virtual cluster
+	virtualClusterInstance, err = managementClient.Loft().ManagementV1().VirtualClusterInstances(virtualClusterNamespace).Get(context.TODO(), virtualClusterName, metav1.GetOptions{})
 	if err != nil && !kerrors.IsNotFound(err) {
 		return fmt.Errorf("couldn't retrieve virtual cluster instance: %v", err)
-	} else if err == nil && existingVirtualClusterInstance.DeletionTimestamp != nil {
+	} else if err == nil && !virtualClusterInstance.DeletionTimestamp.IsZero() {
 		cmd.Log.Infof("Waiting until virtual cluster is deleted...")
 
 		// wait until the virtual cluster instance is deleted
 		waitErr := wait.Poll(time.Second, time.Minute*5, func() (done bool, err error) {
-			existingVirtualClusterInstance, err = managementClient.Loft().ManagementV1().VirtualClusterInstances(virtualClusterNamespace).Get(context.TODO(), virtualClusterName, metav1.GetOptions{})
+			virtualClusterInstance, err = managementClient.Loft().ManagementV1().VirtualClusterInstances(virtualClusterNamespace).Get(context.TODO(), virtualClusterName, metav1.GetOptions{})
 			if err != nil && !kerrors.IsNotFound(err) {
 				return false, err
-			} else if err == nil && existingVirtualClusterInstance.DeletionTimestamp != nil {
+			} else if err == nil && virtualClusterInstance.DeletionTimestamp != nil {
 				return false, nil
 			}
 
@@ -233,18 +239,18 @@ func (cmd *VirtualClusterCmd) createVirtualCluster(baseClient client.Client, vir
 			return errors.Wrap(err, "get virtual cluster instance")
 		}
 
-		existingVirtualClusterInstance = nil
+		virtualClusterInstance = nil
 	} else if kerrors.IsNotFound(err) {
-		existingVirtualClusterInstance = nil
+		virtualClusterInstance = nil
 	}
 
 	// if the virtual cluster already exists and flag is not set, we terminate
-	if !cmd.Update && !cmd.UseExisting && existingVirtualClusterInstance != nil {
+	if !cmd.Update && !cmd.UseExisting && virtualClusterInstance != nil {
 		return fmt.Errorf("virtual cluster %s already exists in project %s", virtualClusterName, cmd.Project)
 	}
 
 	// create virtual cluster if necessary
-	if existingVirtualClusterInstance == nil {
+	if virtualClusterInstance == nil {
 		// resolve template
 		virtualClusterTemplate, resolvedParameters, err := cmd.resolveTemplate(baseClient)
 		if err != nil {
@@ -253,7 +259,7 @@ func (cmd *VirtualClusterCmd) createVirtualCluster(baseClient client.Client, vir
 
 		// create virtual cluster instance
 		zone, offset := time.Now().Zone()
-		existingVirtualClusterInstance = &managementv1.VirtualClusterInstance{
+		virtualClusterInstance = &managementv1.VirtualClusterInstance{
 			ObjectMeta: metav1.ObjectMeta{
 				Namespace: naming.ProjectNamespace(cmd.Project),
 				Name:      virtualClusterName,
@@ -280,9 +286,10 @@ func (cmd *VirtualClusterCmd) createVirtualCluster(baseClient client.Client, vir
 				},
 			},
 		}
-		// create space
+		SetCustomLinksAnnotation(virtualClusterInstance, cmd.Links)
+		// create virtualclusterinstance
 		cmd.Log.Infof("Creating virtual cluster %s in project %s with template %s...", ansi.Color(virtualClusterName, "white+b"), ansi.Color(cmd.Project, "white+b"), ansi.Color(virtualClusterTemplate.Name, "white+b"))
-		existingVirtualClusterInstance, err = managementClient.Loft().ManagementV1().VirtualClusterInstances(existingVirtualClusterInstance.Namespace).Create(context.TODO(), existingVirtualClusterInstance, metav1.CreateOptions{})
+		virtualClusterInstance, err = managementClient.Loft().ManagementV1().VirtualClusterInstances(virtualClusterInstance.Namespace).Create(context.TODO(), virtualClusterInstance, metav1.CreateOptions{})
 		if err != nil {
 			return errors.Wrap(err, "create virtual cluster")
 		}
@@ -294,24 +301,29 @@ func (cmd *VirtualClusterCmd) createVirtualCluster(baseClient client.Client, vir
 		}
 
 		// update virtual cluster instance
-		if existingVirtualClusterInstance.Spec.TemplateRef == nil {
+		if virtualClusterInstance.Spec.TemplateRef == nil {
 			return fmt.Errorf("virtual cluster instance doesn't use a template, cannot update virtual cluster")
 		}
 
+		oldVirtualCluster := virtualClusterInstance.DeepCopy()
+		templateRefChanged := virtualClusterInstance.Spec.TemplateRef.Name != virtualClusterTemplate.Name
+		paramsChanged := virtualClusterInstance.Spec.Parameters != resolvedParameters
+		versionChanged := (cmd.Version != "" && virtualClusterInstance.Spec.TemplateRef.Version != cmd.Version)
+		linksChanged := SetCustomLinksAnnotation(virtualClusterInstance, cmd.Links)
+
 		// check if update is needed
-		if existingVirtualClusterInstance.Spec.TemplateRef.Name != virtualClusterTemplate.Name || existingVirtualClusterInstance.Spec.Parameters != resolvedParameters || (cmd.Version != "" && existingVirtualClusterInstance.Spec.TemplateRef.Version != cmd.Version) {
-			oldVirtualCluster := existingVirtualClusterInstance.DeepCopy()
-			existingVirtualClusterInstance.Spec.TemplateRef.Name = virtualClusterTemplate.Name
-			existingVirtualClusterInstance.Spec.TemplateRef.Version = cmd.Version
-			existingVirtualClusterInstance.Spec.Parameters = resolvedParameters
+		if templateRefChanged || paramsChanged || versionChanged || linksChanged {
+			virtualClusterInstance.Spec.TemplateRef.Name = virtualClusterTemplate.Name
+			virtualClusterInstance.Spec.TemplateRef.Version = cmd.Version
+			virtualClusterInstance.Spec.Parameters = resolvedParameters
 
 			patch := client2.MergeFrom(oldVirtualCluster)
-			patchData, err := patch.Data(existingVirtualClusterInstance)
+			patchData, err := patch.Data(virtualClusterInstance)
 			if err != nil {
 				return errors.Wrap(err, "calculate update patch")
 			}
 			cmd.Log.Infof("Updating virtual cluster %s in project %s...", ansi.Color(virtualClusterName, "white+b"), ansi.Color(cmd.Project, "white+b"))
-			existingVirtualClusterInstance, err = managementClient.Loft().ManagementV1().VirtualClusterInstances(existingVirtualClusterInstance.Namespace).Patch(context.TODO(), existingVirtualClusterInstance.Name, patch.Type(), patchData, metav1.PatchOptions{})
+			virtualClusterInstance, err = managementClient.Loft().ManagementV1().VirtualClusterInstances(virtualClusterInstance.Namespace).Patch(context.TODO(), virtualClusterInstance.Name, patch.Type(), patchData, metav1.PatchOptions{})
 			if err != nil {
 				return errors.Wrap(err, "patch virtual cluster")
 			}
@@ -321,7 +333,7 @@ func (cmd *VirtualClusterCmd) createVirtualCluster(baseClient client.Client, vir
 	}
 
 	// wait until virtual cluster is ready
-	existingVirtualClusterInstance, err = vcluster.WaitForVirtualClusterInstance(context.TODO(), managementClient, existingVirtualClusterInstance.Namespace, existingVirtualClusterInstance.Name, !cmd.SkipWait, cmd.Log)
+	virtualClusterInstance, err = vcluster.WaitForVirtualClusterInstance(context.TODO(), managementClient, virtualClusterInstance.Namespace, virtualClusterInstance.Name, !cmd.SkipWait, cmd.Log)
 	if err != nil {
 		return err
 	}
@@ -330,7 +342,7 @@ func (cmd *VirtualClusterCmd) createVirtualCluster(baseClient client.Client, vir
 	// should we create a kube context for the space
 	if cmd.CreateContext {
 		// create kube context options
-		contextOptions, err := use.CreateVirtualClusterInstanceOptions(baseClient, cmd.Config, cmd.Project, existingVirtualClusterInstance, cmd.DisableDirectClusterEndpoint, cmd.SwitchContext, cmd.Log)
+		contextOptions, err := use.CreateVirtualClusterInstanceOptions(baseClient, cmd.Config, cmd.Project, virtualClusterInstance, cmd.DisableDirectClusterEndpoint, cmd.SwitchContext, cmd.Log)
 		if err != nil {
 			return err
 		}
@@ -615,7 +627,7 @@ func (cmd *VirtualClusterCmd) legacyCreateVirtualCluster(baseClient client.Clien
 func (cmd *VirtualClusterCmd) createSpace(ctx context.Context, baseClient client.Client, clusterClient kube.Interface, managementClient kube.Interface, vClusterTemplate *storagev1.VirtualClusterTemplateSpec, cluster *managementv1.Cluster, task *managementv1.Task) error {
 	_, err := clusterClient.Agent().ClusterV1().Spaces().Get(ctx, cmd.Space, metav1.GetOptions{})
 	if err != nil {
-		if kerrors.IsNotFound(err) == false {
+		if !kerrors.IsNotFound(err) {
 			return err
 		}
 

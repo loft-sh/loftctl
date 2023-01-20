@@ -60,6 +60,7 @@ type SpaceCmd struct {
 
 	DisplayName string
 	Description string
+	Links       []string
 
 	User string
 	Team string
@@ -116,6 +117,7 @@ devspace create space myspace --project myproject --team myteam
 
 	c.Flags().StringVar(&cmd.DisplayName, "display-name", "", "The display name to show in the UI for this space")
 	c.Flags().StringVar(&cmd.Description, "description", "", "The description to show in the UI for this space")
+	c.Flags().StringSliceVar(&cmd.Links, "link", []string{}, linksHelpText)
 	c.Flags().StringVar(&cmd.Cluster, "cluster", "", "The cluster to use")
 	c.Flags().StringVarP(&cmd.Project, "project", "p", "", "The project to use")
 	c.Flags().StringVar(&cmd.User, "user", "", "The user to create the space for")
@@ -199,19 +201,20 @@ func (cmd *SpaceCmd) createSpace(baseClient client.Client, spaceName string) err
 		}
 	}
 
+	var spaceInstance *managementv1.SpaceInstance
 	// make sure we wait until space is deleted
-	existingSpace, err := managementClient.Loft().ManagementV1().SpaceInstances(spaceNamespace).Get(context.TODO(), spaceName, metav1.GetOptions{})
+	spaceInstance, err = managementClient.Loft().ManagementV1().SpaceInstances(spaceNamespace).Get(context.TODO(), spaceName, metav1.GetOptions{})
 	if err != nil && !kerrors.IsNotFound(err) {
 		return fmt.Errorf("couldn't retrieve space instance: %v", err)
-	} else if err == nil && existingSpace.DeletionTimestamp != nil {
+	} else if err == nil && spaceInstance.DeletionTimestamp != nil {
 		cmd.Log.Infof("Waiting until space is deleted...")
 
 		// wait until the space instance is deleted
 		waitErr := wait.Poll(time.Second, time.Minute*5, func() (done bool, err error) {
-			existingSpace, err = managementClient.Loft().ManagementV1().SpaceInstances(spaceNamespace).Get(context.TODO(), spaceName, metav1.GetOptions{})
+			spaceInstance, err = managementClient.Loft().ManagementV1().SpaceInstances(spaceNamespace).Get(context.TODO(), spaceName, metav1.GetOptions{})
 			if err != nil && !kerrors.IsNotFound(err) {
 				return false, err
-			} else if err == nil && existingSpace.DeletionTimestamp != nil {
+			} else if err == nil && spaceInstance.DeletionTimestamp != nil {
 				return false, nil
 			}
 
@@ -221,18 +224,18 @@ func (cmd *SpaceCmd) createSpace(baseClient client.Client, spaceName string) err
 			return errors.Wrap(err, "get space instance")
 		}
 
-		existingSpace = nil
+		spaceInstance = nil
 	} else if kerrors.IsNotFound(err) {
-		existingSpace = nil
+		spaceInstance = nil
 	}
 
 	// if the space already exists and flag is not set, we terminate
-	if !cmd.Update && !cmd.UseExisting && existingSpace != nil {
+	if !cmd.Update && !cmd.UseExisting && spaceInstance != nil {
 		return fmt.Errorf("space %s already exists in project %s", spaceName, cmd.Project)
 	}
 
 	// create space if necessary
-	if existingSpace == nil {
+	if spaceInstance == nil {
 		// resolve template
 		spaceTemplate, resolvedParameters, err := cmd.resolveTemplate(baseClient)
 		if err != nil {
@@ -241,7 +244,7 @@ func (cmd *SpaceCmd) createSpace(baseClient client.Client, spaceName string) err
 
 		// create space instance
 		zone, offset := time.Now().Zone()
-		existingSpace = &managementv1.SpaceInstance{
+		spaceInstance = &managementv1.SpaceInstance{
 			ObjectMeta: metav1.ObjectMeta{
 				Namespace: naming.ProjectNamespace(cmd.Project),
 				Name:      spaceName,
@@ -268,9 +271,10 @@ func (cmd *SpaceCmd) createSpace(baseClient client.Client, spaceName string) err
 				},
 			},
 		}
+		SetCustomLinksAnnotation(spaceInstance, cmd.Links)
 		// create space
 		cmd.Log.Infof("Creating space %s in project %s with template %s...", ansi.Color(spaceName, "white+b"), ansi.Color(cmd.Project, "white+b"), ansi.Color(spaceTemplate.Name, "white+b"))
-		existingSpace, err = managementClient.Loft().ManagementV1().SpaceInstances(existingSpace.Namespace).Create(context.TODO(), existingSpace, metav1.CreateOptions{})
+		spaceInstance, err = managementClient.Loft().ManagementV1().SpaceInstances(spaceInstance.Namespace).Create(context.TODO(), spaceInstance, metav1.CreateOptions{})
 		if err != nil {
 			return errors.Wrap(err, "create space")
 		}
@@ -282,24 +286,30 @@ func (cmd *SpaceCmd) createSpace(baseClient client.Client, spaceName string) err
 		}
 
 		// update space instance
-		if existingSpace.Spec.TemplateRef == nil {
+		if spaceInstance.Spec.TemplateRef == nil {
 			return fmt.Errorf("space instance doesn't use a template, cannot update space")
 		}
 
+		oldSpace := spaceInstance.DeepCopy()
+
+		templateRefChanged := spaceInstance.Spec.TemplateRef.Name != spaceTemplate.Name
+		paramsChanged := spaceInstance.Spec.Parameters != resolvedParameters
+		versionChanged := (cmd.Version != "" && spaceInstance.Spec.TemplateRef.Version != cmd.Version)
+		linksChanged := SetCustomLinksAnnotation(spaceInstance, cmd.Links)
+
 		// check if update is needed
-		if existingSpace.Spec.TemplateRef.Name != spaceTemplate.Name || existingSpace.Spec.Parameters != resolvedParameters || (cmd.Version != "" && existingSpace.Spec.TemplateRef.Version != cmd.Version) {
-			oldSpace := existingSpace.DeepCopy()
-			existingSpace.Spec.TemplateRef.Name = spaceTemplate.Name
-			existingSpace.Spec.TemplateRef.Version = cmd.Version
-			existingSpace.Spec.Parameters = resolvedParameters
+		if templateRefChanged || paramsChanged || versionChanged || linksChanged {
+			spaceInstance.Spec.TemplateRef.Name = spaceTemplate.Name
+			spaceInstance.Spec.TemplateRef.Version = cmd.Version
+			spaceInstance.Spec.Parameters = resolvedParameters
 
 			patch := client2.MergeFrom(oldSpace)
-			patchData, err := patch.Data(existingSpace)
+			patchData, err := patch.Data(spaceInstance)
 			if err != nil {
 				return errors.Wrap(err, "calculate update patch")
 			}
-			cmd.Log.Infof("Updating space %s in project %s...", ansi.Color(spaceName, "white+b"), ansi.Color(cmd.Project, "white+b"))
-			existingSpace, err = managementClient.Loft().ManagementV1().SpaceInstances(existingSpace.Namespace).Patch(context.TODO(), existingSpace.Name, patch.Type(), patchData, metav1.PatchOptions{})
+			cmd.Log.Infof("Updating space %s in project %s with patch \n%s\n...", ansi.Color(spaceName, "white+b"), ansi.Color(cmd.Project, "white+b"), string(patchData))
+			spaceInstance, err = managementClient.Loft().ManagementV1().SpaceInstances(spaceInstance.Namespace).Patch(context.TODO(), spaceInstance.Name, patch.Type(), patchData, metav1.PatchOptions{})
 			if err != nil {
 				return errors.Wrap(err, "patch space")
 			}
@@ -309,7 +319,7 @@ func (cmd *SpaceCmd) createSpace(baseClient client.Client, spaceName string) err
 	}
 
 	// wait until space is ready
-	existingSpace, err = space.WaitForSpaceInstance(context.TODO(), managementClient, existingSpace.Namespace, existingSpace.Name, !cmd.SkipWait, cmd.Log)
+	spaceInstance, err = space.WaitForSpaceInstance(context.TODO(), managementClient, spaceInstance.Namespace, spaceInstance.Name, !cmd.SkipWait, cmd.Log)
 	if err != nil {
 		return err
 	}
@@ -318,7 +328,7 @@ func (cmd *SpaceCmd) createSpace(baseClient client.Client, spaceName string) err
 	// should we create a kube context for the space
 	if cmd.CreateContext {
 		// create kube context options
-		contextOptions, err := use.CreateSpaceInstanceOptions(baseClient, cmd.Config, cmd.Project, existingSpace, cmd.DisableDirectClusterEndpoint, cmd.SwitchContext, cmd.Log)
+		contextOptions, err := use.CreateSpaceInstanceOptions(baseClient, cmd.Config, cmd.Project, spaceInstance, cmd.DisableDirectClusterEndpoint, cmd.SwitchContext, cmd.Log)
 		if err != nil {
 			return err
 		}
@@ -482,6 +492,7 @@ func (cmd *SpaceCmd) legacyCreateSpace(baseClient client.Client, spaceName strin
 		if cmd.Description != "" {
 			space.Annotations["loft.sh/description"] = cmd.Description
 		}
+		SetCustomLinksAnnotation(space, cmd.Links)
 
 		zone, offset := time.Now().Zone()
 		space.Annotations[clusterv1.SleepModeTimezoneAnnotation] = zone + "#" + strconv.Itoa(offset)
