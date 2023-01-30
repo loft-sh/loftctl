@@ -9,6 +9,7 @@ import (
 
 	"github.com/loft-sh/loftctl/v3/pkg/client/naming"
 	"github.com/loft-sh/loftctl/v3/pkg/space"
+	"github.com/loft-sh/loftctl/v3/pkg/util"
 	"k8s.io/apimachinery/pkg/util/wait"
 	client2 "sigs.k8s.io/controller-runtime/pkg/client"
 
@@ -103,10 +104,10 @@ devspace create space myspace --project myproject --team myteam
 	`
 	}
 	c := &cobra.Command{
-		Use:   "space",
+		Use:   "space" + util.SpaceNameOnlyUseLine,
 		Short: "Creates a new space in the given cluster",
 		Long:  description,
-		Args:  cobra.ExactArgs(1),
+		Args:  util.SpaceNameOnlyValidator,
 		RunE: func(cobraCmd *cobra.Command, args []string) error {
 			// Check for newer version
 			upgrade.PrintNewerVersionWarning()

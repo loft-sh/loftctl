@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/loft-sh/loftctl/v3/pkg/client/naming"
+	"github.com/loft-sh/loftctl/v3/pkg/util"
 	"github.com/loft-sh/loftctl/v3/pkg/vcluster"
 	"k8s.io/apimachinery/pkg/util/wait"
 	client2 "sigs.k8s.io/controller-runtime/pkg/client"
@@ -114,10 +115,10 @@ devspace create vcluster test --project myproject
 	`
 	}
 	c := &cobra.Command{
-		Use:   "vcluster",
+		Use:   "vcluster" + util.VClusterNameOnlyUseLine,
 		Short: "Creates a new virtual cluster in the given parent cluster",
 		Long:  description,
-		Args:  cobra.ExactArgs(1),
+		Args:  util.VClusterNameOnlyValidator,
 		RunE: func(cobraCmd *cobra.Command, args []string) error {
 			// Check for newer version
 			upgrade.PrintNewerVersionWarning()

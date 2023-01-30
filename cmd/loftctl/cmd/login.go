@@ -69,8 +69,9 @@ devspace login https://my-loft.com --access-key myaccesskey
 #######################################################
 	`
 	}
+
 	loginCmd := &cobra.Command{
-		Use:   "login",
+		Use:   "login [LOFT_HOST]",
 		Short: "Login to a loft instance",
 		Long:  description,
 		Args:  cobra.MaximumNArgs(1),

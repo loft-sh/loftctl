@@ -1,6 +1,8 @@
 package util
 
-import "k8s.io/apimachinery/pkg/api/errors"
+import (
+	"k8s.io/apimachinery/pkg/api/errors"
+)
 
 func GetCause(err error) string {
 	if err == nil {

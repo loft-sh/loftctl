@@ -3,6 +3,7 @@ package share
 import (
 	"context"
 	"fmt"
+
 	storagev1 "github.com/loft-sh/agentapi/v3/pkg/apis/loft/storage/v1"
 	"github.com/loft-sh/loftctl/v3/cmd/loftctl/flags"
 	"github.com/loft-sh/loftctl/v3/pkg/client"
@@ -10,6 +11,7 @@ import (
 	"github.com/loft-sh/loftctl/v3/pkg/client/naming"
 	"github.com/loft-sh/loftctl/v3/pkg/log"
 	"github.com/loft-sh/loftctl/v3/pkg/upgrade"
+	"github.com/loft-sh/loftctl/v3/pkg/util"
 	"github.com/mgutz/ansi"
 	"github.com/spf13/cobra"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -64,10 +66,10 @@ devspace share vcluster myvcluster --project myproject --user admin
 	`
 	}
 	c := &cobra.Command{
-		Use:   "vcluster",
+		Use:   "vcluster" + util.VClusterNameOnlyUseLine,
 		Short: "Shares a vcluster with another loft user or team",
 		Long:  description,
-		Args:  cobra.MaximumNArgs(1),
+		Args:  util.VClusterNameOnlyValidator,
 		RunE: func(cobraCmd *cobra.Command, args []string) error {
 			// Check for newer version
 			upgrade.PrintNewerVersionWarning()

@@ -68,7 +68,7 @@ loft backup
 		Use:   "backup",
 		Short: "Create a loft management plane backup",
 		Long:  description,
-		Args:  cobra.MaximumNArgs(1),
+		Args:  cobra.NoArgs,
 		RunE: func(cobraCmd *cobra.Command, args []string) error {
 			return cmd.Run(cobraCmd, args)
 		},

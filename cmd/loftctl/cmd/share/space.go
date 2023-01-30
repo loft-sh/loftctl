@@ -3,6 +3,7 @@ package share
 import (
 	"context"
 	"fmt"
+
 	storagev1 "github.com/loft-sh/agentapi/v3/pkg/apis/loft/storage/v1"
 	"github.com/loft-sh/loftctl/v3/cmd/loftctl/flags"
 	"github.com/loft-sh/loftctl/v3/pkg/client"
@@ -10,6 +11,7 @@ import (
 	"github.com/loft-sh/loftctl/v3/pkg/client/naming"
 	"github.com/loft-sh/loftctl/v3/pkg/log"
 	"github.com/loft-sh/loftctl/v3/pkg/upgrade"
+	"github.com/loft-sh/loftctl/v3/pkg/util"
 	"github.com/mgutz/ansi"
 	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
@@ -65,10 +67,10 @@ devspace share space myspace --project myproject --user admin
 	`
 	}
 	c := &cobra.Command{
-		Use:   "space",
+		Use:   "space" + util.SpaceNameOnlyUseLine,
 		Short: "Shares a space with another loft user or team",
 		Long:  description,
-		Args:  cobra.MaximumNArgs(1),
+		Args:  util.SpaceNameOnlyValidator,
 		RunE: func(cobraCmd *cobra.Command, args []string) error {
 			// Check for newer version
 			upgrade.PrintNewerVersionWarning()

@@ -14,6 +14,7 @@ import (
 	"github.com/loft-sh/loftctl/v3/pkg/kubeconfig"
 	"github.com/loft-sh/loftctl/v3/pkg/log"
 	"github.com/loft-sh/loftctl/v3/pkg/upgrade"
+	"github.com/loft-sh/loftctl/v3/pkg/util"
 	"github.com/loft-sh/loftctl/v3/pkg/vcluster"
 	"github.com/mgutz/ansi"
 	"github.com/pkg/errors"
@@ -76,11 +77,12 @@ devspace use vcluster myvcluster --cluster mycluster --space myspace
 #######################################################
 	`
 	}
+	useLine, validator := util.NamedPositionalArgsValidator(false, "VCLUSTER_NAME")
 	c := &cobra.Command{
-		Use:   "vcluster",
+		Use:   "vcluster" + useLine,
 		Short: "Creates a kube context for the given virtual cluster",
 		Long:  description,
-		Args:  cobra.MaximumNArgs(1),
+		Args:  validator,
 		RunE: func(cobraCmd *cobra.Command, args []string) error {
 			// Check for newer version
 			if cmd.Print == false && cmd.PrintToken == false {

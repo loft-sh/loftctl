@@ -2,8 +2,10 @@ package delete
 
 import (
 	"context"
-	"github.com/loft-sh/loftctl/v3/pkg/client/naming"
 	"time"
+
+	"github.com/loft-sh/loftctl/v3/pkg/client/naming"
+	"github.com/loft-sh/loftctl/v3/pkg/util"
 
 	"github.com/loft-sh/loftctl/v3/cmd/loftctl/flags"
 	"github.com/loft-sh/loftctl/v3/pkg/client"
@@ -61,10 +63,10 @@ devspace delete space myspace --project myproject
 	`
 	}
 	c := &cobra.Command{
-		Use:   "space [name]",
+		Use:   "space" + util.SpaceNameOnlyUseLine,
 		Short: "Deletes a space from a cluster",
 		Long:  description,
-		Args:  cobra.ExactArgs(1),
+		Args:  util.SpaceNameOnlyValidator,
 		RunE: func(cobraCmd *cobra.Command, args []string) error {
 			// Check for newer version
 			upgrade.PrintNewerVersionWarning()

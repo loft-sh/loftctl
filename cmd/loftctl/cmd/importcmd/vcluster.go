@@ -5,6 +5,7 @@ import (
 
 	"github.com/loft-sh/loftctl/v3/pkg/client"
 	"github.com/loft-sh/loftctl/v3/pkg/log"
+	"github.com/loft-sh/loftctl/v3/pkg/util"
 	"github.com/mgutz/ansi"
 
 	managementv1 "github.com/loft-sh/api/v3/pkg/apis/management/v1"
@@ -58,10 +59,10 @@ devspace import vcluster my-vcluster --cluster connected-cluster my-vcluster \
 	`
 	}
 	c := &cobra.Command{
-		Use:   "vcluster",
+		Use:   "vcluster" + util.VClusterNameOnlyUseLine,
 		Short: "Imports a vcluster into a Loft project",
 		Long:  description,
-		Args:  cobra.ExactArgs(1),
+		Args:  util.VClusterNameOnlyValidator,
 		RunE: func(cobraCmd *cobra.Command, args []string) error {
 			// Check for newer version
 			upgrade.PrintNewerVersionWarning()

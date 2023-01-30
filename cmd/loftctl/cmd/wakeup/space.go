@@ -7,6 +7,7 @@ import (
 
 	managementv1 "github.com/loft-sh/api/v3/pkg/apis/management/v1"
 	"github.com/loft-sh/loftctl/v3/pkg/space"
+	"github.com/loft-sh/loftctl/v3/pkg/util"
 	"github.com/pkg/errors"
 	"k8s.io/apimachinery/pkg/util/wait"
 
@@ -62,10 +63,10 @@ devspace wakeup space myspace --project myproject
 	}
 
 	c := &cobra.Command{
-		Use:   "space",
+		Use:   "space" + util.SpaceNameOnlyUseLine,
 		Short: "Wakes up a space",
 		Long:  description,
-		Args:  cobra.MaximumNArgs(1),
+		Args:  util.SpaceNameOnlyValidator,
 		RunE: func(cobraCmd *cobra.Command, args []string) error {
 			return cmd.Run(args)
 		},

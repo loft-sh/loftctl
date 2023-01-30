@@ -14,6 +14,7 @@ import (
 	"github.com/loft-sh/loftctl/v3/pkg/log"
 	"github.com/loft-sh/loftctl/v3/pkg/space"
 	"github.com/loft-sh/loftctl/v3/pkg/upgrade"
+	"github.com/loft-sh/loftctl/v3/pkg/util"
 	"github.com/mgutz/ansi"
 	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
@@ -67,11 +68,12 @@ devspace use space myspace --project myproject
 #######################################################
 	`
 	}
+	useLine, validator := util.NamedPositionalArgsValidator(false, "SPACE_NAME")
 	c := &cobra.Command{
-		Use:   "space",
+		Use:   "space" + useLine,
 		Short: "Creates a kube context for the given space",
 		Long:  description,
-		Args:  cobra.MaximumNArgs(1),
+		Args:  validator,
 		RunE: func(cobraCmd *cobra.Command, args []string) error {
 			// Check for newer version
 			if cmd.Print == false {

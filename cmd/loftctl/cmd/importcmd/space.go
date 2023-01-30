@@ -5,6 +5,7 @@ import (
 
 	"github.com/loft-sh/loftctl/v3/pkg/client"
 	"github.com/loft-sh/loftctl/v3/pkg/log"
+	"github.com/loft-sh/loftctl/v3/pkg/util"
 	"github.com/mgutz/ansi"
 
 	managementv1 "github.com/loft-sh/api/v3/pkg/apis/management/v1"
@@ -57,10 +58,10 @@ devspace import space my-space --cluster connected-cluster \
 	`
 	}
 	c := &cobra.Command{
-		Use:   "space",
+		Use:   "space" + util.SpaceNameOnlyUseLine,
 		Short: "Imports a space into a Loft project",
 		Long:  description,
-		Args:  cobra.ExactArgs(1),
+		Args:  util.SpaceNameOnlyValidator,
 		RunE: func(cobraCmd *cobra.Command, args []string) error {
 			// Check for newer version
 			upgrade.PrintNewerVersionWarning()

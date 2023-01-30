@@ -10,6 +10,7 @@ import (
 	"github.com/loft-sh/loftctl/v3/pkg/client/naming"
 	"github.com/loft-sh/loftctl/v3/pkg/log"
 	"github.com/loft-sh/loftctl/v3/pkg/upgrade"
+	"github.com/loft-sh/loftctl/v3/pkg/util"
 	"github.com/loft-sh/loftctl/v3/pkg/vcluster"
 	"github.com/spf13/cobra"
 )
@@ -56,10 +57,10 @@ devspace wakeup vcluster myvcluster --project myproject
 	}
 
 	c := &cobra.Command{
-		Use:   "vcluster",
+		Use:   "vcluster" + util.VClusterNameOnlyUseLine,
 		Short: "Wake up a vcluster",
 		Long:  description,
-		Args:  cobra.MaximumNArgs(1),
+		Args:  util.VClusterNameOnlyValidator,
 		RunE: func(cobraCmd *cobra.Command, args []string) error {
 			return cmd.Run(args)
 		},

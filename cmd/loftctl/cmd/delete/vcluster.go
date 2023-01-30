@@ -2,10 +2,12 @@ package delete
 
 import (
 	"context"
+	"time"
+
 	"github.com/loft-sh/loftctl/v3/pkg/client/naming"
 	"github.com/loft-sh/loftctl/v3/pkg/constants"
 	"github.com/loft-sh/loftctl/v3/pkg/kube"
-	"time"
+	"github.com/loft-sh/loftctl/v3/pkg/util"
 
 	"github.com/loft-sh/loftctl/v3/cmd/loftctl/flags"
 	"github.com/loft-sh/loftctl/v3/pkg/client"
@@ -64,10 +66,10 @@ devspace delete vcluster myvirtualcluster --project myproject
 	`
 	}
 	c := &cobra.Command{
-		Use:   "vcluster [name]",
+		Use:   "vcluster" + util.VClusterNameOnlyUseLine,
 		Short: "Deletes a virtual cluster from a cluster",
 		Long:  description,
-		Args:  cobra.ExactArgs(1),
+		Args:  util.VClusterNameOnlyValidator,
 		RunE: func(cobraCmd *cobra.Command, args []string) error {
 			// Check for newer version
 			upgrade.PrintNewerVersionWarning()

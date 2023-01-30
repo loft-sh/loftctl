@@ -12,6 +12,7 @@ import (
 	"github.com/loft-sh/loftctl/v3/pkg/log"
 	"github.com/loft-sh/loftctl/v3/pkg/survey"
 	"github.com/loft-sh/loftctl/v3/pkg/upgrade"
+	"github.com/loft-sh/loftctl/v3/pkg/util"
 	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
@@ -66,11 +67,12 @@ devspace set secret test-secret.key value --project myproject
 #######################################################
 	`
 	}
+	useLine, validator := util.NamedPositionalArgsValidator(true, "SECRET_NAME", "SECRET_VALUE")
 	c := &cobra.Command{
-		Use:   "secret [secret.key] [value]",
+		Use:   "secret" + useLine,
 		Short: "Sets the key value of a project / shared secret",
 		Long:  description,
-		Args:  cobra.ExactArgs(2),
+		Args:  validator,
 		RunE: func(cobraCmd *cobra.Command, args []string) error {
 			return cmd.Run(cobraCmd, args)
 		},
