@@ -9,7 +9,7 @@ require (
 	github.com/evanphx/json-patch v5.6.0+incompatible
 	github.com/ghodss/yaml v1.0.0
 	github.com/k0kubun/go-ansi v0.0.0-20180517002512-3bf9e2903213
-	github.com/loft-sh/agentapi/v3 v3.0.0-20221220165844-780a717f4cf5
+	github.com/loft-sh/agentapi/v3 v3.0.0-beta.3
 	github.com/loft-sh/apiserver v0.0.0-20221118114023-11a52e0a20c2
 	github.com/mgutz/ansi v0.0.0-20200706080929-d51e80ef957d
 	github.com/mitchellh/go-homedir v1.1.0
