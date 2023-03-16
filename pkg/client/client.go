@@ -5,6 +5,7 @@ import (
 	"crypto/x509"
 	"encoding/json"
 	"fmt"
+	"github.com/blang/semver"
 	"github.com/loft-sh/loftctl/v3/pkg/client/naming"
 	"github.com/loft-sh/loftctl/v3/pkg/kubeconfig"
 	"k8s.io/utils/pointer"
@@ -487,11 +488,21 @@ func VerifyVersion(baseClient Client) error {
 		return err
 	}
 
-	major, err := strconv.Atoi(v.Major)
+	backendMajor, err := strconv.Atoi(v.Major)
 	if err != nil {
 		return errors.Wrap(err, "parse major version string")
-	} else if major == 1 {
-		return fmt.Errorf("unsupported Loft version %s. Please downgrade your CLI to below v2.0.0 to support this version, as Loft v2.0.0 and newer versions are incompatible with v1.x.x", v.Version)
+	}
+
+	cliVersionStr := upgrade.GetVersion()
+	if cliVersionStr == "" {
+		return nil
+	}
+
+	cliVersion, err := semver.Parse(cliVersionStr)
+	if int(cliVersion.Major) > backendMajor {
+		return fmt.Errorf("unsupported Loft version %[1]s. Please downgrade your CLI to below v%[2]d.0.0 to support this version, as Loft v%[2]d.0.0 and newer versions are incompatible with v%[3]d.x.x", v.Version, cliVersion.Major, backendMajor)
+	} else if int(cliVersion.Major) < backendMajor {
+		return fmt.Errorf("unsupported Loft version %[1]s. Please upgrade your CLI to v%[2]d.0.0 or above to support this version, as Loft v%[2]d.0.0 and newer versions are incompatible with v%[3]d.x.x", v.Version, backendMajor, cliVersion.Major)
 	}
 
 	return nil

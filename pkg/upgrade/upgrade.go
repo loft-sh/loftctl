@@ -46,13 +46,47 @@ func attachVersionPrefix(version string) string {
 
 func PrintNewerVersionWarning() {
 	if os.Getenv("LOFT_SKIP_VERSION_CHECK") != "true" {
-		// Get version of current binary
-		latestVersion := NewerVersionAvailable()
-		if latestVersion != "" {
-			if IsPlugin == "true" {
-				log.GetInstance().Warnf("There is a newer version of the Loft DevSpace plugin: v%s. Run `devspace update plugin loft` to upgrade to the newest version.\n", latestVersion)
+		// Get version of latest binary
+		latestVersionStr := NewerVersionAvailable()
+		if latestVersionStr != "" {
+			checkMajorVersion := true
+
+			latestVersion, err := semver.Parse(latestVersionStr)
+			if err != nil {
+				log.GetInstance().Debugf("Could not parse current version: %s", latestVersionStr)
+				checkMajorVersion = false
+			}
+
+			currentVersionStr := GetVersion()
+			if currentVersionStr == "" {
+				log.GetInstance().Debugf("Current version is not defined")
+				checkMajorVersion = false
+			}
+
+			currentVersion, err := semver.Parse(currentVersionStr)
+			if err != nil {
+				log.GetInstance().Debugf("Could not parse current version: %s", currentVersionStr)
+				checkMajorVersion = false
+			}
+
+			if checkMajorVersion {
+				if currentVersion.Major == latestVersion.Major && currentVersion.LT(latestVersion) {
+					// Same major version, but upgrade is available
+					if IsPlugin == "true" {
+						log.GetInstance().Warnf("There is a newer version of the Loft DevSpace plugin: v%s. Run `devspace update plugin loft` to upgrade to the newest version.\n", latestVersionStr)
+					} else {
+						log.GetInstance().Warnf("There is a newer version of Loft: v%s. Run `loft upgrade` to upgrade to the newest version.\n", latestVersionStr)
+					}
+				} else if currentVersion.Major == uint64(2) && latestVersion.Major == uint64(3) {
+					// Different major version, link to upgrade guide
+					log.GetInstance().Warnf("There is a newer version of Loft: v%s. Please visit https://loft.sh/docs/guides/upgrade-2-to-3 for more information on upgrading.\n", latestVersionStr)
+				}
 			} else {
-				log.GetInstance().Warnf("There is a newer version of Loft: v%s. Run `loft upgrade` to upgrade to the newest version.\n", latestVersion)
+				if IsPlugin == "true" {
+					log.GetInstance().Warnf("There is a newer version of the Loft DevSpace plugin: v%s. Run `devspace update plugin loft` to upgrade to the newest version.\n", latestVersionStr)
+				} else {
+					log.GetInstance().Warnf("There is a newer version of Loft: v%s. Run `loft upgrade` to upgrade to the newest version.\n", latestVersionStr)
+				}
 			}
 		}
 	}
