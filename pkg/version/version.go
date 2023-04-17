@@ -2,10 +2,11 @@ package version
 
 import (
 	"fmt"
-	"github.com/blang/semver"
-	storagev1 "github.com/loft-sh/api/v3/pkg/apis/storage/v1"
 	"strconv"
 	"strings"
+
+	"github.com/blang/semver"
+	storagev1 "github.com/loft-sh/api/v3/pkg/apis/storage/v1"
 )
 
 type matchedVersion struct {
@@ -54,9 +55,9 @@ func GetLatestMatchedVersion(versions storagev1.VersionsAccessor, versionPattern
 		}
 
 		// does the version match our restrictions?
-		if (splittedVersion[0] == "x" || strconv.FormatUint(parsedVersion.Major, 10) == splittedVersion[0]) &&
-			(splittedVersion[1] == "x" || strconv.FormatUint(parsedVersion.Minor, 10) == splittedVersion[1]) &&
-			(splittedVersion[2] == "x" || strconv.FormatUint(parsedVersion.Patch, 10) == splittedVersion[2]) {
+		if (splittedVersion[0] == "x" || splittedVersion[0] == "X" || strconv.FormatUint(parsedVersion.Major, 10) == splittedVersion[0]) &&
+			(splittedVersion[1] == "x" || splittedVersion[1] == "X" || strconv.FormatUint(parsedVersion.Minor, 10) == splittedVersion[1]) &&
+			(splittedVersion[2] == "x" || splittedVersion[2] == "X" || strconv.FormatUint(parsedVersion.Patch, 10) == splittedVersion[2]) {
 			if latestMatchedVersionObj == nil || latestMatchedVersionObj.Version.LT(parsedVersion) {
 				latestMatchedVersionObj = &matchedVersion{
 					Object:  version,

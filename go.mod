@@ -1,6 +1,6 @@
 module github.com/loft-sh/loftctl/v3
 
-go 1.19
+go 1.20
 
 require (
 	github.com/blang/semver v3.5.1+incompatible
@@ -9,8 +9,8 @@ require (
 	github.com/evanphx/json-patch v5.6.0+incompatible
 	github.com/ghodss/yaml v1.0.0
 	github.com/k0kubun/go-ansi v0.0.0-20180517002512-3bf9e2903213
-	github.com/loft-sh/agentapi/v3 v3.0.2
-	github.com/loft-sh/api/v3 v3.0.2
+	github.com/loft-sh/agentapi/v3 v3.0.3-beta.0
+	github.com/loft-sh/api/v3 v3.0.3-beta.0
 	github.com/loft-sh/apiserver v0.0.0-20230203091244-1225c09820b1
 	github.com/mgutz/ansi v0.0.0-20200706080929-d51e80ef957d
 	github.com/mitchellh/go-homedir v1.1.0
