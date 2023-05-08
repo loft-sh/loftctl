@@ -2,11 +2,13 @@ package helper
 
 import (
 	"context"
+	"errors"
 	"fmt"
-	"github.com/loft-sh/loftctl/v3/pkg/client/naming"
-	authorizationv1 "k8s.io/api/authorization/v1"
 	"sort"
 	"strings"
+
+	"github.com/loft-sh/loftctl/v3/pkg/client/naming"
+	authorizationv1 "k8s.io/api/authorization/v1"
 
 	clusterv1 "github.com/loft-sh/agentapi/v3/pkg/apis/loft/cluster/v1"
 	managementv1 "github.com/loft-sh/api/v3/pkg/apis/management/v1"
@@ -17,12 +19,11 @@ import (
 	"github.com/loft-sh/loftctl/v3/pkg/log"
 	"github.com/loft-sh/loftctl/v3/pkg/survey"
 	"github.com/mgutz/ansi"
-	"github.com/pkg/errors"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-var noClusterAccessErr = fmt.Errorf("the user has no access to any cluster")
+var errNnoClusterAccess = errors.New("the user has no access to any cluster")
 
 type VirtualClusterInstanceProject struct {
 	VirtualCluster *managementv1.VirtualClusterInstance
@@ -361,10 +362,10 @@ func SelectSpaceInstanceOrSpace(baseClient client.Client, spaceName, projectName
 }
 
 func SelectProjectOrCluster(baseClient client.Client, clusterName, projectName string, log log.Logger) (cluster string, project string, err error) {
-	if clusterName != "" {
-		return clusterName, "", nil
-	} else if projectName != "" {
+	if projectName != "" {
 		return "", projectName, nil
+	} else if clusterName != "" {
+		return clusterName, "", nil
 	}
 
 	managementClient, err := baseClient.Management()
@@ -385,7 +386,7 @@ func SelectProjectOrCluster(baseClient client.Client, clusterName, projectName s
 	if len(projectNames) == 0 {
 		cluster, err := SelectCluster(baseClient, log)
 		if err != nil {
-			if err == noClusterAccessErr {
+			if err == errNnoClusterAccess {
 				return "", "", fmt.Errorf("the user has no access to a project")
 			}
 
@@ -431,7 +432,7 @@ func SelectCluster(baseClient client.Client, log log.Logger) (string, error) {
 	}
 
 	if len(clusterNames) == 0 {
-		return "", noClusterAccessErr
+		return "", errNnoClusterAccess
 	} else if len(clusterNames) == 1 {
 		return clusterList.Items[0].Name, nil
 	}
@@ -529,7 +530,7 @@ func SelectClusterUserOrTeam(baseClient client.Client, clusterName, userName, te
 
 	members, err := managementClient.Loft().ManagementV1().Clusters().ListMembers(context.TODO(), clusterName, metav1.GetOptions{})
 	if err != nil {
-		return nil, errors.Wrap(err, "retrieve cluster members")
+		return nil, fmt.Errorf("retrieve cluster members: %w", err)
 	}
 
 	matchedMembers := []ClusterUserOrTeam{}
@@ -819,7 +820,7 @@ func SelectSpaceAndClusterName(baseClient client.Client, spaceName, clusterName 
 
 	currentContext, err := kubeconfig.CurrentContext()
 	if err != nil {
-		return "", "", errors.Wrap(err, "loading kubernetes config")
+		return "", "", fmt.Errorf("loading kubernetes config: %w", err)
 	}
 
 	isLoftContext, cluster, namespace, vCluster := kubeconfig.ParseContext(currentContext)
@@ -835,7 +836,7 @@ func SelectSpaceAndClusterName(baseClient client.Client, spaceName, clusterName 
 			break
 		}
 
-		if isLoftContext == true && vCluster == "" && cluster == space.Cluster && namespace == space.Space.Name {
+		if isLoftContext && vCluster == "" && cluster == space.Cluster && namespace == space.Space.Name {
 			defaultIndex = len(questionOptionsUnformatted)
 		}
 
@@ -884,7 +885,7 @@ func SelectSpaceAndClusterName(baseClient client.Client, spaceName, clusterName 
 func GetCurrentUser(ctx context.Context, managementClient kube.Interface) (*managementv1.UserInfo, *clusterv1.EntityInfo, error) {
 	self, err := managementClient.Loft().ManagementV1().Selves().Create(ctx, &managementv1.Self{}, metav1.CreateOptions{})
 	if err != nil {
-		return nil, nil, errors.Wrap(err, "get self")
+		return nil, nil, fmt.Errorf("get self: %w", err)
 	} else if self.Status.User == nil && self.Status.Team == nil {
 		return nil, nil, fmt.Errorf("no user or team name returned")
 	}
@@ -900,7 +901,7 @@ func SelectVirtualClusterAndSpaceAndClusterName(baseClient client.Client, virtua
 
 	currentContext, err := kubeconfig.CurrentContext()
 	if err != nil {
-		return "", "", "", errors.Wrap(err, "loading kubernetes config")
+		return "", "", "", fmt.Errorf("loading kubernetes config: %w", err)
 	}
 
 	isLoftContext, cluster, namespace, vCluster := kubeconfig.ParseContext(currentContext)
@@ -916,7 +917,7 @@ func SelectVirtualClusterAndSpaceAndClusterName(baseClient client.Client, virtua
 			continue
 		}
 
-		if isLoftContext == true && vCluster == virtualCluster.VirtualCluster.Name && cluster == virtualCluster.Cluster && namespace == virtualCluster.VirtualCluster.Namespace {
+		if isLoftContext && vCluster == virtualCluster.VirtualCluster.Name && cluster == virtualCluster.Cluster && namespace == virtualCluster.VirtualCluster.Namespace {
 			defaultIndex = len(questionOptionsUnformatted)
 		}
 
