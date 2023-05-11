@@ -25,18 +25,18 @@ func init() {
 // error message if the arg number doesn't match.
 // It also returns a string that can be appended to the cobra useline
 //
-// Example output for extra aruments with :
+// Example output for extra arguments with :
 //
 //	$ command arg asdf
 //	[fatal]  command ARG_1 [flags]
-//	Invalid Args: recieved 2 arguments, expected 1, extra arguments: "asdf"
+//	Invalid Args: received 2 arguments, expected 1, extra arguments: "asdf"
 //	Run with --help for more details
 //
-// Example output for misssing arguments:
+// Example output for missing arguments:
 //
 //	$ command
 //	[fatal]  command ARG_1 [flags]
-//	Invalid Args: recieved 0 arguments, expected 1, please specify missing: "ARG_!"
+//	Invalid Args: received 0 arguments, expected 1, please specify missing: "ARG_!"
 //	Run with --help for more details on arguments
 func NamedPositionalArgsValidator(failMissing bool, expectedArgs ...string) (string, cobra.PositionalArgs) {
 	return " " + strings.Join(expectedArgs, " "), func(cmd *cobra.Command, args []string) error {
@@ -47,19 +47,19 @@ func NamedPositionalArgsValidator(failMissing bool, expectedArgs ...string) (str
 		if numMissing == 0 {
 			return nil
 		}
-		// didn't recieve as many arguments as expectd
+		// didn't receive as many arguments as expected
 		if numMissing > 0 {
 			// the last numMissing expectedArgs
 			if failMissing {
 				missingKeys := strings.Join(expectedArgs[len(expectedArgs)-(numMissing):], ", ")
-				return fmt.Errorf("%s\nInvalid Args: recieved %d arguments, expected %d, please specify missing: %q\nRun with --help for more details on arguments", cmd.UseLine(), numArgs, numExpectedArgs, missingKeys)
+				return fmt.Errorf("%s\nInvalid Args: received %d arguments, expected %d, please specify missing: %q\nRun with --help for more details on arguments", cmd.UseLine(), numArgs, numExpectedArgs, missingKeys)
 			}
 			return nil
 		}
-		// recieved more than expected
+		// received more than expected
 		numExtra := -numMissing
 		// the last numExtra args
 		extraValues := strings.Join(args[len(args)-numExtra:], ", ")
-		return fmt.Errorf("%s\nInvalid Args: recieved %d arguments, expected %d, extra arguments: %q\nRun with --help for more details on arguments", cmd.UseLine(), numArgs, numExpectedArgs, extraValues)
+		return fmt.Errorf("%s\nInvalid Args: received %d arguments, expected %d, extra arguments: %q\nRun with --help for more details on arguments", cmd.UseLine(), numArgs, numExpectedArgs, extraValues)
 	}
 }

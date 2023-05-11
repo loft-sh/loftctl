@@ -11,7 +11,7 @@ const (
 	// LoftCustomLinksAnnotation is applied to enumerates associated links to external websites
 	LoftCustomLinksAnnotation = "loft.sh/custom-links"
 
-	// LoftCustomLinksDelimiter is the seperator for the values of the custom links annotation
+	// LoftCustomLinksDelimiter is the separator for the values of the custom links annotation
 	LoftCustomLinksDelimiter = "\n"
 )
 

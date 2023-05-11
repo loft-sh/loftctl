@@ -5,13 +5,14 @@ import (
 	"context"
 	"crypto/tls"
 	"fmt"
-	"k8s.io/kubectl/pkg/util/term"
 	"net/http"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"regexp"
 	"time"
+
+	"k8s.io/kubectl/pkg/util/term"
 
 	"github.com/loft-sh/loftctl/v3/pkg/clihelper"
 	"github.com/loft-sh/loftctl/v3/pkg/printhelper"
@@ -32,7 +33,7 @@ import (
 	"k8s.io/client-go/tools/clientcmd"
 )
 
-var emailRegex = regexp.MustCompile("^[^@]+@[^\\.]+\\..+$")
+var emailRegex = regexp.MustCompile(`^[^@]+@[^\.]+\..+$`)
 
 // StartCmd holds the cmd flags
 type StartCmd struct {
@@ -80,7 +81,7 @@ func NewStartCmd(globalFlags *flags.GlobalFlags) *cobra.Command {
 Starts a loft instance in your Kubernetes cluster and
 then establishes a port-forwarding connection.
 
-Please make sure you meet the following requirements 
+Please make sure you meet the following requirements
 before running this command:
 
 1. Current kube-context has admin access to the cluster
@@ -211,7 +212,7 @@ func (cmd *StartCmd) prepare() error {
 	// load the raw config
 	kubeConfig, err := kubeClientConfig.RawConfig()
 	if err != nil {
-		return fmt.Errorf("there is an error loading your current kube config (%v), please make sure you have access to a kubernetes cluster and the command `kubectl get namespaces` is working", err)
+		return fmt.Errorf("there is an error loading your current kube config (%w), please make sure you have access to a kubernetes cluster and the command `kubectl get namespaces` is working", err)
 	}
 
 	// we switch the context to the install config
@@ -254,22 +255,22 @@ func (cmd *StartCmd) prepare() error {
 
 	output, err = exec.Command("kubectl", "version", "--context", contextToLoad).CombinedOutput()
 	if err != nil {
-		return fmt.Errorf("Seems like kubectl cannot connect to your Kubernetes cluster: \n\n%s", output)
+		return fmt.Errorf("seems like kubectl cannot connect to your Kubernetes cluster: \n\n%s", output)
 	}
 
 	cmd.RestConfig, err = kubeClientConfig.ClientConfig()
 	if err != nil {
-		return fmt.Errorf("there is an error loading your current kube config (%v), please make sure you have access to a kubernetes cluster and the command `kubectl get namespaces` is working", err)
+		return fmt.Errorf("there is an error loading your current kube config (%w), please make sure you have access to a kubernetes cluster and the command `kubectl get namespaces` is working", err)
 	}
 	cmd.KubeClient, err = kubernetes.NewForConfig(cmd.RestConfig)
 	if err != nil {
-		return fmt.Errorf("there is an error loading your current kube config (%v), please make sure you have access to a kubernetes cluster and the command `kubectl get namespaces` is working", err)
+		return fmt.Errorf("there is an error loading your current kube config (%w), please make sure you have access to a kubernetes cluster and the command `kubectl get namespaces` is working", err)
 	}
 
 	// Check if cluster has RBAC correctly configured
 	_, err = cmd.KubeClient.RbacV1().ClusterRoles().Get(context.Background(), "cluster-admin", metav1.GetOptions{})
 	if err != nil {
-		return fmt.Errorf("error retrieving cluster role 'cluster-admin': %v. Please make sure RBAC is correctly configured in your cluster", err)
+		return fmt.Errorf("error retrieving cluster role 'cluster-admin': %w. Please make sure RBAC is correctly configured in your cluster", err)
 	}
 
 	return nil
@@ -279,7 +280,7 @@ func (cmd *StartCmd) handleAlreadyExistingInstallation() error {
 	enableIngress := false
 
 	// Only ask if ingress should be enabled if --upgrade flag is not provided
-	if cmd.Upgrade == false && term.IsTerminal(os.Stdin) {
+	if !cmd.Upgrade && term.IsTerminal(os.Stdin) {
 		cmd.Log.Info("Existing Loft instance found.")
 
 		// Check if Loft is installed in a local cluster
@@ -412,7 +413,7 @@ func (cmd *StartCmd) upgradeLoft(email string) error {
 	}
 
 	// Do not use --reuse-values if --reset flag is provided because this should be a new install and it will cause issues with `helm template`
-	if cmd.Reset == false && cmd.ReuseValues {
+	if !cmd.Reset && cmd.ReuseValues {
 		extraArgs = append(extraArgs, "--reuse-values")
 	}
 
@@ -433,7 +434,7 @@ func (cmd *StartCmd) upgradeLoft(email string) error {
 
 	err := clihelper.UpgradeLoft(chartName, chartRepo, cmd.Context, cmd.Namespace, extraArgs, cmd.Log)
 	if err != nil {
-		if cmd.Reset == false {
+		if !cmd.Reset {
 			return errors.New(err.Error() + fmt.Sprintf("\n\nIf want to purge and reinstall Loft, run: %s\n", ansi.Color("loft start --reset", "green+b")))
 		}
 
@@ -454,10 +455,8 @@ func (cmd *StartCmd) upgradeLoft(email string) error {
 		kubectlDelete.Stdout = os.Stdout
 		kubectlDelete.Stderr = os.Stderr
 
-		err = kubectlDelete.Run()
-		if err != nil {
-			// Ignoring potential errors here
-		}
+		// Ignoring potential errors here
+		_ = kubectlDelete.Run()
 
 		// Retry Loft installation
 		err = clihelper.UpgradeLoft(chartName, chartRepo, cmd.Context, cmd.Namespace, extraArgs, cmd.Log)
@@ -505,7 +504,7 @@ func (cmd *StartCmd) success() error {
 
 	// check if loft is reachable
 	reachable, err := clihelper.IsLoftReachable(host)
-	if reachable == false || err != nil {
+	if !reachable || err != nil {
 		const (
 			YesOption = "Yes"
 			NoOption  = "No, please re-run the DNS check"

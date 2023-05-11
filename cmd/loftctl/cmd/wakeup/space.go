@@ -144,7 +144,7 @@ func (cmd *SpaceCmd) legacySpaceWakeUp(baseClient client.Client, spaceName strin
 	sleepModeConfig.Spec.ForceSleepDuration = nil
 	sleepModeConfig.Status.LastActivity = time.Now().Unix()
 
-	sleepModeConfig, err = clusterClient.Agent().ClusterV1().SleepModeConfigs(spaceName).Create(context.TODO(), sleepModeConfig, metav1.CreateOptions{})
+	_, err = clusterClient.Agent().ClusterV1().SleepModeConfigs(spaceName).Create(context.TODO(), sleepModeConfig, metav1.CreateOptions{})
 	if err != nil {
 		return err
 	}
@@ -161,7 +161,7 @@ func (cmd *SpaceCmd) legacySpaceWakeUp(baseClient client.Client, spaceName strin
 		return configs.Items[0].Status.SleepingSince == 0, nil
 	})
 	if err != nil {
-		return fmt.Errorf("error waiting for space to wake up: %v", err)
+		return fmt.Errorf("error waiting for space to wake up: %w", err)
 	}
 
 	cmd.Log.Donef("Successfully woken up space %s", spaceName)

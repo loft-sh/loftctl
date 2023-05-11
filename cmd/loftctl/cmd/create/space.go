@@ -192,12 +192,12 @@ func (cmd *SpaceCmd) createSpace(baseClient client.Client, spaceName string) err
 	if cmd.Recreate {
 		_, err := managementClient.Loft().ManagementV1().SpaceInstances(spaceNamespace).Get(context.TODO(), spaceName, metav1.GetOptions{})
 		if err != nil && !kerrors.IsNotFound(err) {
-			return fmt.Errorf("couldn't retrieve space instance: %v", err)
+			return fmt.Errorf("couldn't retrieve space instance: %w", err)
 		} else if err == nil {
 			// delete the space
 			err = managementClient.Loft().ManagementV1().SpaceInstances(spaceNamespace).Delete(context.TODO(), spaceName, metav1.DeleteOptions{})
 			if err != nil && !kerrors.IsNotFound(err) {
-				return fmt.Errorf("couldn't delete space instance: %v", err)
+				return fmt.Errorf("couldn't delete space instance: %w", err)
 			}
 		}
 	}
@@ -206,7 +206,7 @@ func (cmd *SpaceCmd) createSpace(baseClient client.Client, spaceName string) err
 	// make sure we wait until space is deleted
 	spaceInstance, err = managementClient.Loft().ManagementV1().SpaceInstances(spaceNamespace).Get(context.TODO(), spaceName, metav1.GetOptions{})
 	if err != nil && !kerrors.IsNotFound(err) {
-		return fmt.Errorf("couldn't retrieve space instance: %v", err)
+		return fmt.Errorf("couldn't retrieve space instance: %w", err)
 	} else if err == nil && spaceInstance.DeletionTimestamp != nil {
 		cmd.Log.Infof("Waiting until space is deleted...")
 

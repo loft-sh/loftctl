@@ -2,11 +2,12 @@ package vars
 
 import (
 	"fmt"
+	"os"
+	"strings"
+
 	"github.com/loft-sh/loftctl/v3/cmd/loftctl/flags"
 	"github.com/spf13/cobra"
 	"k8s.io/client-go/tools/clientcmd"
-	"os"
-	"strings"
 )
 
 type clusterCmd struct {

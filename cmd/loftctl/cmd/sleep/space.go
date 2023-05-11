@@ -139,7 +139,7 @@ func (cmd *SpaceCmd) sleepSpace(baseClient client.Client, spaceName string) erro
 		return spaceInstance.Status.Phase == storagev1.InstanceSleeping, nil
 	})
 	if err != nil {
-		return fmt.Errorf("error waiting for space to start sleeping: %v", err)
+		return fmt.Errorf("error waiting for space to start sleeping: %w", err)
 	}
 
 	cmd.Log.Donef("Successfully put space %s to sleep", spaceName)
@@ -163,7 +163,7 @@ func (cmd *SpaceCmd) legacySleepSpace(baseClient client.Client, spaceName string
 		sleepModeConfig.Spec.ForceSleepDuration = &cmd.ForceDuration
 	}
 
-	sleepModeConfig, err = clusterClient.Agent().ClusterV1().SleepModeConfigs(spaceName).Create(context.TODO(), sleepModeConfig, metav1.CreateOptions{})
+	_, err = clusterClient.Agent().ClusterV1().SleepModeConfigs(spaceName).Create(context.TODO(), sleepModeConfig, metav1.CreateOptions{})
 	if err != nil {
 		return err
 	}
@@ -180,7 +180,7 @@ func (cmd *SpaceCmd) legacySleepSpace(baseClient client.Client, spaceName string
 		return configs.Items[0].Status.SleepingSince != 0, nil
 	})
 	if err != nil {
-		return fmt.Errorf("error waiting for space to start sleeping: %v", err)
+		return fmt.Errorf("error waiting for space to start sleeping: %w", err)
 	}
 
 	cmd.Log.Donef("Successfully put space %s to sleep", spaceName)

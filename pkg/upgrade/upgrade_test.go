@@ -1,10 +1,11 @@
 package upgrade
 
 import (
-	"github.com/loft-sh/loftctl/v3/pkg/log"
 	"os"
 	"strings"
 	"testing"
+
+	"github.com/loft-sh/loftctl/v3/pkg/log"
 
 	"github.com/rhysd/go-github-selfupdate/selfupdate"
 

@@ -120,7 +120,7 @@ func (cmd *LoginCmd) RunLogin(args []string) error {
 		url = args[0]
 	}
 
-	if strings.HasPrefix(url, "http") == false {
+	if !strings.HasPrefix(url, "http") {
 		url = "https://" + url
 	}
 
@@ -137,7 +137,7 @@ func (cmd *LoginCmd) RunLogin(args []string) error {
 	cmd.Log.Donef("Successfully logged into Loft instance %s", ansi.Color(url, "white+b"))
 
 	// skip log into docker registries?
-	if cmd.DockerLogin == false {
+	if !cmd.DockerLogin {
 		return nil
 	}
 

@@ -74,8 +74,8 @@ devspace import space my-space --cluster connected-cluster \
 	c.Flags().StringVar(&cmd.Project, "project", "", "The project to import the space into")
 	c.Flags().StringVar(&cmd.ImportName, "importname", "", "The name of the space under projects. If unspecified, will use the space name")
 
-	c.MarkFlagRequired("cluster")
-	c.MarkFlagRequired("project")
+	_ = c.MarkFlagRequired("cluster")
+	_ = c.MarkFlagRequired("project")
 
 	return c
 }

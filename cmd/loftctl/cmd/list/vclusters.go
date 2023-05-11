@@ -1,6 +1,8 @@
 package list
 
 import (
+	"time"
+
 	"github.com/loft-sh/loftctl/v3/cmd/loftctl/flags"
 	"github.com/loft-sh/loftctl/v3/pkg/client"
 	"github.com/loft-sh/loftctl/v3/pkg/client/helper"
@@ -9,7 +11,6 @@ import (
 	"github.com/loft-sh/loftctl/v3/pkg/upgrade"
 	"github.com/spf13/cobra"
 	"k8s.io/apimachinery/pkg/util/duration"
-	"time"
 )
 
 // VirtualClustersCmd holds the data
@@ -90,7 +91,7 @@ func (cmd *VirtualClustersCmd) Run() error {
 			virtualCluster.VirtualClusterInstance.Spec.ClusterRef.Cluster,
 			virtualCluster.VirtualClusterInstance.Spec.ClusterRef.Namespace,
 			string(virtualCluster.VirtualClusterInstance.Status.Phase),
-			duration.HumanDuration(time.Now().Sub(virtualCluster.VirtualClusterInstance.CreationTimestamp.Time)),
+			duration.HumanDuration(time.Since(virtualCluster.VirtualClusterInstance.CreationTimestamp.Time)),
 		})
 	}
 	if len(virtualClusterInstances) == 0 || cmd.ShowLegacy {
@@ -114,7 +115,7 @@ func (cmd *VirtualClustersCmd) Run() error {
 				virtualCluster.Cluster,
 				virtualCluster.VirtualCluster.Namespace,
 				status,
-				duration.HumanDuration(time.Now().Sub(virtualCluster.VirtualCluster.CreationTimestamp.Time)),
+				duration.HumanDuration(time.Since(virtualCluster.VirtualCluster.CreationTimestamp.Time)),
 			})
 		}
 	}

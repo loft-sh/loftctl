@@ -46,7 +46,7 @@ func NewPasswordCmd(globalFlags *flags.GlobalFlags) *cobra.Command {
 Resets the password of a user.
 
 Example:
-loft reset password 
+loft reset password
 loft reset password --user admin
 #######################################################
 	`
@@ -58,7 +58,7 @@ loft reset password --user admin
 Resets the password of a user.
 
 Example:
-devspace reset password 
+devspace reset password
 devspace reset password --user admin
 #######################################################
 	`
@@ -99,7 +99,7 @@ func (cmd *PasswordCmd) Run() error {
 		return errors.Wrap(err, "get user")
 	} else if kerrors.IsNotFound(err) {
 		// create user
-		if cmd.Create == false {
+		if !cmd.Create {
 			return fmt.Errorf("user %s was not found, run with '--create' to create this user automatically", cmd.User)
 		}
 
@@ -127,7 +127,7 @@ func (cmd *PasswordCmd) Run() error {
 
 	// check if user had a password before
 	if user.Spec.PasswordRef == nil || user.Spec.PasswordRef.SecretName == "" || user.Spec.PasswordRef.SecretNamespace == "" || user.Spec.PasswordRef.Key == "" {
-		if cmd.Force == false {
+		if !cmd.Force {
 			return fmt.Errorf("user %s had no password. If you want to force password creation, please run with the '--force' flag", cmd.User)
 		}
 
@@ -165,7 +165,7 @@ func (cmd *PasswordCmd) Run() error {
 
 	// check if secret exists
 	passwordSecret, err := managementClient.CoreV1().Secrets(user.Spec.PasswordRef.SecretNamespace).Get(context.Background(), user.Spec.PasswordRef.SecretName, metav1.GetOptions{})
-	if err != nil && kerrors.IsNotFound(err) == false {
+	if err != nil && !kerrors.IsNotFound(err) {
 		return err
 	} else if kerrors.IsNotFound(err) {
 		_, err = managementClient.CoreV1().Secrets(user.Spec.PasswordRef.SecretNamespace).Create(context.Background(), &corev1.Secret{

@@ -91,8 +91,8 @@ func (s *stdoutLogger) writeMessage(fnType logFunctionType, message string) {
 			s.loadingText.Stop()
 		}
 
-		fnInformation.stream.Write([]byte(ansi.Color(fnInformation.tag, fnInformation.color)))
-		fnInformation.stream.Write([]byte(message))
+		_, _ = fnInformation.stream.Write([]byte(ansi.Color(fnInformation.tag, fnInformation.color)))
+		_, _ = fnInformation.stream.Write([]byte(message))
 
 		if s.loadingText != nil && fnType != fatalFn {
 			s.loadingText.Start()
@@ -357,6 +357,8 @@ func (s *stdoutLogger) Print(level logrus.Level, args ...interface{}) {
 		s.Panic(args...)
 	case logrus.FatalLevel:
 		s.Fatal(args...)
+	case logrus.TraceLevel:
+		s.Debug(args...)
 	}
 }
 
@@ -374,6 +376,8 @@ func (s *stdoutLogger) Printf(level logrus.Level, format string, args ...interfa
 		s.Panicf(format, args...)
 	case logrus.FatalLevel:
 		s.Fatalf(format, args...)
+	case logrus.TraceLevel:
+		s.Debugf(format, args...)
 	}
 }
 
@@ -421,7 +425,7 @@ func (s *stdoutLogger) WriteString(message string) {
 			s.loadingText.Stop()
 		}
 
-		fnTypeInformationMap[infoFn].stream.Write([]byte(message))
+		_, _ = fnTypeInformationMap[infoFn].stream.Write([]byte(message))
 
 		if s.loadingText != nil {
 			s.loadingText.Start()

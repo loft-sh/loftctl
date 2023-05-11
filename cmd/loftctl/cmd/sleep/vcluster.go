@@ -137,7 +137,7 @@ func (cmd *VClusterCmd) sleepVCluster(baseClient client.Client, vClusterName str
 		return virtualClusterInstance.Status.Phase == storagev1.InstanceSleeping, nil
 	})
 	if err != nil {
-		return fmt.Errorf("error waiting for vcluster to start sleeping: %v", err)
+		return fmt.Errorf("error waiting for vcluster to start sleeping: %w", err)
 	}
 
 	cmd.Log.Donef("Successfully put vcluster %s to sleep", vClusterName)

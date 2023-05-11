@@ -1,9 +1,10 @@
 package docker
 
 import (
-	"github.com/docker/docker/pkg/homedir"
 	"os"
 	"path/filepath"
+
+	"github.com/docker/docker/pkg/homedir"
 
 	dockerconfig "github.com/docker/cli/cli/config"
 	"github.com/docker/cli/cli/config/configfile"
@@ -63,4 +64,3 @@ func loadDockerConfig() (*configfile.ConfigFile, error) {
 
 	return dockerconfig.Load(configDir)
 }
-

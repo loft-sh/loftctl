@@ -140,7 +140,7 @@ func (cmd *SecretCmd) Run(cobraCmd *cobra.Command, args []string) error {
 func (cmd *SecretCmd) setProjectSecret(managementClient kube.Interface, args []string, namespace, secretName, keyName string) error {
 	secret, err := managementClient.Loft().ManagementV1().ProjectSecrets(namespace).Get(context.TODO(), secretName, metav1.GetOptions{})
 	if err != nil {
-		if kerrors.IsNotFound(err) == false {
+		if !kerrors.IsNotFound(err) {
 			return errors.Wrap(err, "get secret")
 		}
 
@@ -207,7 +207,7 @@ func (cmd *SecretCmd) setProjectSecret(managementClient kube.Interface, args []s
 func (cmd *SecretCmd) setSharedSecret(managementClient kube.Interface, args []string, namespace, secretName, keyName string) error {
 	secret, err := managementClient.Loft().ManagementV1().SharedSecrets(namespace).Get(context.TODO(), secretName, metav1.GetOptions{})
 	if err != nil {
-		if kerrors.IsNotFound(err) == false {
+		if !kerrors.IsNotFound(err) {
 			return errors.Wrap(err, "get secret")
 		}
 

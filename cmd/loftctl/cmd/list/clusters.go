@@ -2,6 +2,8 @@ package list
 
 import (
 	"context"
+	"time"
+
 	"github.com/loft-sh/loftctl/v3/cmd/loftctl/flags"
 	"github.com/loft-sh/loftctl/v3/pkg/client"
 	"github.com/loft-sh/loftctl/v3/pkg/log"
@@ -9,7 +11,6 @@ import (
 	"github.com/spf13/cobra"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/duration"
-	"time"
 )
 
 // ClustersCmd holds the login cmd flags
@@ -85,7 +86,7 @@ func (cmd *ClustersCmd) RunClusters() error {
 	for _, cluster := range clusterList.Items {
 		values = append(values, []string{
 			cluster.Name,
-			duration.HumanDuration(time.Now().Sub(cluster.CreationTimestamp.Time)),
+			duration.HumanDuration(time.Since(cluster.CreationTimestamp.Time)),
 		})
 	}
 

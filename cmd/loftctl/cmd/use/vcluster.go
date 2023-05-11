@@ -56,10 +56,10 @@ func NewVirtualClusterCmd(globalFlags *flags.GlobalFlags) *cobra.Command {
 Creates a new kube context for the given virtual cluster.
 
 Example:
-loft use vcluster 
+loft use vcluster
 loft use vcluster myvcluster
 loft use vcluster myvcluster --cluster mycluster
-loft use vcluster myvcluster --cluster mycluster --space myspace 
+loft use vcluster myvcluster --cluster mycluster --space myspace
 #######################################################
 	`
 	if upgrade.IsPlugin == "true" {
@@ -70,10 +70,10 @@ loft use vcluster myvcluster --cluster mycluster --space myspace
 Creates a new kube context for the given virtual cluster.
 
 Example:
-devspace use vcluster 
+devspace use vcluster
 devspace use vcluster myvcluster
 devspace use vcluster myvcluster --cluster mycluster
-devspace use vcluster myvcluster --cluster mycluster --space myspace 
+devspace use vcluster myvcluster --cluster mycluster --space myspace
 #######################################################
 	`
 	}
@@ -85,7 +85,7 @@ devspace use vcluster myvcluster --cluster mycluster --space myspace
 		Args:  validator,
 		RunE: func(cobraCmd *cobra.Command, args []string) error {
 			// Check for newer version
-			if cmd.Print == false && cmd.PrintToken == false {
+			if !cmd.Print && !cmd.PrintToken {
 				upgrade.PrintNewerVersionWarning()
 			}
 
@@ -192,11 +192,11 @@ func CreateVirtualClusterInstanceOptions(baseClient client.Client, config string
 		contextOptions.InsecureSkipTLSVerify = true
 		contextOptions.VirtualClusterAccessPointEnabled = true
 	} else {
-		if disableClusterGateway == false && cluster.Annotations != nil && cluster.Annotations[LoftDirectClusterEndpoint] != "" {
+		if !disableClusterGateway && cluster.Annotations != nil && cluster.Annotations[LoftDirectClusterEndpoint] != "" {
 			contextOptions = ApplyDirectClusterEndpointOptions(contextOptions, cluster, "/kubernetes/project/"+projectName+"/virtualcluster/"+virtualClusterInstance.Name, log)
 			_, err := baseClient.DirectClusterEndpointToken(true)
 			if err != nil {
-				return kubeconfig.ContextOptions{}, fmt.Errorf("retrieving direct cluster endpoint token: %v. Use --disable-direct-cluster-endpoint to create a context without using direct cluster endpoints", err)
+				return kubeconfig.ContextOptions{}, fmt.Errorf("retrieving direct cluster endpoint token: %w. Use --disable-direct-cluster-endpoint to create a context without using direct cluster endpoints", err)
 			}
 		} else {
 			contextOptions.Server = baseClient.Config().Host + "/kubernetes/project/" + projectName + "/virtualcluster/" + virtualClusterInstance.Name
@@ -229,7 +229,7 @@ func (cmd *VirtualClusterCmd) legacyUseVirtualCluster(baseClient client.Client, 
 	}
 
 	// get token for virtual cluster
-	if cmd.Print == false && cmd.PrintToken == false {
+	if !cmd.Print && !cmd.PrintToken {
 		cmd.Log.StartWait("Waiting for virtual cluster to become ready...")
 	}
 	err = vcluster.WaitForVCluster(context.TODO(), baseClient, cmd.Cluster, cmd.Space, virtualClusterName, cmd.Log)
@@ -269,11 +269,11 @@ func CreateVClusterContextOptions(baseClient client.Client, config string, clust
 		ConfigPath: config,
 		SetActive:  setActive,
 	}
-	if disableClusterGateway == false && cluster.Annotations != nil && cluster.Annotations[LoftDirectClusterEndpoint] != "" {
+	if !disableClusterGateway && cluster.Annotations != nil && cluster.Annotations[LoftDirectClusterEndpoint] != "" {
 		contextOptions = ApplyDirectClusterEndpointOptions(contextOptions, cluster, "/kubernetes/virtualcluster/"+spaceName+"/"+virtualClusterName, log)
 		_, err := baseClient.DirectClusterEndpointToken(true)
 		if err != nil {
-			return kubeconfig.ContextOptions{}, fmt.Errorf("retrieving direct cluster endpoint token: %v. Use --disable-direct-cluster-endpoint to create a context without using direct cluster endpoints", err)
+			return kubeconfig.ContextOptions{}, fmt.Errorf("retrieving direct cluster endpoint token: %w. Use --disable-direct-cluster-endpoint to create a context without using direct cluster endpoints", err)
 		}
 	} else {
 		contextOptions.Server = baseClient.Config().Host + "/kubernetes/virtualcluster/" + cluster.Name + "/" + spaceName + "/" + virtualClusterName

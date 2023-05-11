@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	storagev1 "github.com/loft-sh/agentapi/v3/pkg/apis/loft/storage/v1"
+	agentstoragev1 "github.com/loft-sh/agentapi/v3/pkg/apis/loft/storage/v1"
 	"github.com/loft-sh/loftctl/v3/cmd/loftctl/flags"
 	"github.com/loft-sh/loftctl/v3/pkg/client"
 	"github.com/loft-sh/loftctl/v3/pkg/client/helper"
@@ -41,7 +41,7 @@ func NewVClusterCmd(globalFlags *flags.GlobalFlags) *cobra.Command {
 #######################################################
 ################# loft share vcluster #################
 #######################################################
-Shares a vcluster with another loft user or team. The 
+Shares a vcluster with another loft user or team. The
 user or team need to have access to the cluster.
 
 Example:
@@ -55,7 +55,7 @@ loft share vcluster myvcluster --cluster mycluster --user admin
 #######################################################
 ############### devspace share vcluster ###############
 #######################################################
-Shares a vcluster with another loft user or team. The 
+Shares a vcluster with another loft user or team. The
 user or team need to have access to the cluster.
 
 Example:
@@ -122,7 +122,7 @@ func (cmd *VClusterCmd) shareVCluster(baseClient client.Client, vClusterName str
 		return err
 	}
 
-	accessRule := storagev1.InstanceAccessRule{
+	accessRule := agentstoragev1.InstanceAccessRule{
 		ClusterRole: cmd.ClusterRole,
 	}
 	if cmd.User != "" {
@@ -157,7 +157,7 @@ func (cmd *VClusterCmd) legacyShareVCluster(baseClient client.Client, vClusterNa
 		return err
 	}
 
-	if userOrTeam.Team == false {
+	if !userOrTeam.Team {
 		cmd.Log.Donef("Successfully granted user %s access to vcluster %s", ansi.Color(userOrTeam.ClusterMember.Info.Name, "white+b"), ansi.Color(vClusterName, "white+b"))
 		cmd.Log.Infof("The user can access the vcluster now via: %s", ansi.Color(fmt.Sprintf("loft use vcluster %s --space %s --cluster %s", vClusterName, cmd.Space, cmd.Cluster), "white+b"))
 	} else {

@@ -49,7 +49,7 @@ func NewSpaceCmd(globalFlags *flags.GlobalFlags) *cobra.Command {
 Creates a new kube context for the given space.
 
 Example:
-loft use space 
+loft use space
 loft use space myspace
 loft use space myspace --project myproject
 #######################################################
@@ -62,7 +62,7 @@ loft use space myspace --project myproject
 Creates a new kube context for the given space.
 
 Example:
-devspace use space 
+devspace use space
 devspace use space myspace
 devspace use space myspace --project myproject
 #######################################################
@@ -76,7 +76,7 @@ devspace use space myspace --project myproject
 		Args:  validator,
 		RunE: func(cobraCmd *cobra.Command, args []string) error {
 			// Check for newer version
-			if cmd.Print == false {
+			if !cmd.Print {
 				upgrade.PrintNewerVersionWarning()
 			}
 
@@ -211,11 +211,11 @@ func CreateSpaceInstanceOptions(baseClient client.Client, config string, project
 		CurrentNamespace: spaceInstance.Spec.ClusterRef.Namespace,
 		SetActive:        setActive,
 	}
-	if disableClusterGateway == false && cluster.Annotations != nil && cluster.Annotations[LoftDirectClusterEndpoint] != "" {
+	if !disableClusterGateway && cluster.Annotations != nil && cluster.Annotations[LoftDirectClusterEndpoint] != "" {
 		contextOptions = ApplyDirectClusterEndpointOptions(contextOptions, cluster, "/kubernetes/project/"+projectName+"/space/"+spaceInstance.Name, log)
 		_, err := baseClient.DirectClusterEndpointToken(true)
 		if err != nil {
-			return kubeconfig.ContextOptions{}, fmt.Errorf("retrieving direct cluster endpoint token: %v. Use --disable-direct-cluster-endpoint to create a context without using direct cluster endpoints", err)
+			return kubeconfig.ContextOptions{}, fmt.Errorf("retrieving direct cluster endpoint token: %w. Use --disable-direct-cluster-endpoint to create a context without using direct cluster endpoints", err)
 		}
 	} else {
 		contextOptions.Server = baseClient.Config().Host + "/kubernetes/project/" + projectName + "/space/" + spaceInstance.Name

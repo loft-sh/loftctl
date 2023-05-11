@@ -91,7 +91,7 @@ func NewVirtualClusterCmd(globalFlags *flags.GlobalFlags) *cobra.Command {
 ################ loft create vcluster #################
 #######################################################
 Creates a new virtual cluster in a given space and
-cluster. If no space or cluster is specified the user 
+cluster. If no space or cluster is specified the user
 will be asked.
 
 Example:
@@ -105,7 +105,7 @@ loft create vcluster test --project myproject
 ############## devspace create vcluster ###############
 #######################################################
 Creates a new virtual cluster in a given space and
-cluster. If no space or cluster is specified the user 
+cluster. If no space or cluster is specified the user
 will be asked.
 
 Example:
@@ -206,12 +206,12 @@ func (cmd *VirtualClusterCmd) createVirtualCluster(baseClient client.Client, vir
 	if cmd.Recreate {
 		_, err := managementClient.Loft().ManagementV1().VirtualClusterInstances(virtualClusterNamespace).Get(context.TODO(), virtualClusterName, metav1.GetOptions{})
 		if err != nil && !kerrors.IsNotFound(err) {
-			return fmt.Errorf("couldn't retrieve virtual cluster instance: %v", err)
+			return fmt.Errorf("couldn't retrieve virtual cluster instance: %w", err)
 		} else if err == nil {
 			// delete the virtual cluster
 			err = managementClient.Loft().ManagementV1().VirtualClusterInstances(virtualClusterNamespace).Delete(context.TODO(), virtualClusterName, metav1.DeleteOptions{})
 			if err != nil && !kerrors.IsNotFound(err) {
-				return fmt.Errorf("couldn't delete virtual cluster instance: %v", err)
+				return fmt.Errorf("couldn't delete virtual cluster instance: %w", err)
 			}
 		}
 	}
@@ -221,7 +221,7 @@ func (cmd *VirtualClusterCmd) createVirtualCluster(baseClient client.Client, vir
 	// make sure there is not existing virtual cluster
 	virtualClusterInstance, err = managementClient.Loft().ManagementV1().VirtualClusterInstances(virtualClusterNamespace).Get(context.TODO(), virtualClusterName, metav1.GetOptions{})
 	if err != nil && !kerrors.IsNotFound(err) {
-		return fmt.Errorf("couldn't retrieve virtual cluster instance: %v", err)
+		return fmt.Errorf("couldn't retrieve virtual cluster instance: %w", err)
 	} else if err == nil && !virtualClusterInstance.DeletionTimestamp.IsZero() {
 		cmd.Log.Infof("Waiting until virtual cluster is deleted...")
 

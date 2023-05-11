@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	storagev1 "github.com/loft-sh/agentapi/v3/pkg/apis/loft/storage/v1"
+	agentstoragev1 "github.com/loft-sh/agentapi/v3/pkg/apis/loft/storage/v1"
 	"github.com/loft-sh/loftctl/v3/cmd/loftctl/flags"
 	"github.com/loft-sh/loftctl/v3/pkg/client"
 	"github.com/loft-sh/loftctl/v3/pkg/client/helper"
@@ -122,7 +122,7 @@ func (cmd *SpaceCmd) shareSpace(baseClient client.Client, spaceName string) erro
 		return err
 	}
 
-	accessRule := storagev1.InstanceAccessRule{
+	accessRule := agentstoragev1.InstanceAccessRule{
 		ClusterRole: cmd.ClusterRole,
 	}
 	if cmd.User != "" {
@@ -157,7 +157,7 @@ func (cmd *SpaceCmd) legacyShareSpace(baseClient client.Client, spaceName string
 		return err
 	}
 
-	if userOrTeam.Team == false {
+	if !userOrTeam.Team {
 		cmd.Log.Donef("Successfully granted user %s access to space %s", ansi.Color(userOrTeam.ClusterMember.Info.Name, "white+b"), ansi.Color(spaceName, "white+b"))
 		cmd.Log.Infof("The user can access the space now via: %s", ansi.Color(fmt.Sprintf("loft use space %s --cluster %s", spaceName, cmd.Cluster), "white+b"))
 	} else {

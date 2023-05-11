@@ -30,7 +30,7 @@ import (
 	"go.uber.org/atomic"
 	klog "k8s.io/klog/v2"
 
-	v1 "k8s.io/api/core/v1"
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/util/httpstream"
 	"k8s.io/apimachinery/pkg/util/runtime"
 )
@@ -101,12 +101,12 @@ func parsePorts(ports []string) ([]ForwardedPort, error) {
 
 		localPort, err := strconv.ParseUint(localString, 10, 16)
 		if err != nil {
-			return nil, fmt.Errorf("error parsing local port '%s': %s", localString, err)
+			return nil, fmt.Errorf("error parsing local port '%s': %w", localString, err)
 		}
 
 		remotePort, err := strconv.ParseUint(remoteString, 10, 16)
 		if err != nil {
-			return nil, fmt.Errorf("error parsing remote port '%s': %s", remoteString, err)
+			return nil, fmt.Errorf("error parsing remote port '%s': %w", remoteString, err)
 		}
 		if remotePort == 0 {
 			return nil, fmt.Errorf("remote port must be > 0")
@@ -213,7 +213,7 @@ func (pf *PortForwarder) ForwardPorts() error {
 	var err error
 	pf.streamConn, _, err = pf.dialer.Dial(PortForwardProtocolV1Name)
 	if err != nil {
-		return fmt.Errorf("error upgrading connection: %s", err)
+		return fmt.Errorf("error upgrading connection: %w", err)
 	}
 	defer pf.streamConn.Close()
 
@@ -241,7 +241,7 @@ func (pf *PortForwarder) forward() error {
 	}
 
 	if !listenSuccess {
-		return fmt.Errorf("unable to listen on any of the requested ports: %v, error: %v", pf.ports, err)
+		return fmt.Errorf("unable to listen on any of the requested ports: %v, error: %w", pf.ports, err)
 	}
 
 	if pf.Ready != nil {
@@ -299,7 +299,7 @@ func (pf *PortForwarder) listenOnPortAndAddress(port *ForwardedPort, protocol st
 func (pf *PortForwarder) getListener(protocol string, hostname string, port *ForwardedPort) (net.Listener, error) {
 	listener, err := net.Listen(protocol, net.JoinHostPort(hostname, strconv.Itoa(int(port.Local))))
 	if err != nil {
-		return nil, fmt.Errorf("unable to create listener: Error %s", err)
+		return nil, fmt.Errorf("unable to create listener: Error %w", err)
 	}
 	listenerAddress := listener.Addr().String()
 	host, localPort, _ := net.SplitHostPort(listenerAddress)
@@ -307,7 +307,7 @@ func (pf *PortForwarder) getListener(protocol string, hostname string, port *For
 
 	if err != nil {
 		fmt.Fprintf(pf.out, "Failed to forward from %s:%d -> %d\n", hostname, localPortUInt, port.Remote)
-		return nil, fmt.Errorf("error parsing local port: %s from %s (%s)", err, listenerAddress, host)
+		return nil, fmt.Errorf("error parsing local port: %w from %s (%s)", err, listenerAddress, host)
 	}
 	port.Local = uint16(localPortUInt)
 	if pf.out != nil {
@@ -329,7 +329,7 @@ func (pf *PortForwarder) waitForConnection(listener net.Listener, port Forwarded
 			if err != nil {
 				// TODO consider using something like https://github.com/hydrogen18/stoppableListener?
 				if !strings.Contains(strings.ToLower(err.Error()), "use of closed network connection") {
-					pf.raiseError(fmt.Errorf("error accepting connection on port %d: %v", port.Local, err))
+					pf.raiseError(fmt.Errorf("error accepting connection on port %d: %w", port.Local, err))
 				}
 				return
 			}
@@ -361,12 +361,12 @@ func (pf *PortForwarder) handleConnection(conn net.Conn, port ForwardedPort) {
 
 	// create error stream
 	headers := http.Header{}
-	headers.Set(v1.StreamType, v1.StreamTypeError)
-	headers.Set(v1.PortHeader, fmt.Sprintf("%d", port.Remote))
-	headers.Set(v1.PortForwardRequestIDHeader, strconv.Itoa(requestID))
+	headers.Set(corev1.StreamType, corev1.StreamTypeError)
+	headers.Set(corev1.PortHeader, fmt.Sprintf("%d", port.Remote))
+	headers.Set(corev1.PortForwardRequestIDHeader, strconv.Itoa(requestID))
 	errorStream, err := pf.streamConn.CreateStream(headers)
 	if err != nil {
-		pf.raiseError(fmt.Errorf("error creating error stream for port %d -> %d: %v", port.Local, port.Remote, err))
+		pf.raiseError(fmt.Errorf("error creating error stream for port %d -> %d: %w", port.Local, port.Remote, err))
 		return
 	}
 	// we're not writing to this stream
@@ -377,7 +377,7 @@ func (pf *PortForwarder) handleConnection(conn net.Conn, port ForwardedPort) {
 		message, err := io.ReadAll(errorStream)
 		switch {
 		case err != nil:
-			errorChan <- fmt.Errorf("error reading from error stream for port %d -> %d: %v", port.Local, port.Remote, err)
+			errorChan <- fmt.Errorf("error reading from error stream for port %d -> %d: %w", port.Local, port.Remote, err)
 		case len(message) > 0:
 			errorChan <- fmt.Errorf("an error occurred forwarding %d -> %d: %v", port.Local, port.Remote, string(message))
 		}
@@ -385,10 +385,10 @@ func (pf *PortForwarder) handleConnection(conn net.Conn, port ForwardedPort) {
 	}()
 
 	// create data stream
-	headers.Set(v1.StreamType, v1.StreamTypeData)
+	headers.Set(corev1.StreamType, corev1.StreamTypeData)
 	dataStream, err := pf.streamConn.CreateStream(headers)
 	if err != nil {
-		pf.raiseError(fmt.Errorf("error creating forwarding stream for port %d -> %d: %v", port.Local, port.Remote, err))
+		pf.raiseError(fmt.Errorf("error creating forwarding stream for port %d -> %d: %w", port.Local, port.Remote, err))
 		return
 	}
 
@@ -398,7 +398,7 @@ func (pf *PortForwarder) handleConnection(conn net.Conn, port ForwardedPort) {
 	go func() {
 		// Copy from the remote side to the local port.
 		if _, err := io.Copy(conn, dataStream); err != nil && !strings.Contains(err.Error(), "use of closed network connection") {
-			klog.Infof("error copying from remote stream to local connection: %v", err)
+			klog.Infof("error copying from remote stream to local connection: %w", err)
 		}
 
 		// inform the select below that the remote copy is done
@@ -411,7 +411,7 @@ func (pf *PortForwarder) handleConnection(conn net.Conn, port ForwardedPort) {
 
 		// Copy from the local port to the remote side.
 		if _, err := io.Copy(dataStream, conn); err != nil && !strings.Contains(err.Error(), "use of closed network connection") {
-			klog.Infof("error copying from local connection to remote stream: %v", err)
+			klog.Infof("error copying from local connection to remote stream: %w", err)
 
 			// break out of the select below without waiting for the other copy to finish
 			close(localError)
@@ -441,7 +441,7 @@ func (pf *PortForwarder) Close() {
 	// stop all listeners
 	for _, l := range pf.listeners {
 		if err := l.Close(); err != nil {
-			runtime.HandleError(fmt.Errorf("error closing listener: %v", err))
+			runtime.HandleError(fmt.Errorf("error closing listener: %w", err))
 		}
 	}
 }

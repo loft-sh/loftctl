@@ -1,6 +1,9 @@
 package list
 
 import (
+	"strconv"
+	"time"
+
 	storagev1 "github.com/loft-sh/api/v3/pkg/apis/storage/v1"
 	"github.com/loft-sh/loftctl/v3/cmd/loftctl/flags"
 	"github.com/loft-sh/loftctl/v3/pkg/client"
@@ -10,8 +13,6 @@ import (
 	"github.com/loft-sh/loftctl/v3/pkg/upgrade"
 	"github.com/spf13/cobra"
 	"k8s.io/apimachinery/pkg/util/duration"
-	"strconv"
-	"time"
 )
 
 // SpacesCmd holds the login cmd flags
@@ -91,7 +92,7 @@ func (cmd *SpacesCmd) RunSpaces() error {
 			space.SpaceInstance.Spec.ClusterRef.Cluster,
 			strconv.FormatBool(space.SpaceInstance.Status.Phase == storagev1.InstanceSleeping),
 			string(space.SpaceInstance.Status.Phase),
-			duration.HumanDuration(time.Now().Sub(space.SpaceInstance.CreationTimestamp.Time)),
+			duration.HumanDuration(time.Since(space.SpaceInstance.CreationTimestamp.Time)),
 		})
 	}
 	if len(spaceInstances) == 0 || cmd.ShowLegacy {
@@ -103,7 +104,7 @@ func (cmd *SpacesCmd) RunSpaces() error {
 			sleepModeConfig := space.Status.SleepModeConfig
 			sleeping := "false"
 			if sleepModeConfig.Status.SleepingSince != 0 {
-				sleeping = duration.HumanDuration(time.Now().Sub(time.Unix(sleepModeConfig.Status.SleepingSince, 0)))
+				sleeping = duration.HumanDuration(time.Since(time.Unix(sleepModeConfig.Status.SleepingSince, 0)))
 			}
 			spaceName := space.Name
 			if space.Annotations != nil && space.Annotations["loft.sh/display-name"] != "" {
@@ -116,7 +117,7 @@ func (cmd *SpacesCmd) RunSpaces() error {
 				space.Cluster,
 				sleeping,
 				string(space.Space.Status.Phase),
-				duration.HumanDuration(time.Now().Sub(space.Space.CreationTimestamp.Time)),
+				duration.HumanDuration(time.Since(space.Space.CreationTimestamp.Time)),
 			})
 		}
 	}

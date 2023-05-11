@@ -88,18 +88,18 @@ func (cmd *BackupCmd) Run(cobraCmd *cobra.Command, args []string) error {
 	// load the raw config
 	kubeConfig, err := kubeClientConfig.ClientConfig()
 	if err != nil {
-		return fmt.Errorf("there is an error loading your current kube config (%v), please make sure you have access to a kubernetes cluster and the command `kubectl get namespaces` is working", err)
+		return fmt.Errorf("there is an error loading your current kube config (%w), please make sure you have access to a kubernetes cluster and the command `kubectl get namespaces` is working", err)
 	}
 
 	kubeClient, err := kubernetes.NewForConfig(kubeConfig)
 	if err != nil {
-		return fmt.Errorf("there is an error loading your current kube config (%v), please make sure you have access to a kubernetes cluster and the command `kubectl get namespaces` is working", err)
+		return fmt.Errorf("there is an error loading your current kube config (%w), please make sure you have access to a kubernetes cluster and the command `kubectl get namespaces` is working", err)
 	}
 
 	isInstalled, err := clihelper.IsLoftAlreadyInstalled(kubeClient, cmd.Namespace)
 	if err != nil {
 		return err
-	} else if isInstalled == false {
+	} else if !isInstalled {
 		answer, err := cmd.Log.Question(&survey.QuestionOptions{
 			Question:     "Seems like Loft was not installed into namespace %s, do you want to continue?",
 			DefaultValue: "Yes",
@@ -111,7 +111,7 @@ func (cmd *BackupCmd) Run(cobraCmd *cobra.Command, args []string) error {
 	}
 
 	objects := []runtime.Object{}
-	if contains(cmd.Skip, "clusterroletemplates") == false {
+	if !contains(cmd.Skip, "clusterroletemplates") {
 		cmd.Log.Info("Backing up clusterroletemplates...")
 		objs, err := backupClusterRoles(kubeConfig)
 		if err != nil {
@@ -120,7 +120,7 @@ func (cmd *BackupCmd) Run(cobraCmd *cobra.Command, args []string) error {
 			objects = append(objects, objs...)
 		}
 	}
-	if contains(cmd.Skip, "clusteraccesses") == false {
+	if !contains(cmd.Skip, "clusteraccesses") {
 		cmd.Log.Info("Backing up clusteraccesses...")
 		users, err := backupClusterAccess(kubeConfig)
 		if err != nil {
@@ -129,7 +129,7 @@ func (cmd *BackupCmd) Run(cobraCmd *cobra.Command, args []string) error {
 			objects = append(objects, users...)
 		}
 	}
-	if contains(cmd.Skip, "spaceconstraints") == false {
+	if !contains(cmd.Skip, "spaceconstraints") {
 		cmd.Log.Info("Backing up spaceconstraints...")
 		objs, err := backupSpaceConstraints(kubeConfig)
 		if err != nil {
@@ -138,7 +138,7 @@ func (cmd *BackupCmd) Run(cobraCmd *cobra.Command, args []string) error {
 			objects = append(objects, objs...)
 		}
 	}
-	if contains(cmd.Skip, "users") == false {
+	if !contains(cmd.Skip, "users") {
 		cmd.Log.Info("Backing up users...")
 		objs, err := backupUsers(kubeClient, kubeConfig)
 		if err != nil {
@@ -147,7 +147,7 @@ func (cmd *BackupCmd) Run(cobraCmd *cobra.Command, args []string) error {
 			objects = append(objects, objs...)
 		}
 	}
-	if contains(cmd.Skip, "teams") == false {
+	if !contains(cmd.Skip, "teams") {
 		cmd.Log.Info("Backing up teams...")
 		objs, err := backupTeams(kubeConfig)
 		if err != nil {
@@ -156,7 +156,7 @@ func (cmd *BackupCmd) Run(cobraCmd *cobra.Command, args []string) error {
 			objects = append(objects, objs...)
 		}
 	}
-	if contains(cmd.Skip, "sharedsecrets") == false {
+	if !contains(cmd.Skip, "sharedsecrets") {
 		cmd.Log.Info("Backing up shared secrets...")
 		objs, err := backupSharedSecrets(kubeConfig)
 		if err != nil {
@@ -165,7 +165,7 @@ func (cmd *BackupCmd) Run(cobraCmd *cobra.Command, args []string) error {
 			objects = append(objects, objs...)
 		}
 	}
-	if contains(cmd.Skip, "accesskeys") == false {
+	if !contains(cmd.Skip, "accesskeys") {
 		cmd.Log.Info("Backing up access keys...")
 		objs, err := backupAccessKeys(kubeConfig)
 		if err != nil {
@@ -174,7 +174,7 @@ func (cmd *BackupCmd) Run(cobraCmd *cobra.Command, args []string) error {
 			objects = append(objects, objs...)
 		}
 	}
-	if contains(cmd.Skip, "apps") == false {
+	if !contains(cmd.Skip, "apps") {
 		cmd.Log.Info("Backing up apps...")
 		objs, err := backupApps(kubeConfig)
 		if err != nil {
@@ -183,7 +183,7 @@ func (cmd *BackupCmd) Run(cobraCmd *cobra.Command, args []string) error {
 			objects = append(objects, objs...)
 		}
 	}
-	if contains(cmd.Skip, "spacetemplates") == false {
+	if !contains(cmd.Skip, "spacetemplates") {
 		cmd.Log.Info("Backing up space templates...")
 		objs, err := backupSpaceTemplates(kubeConfig)
 		if err != nil {
@@ -192,7 +192,7 @@ func (cmd *BackupCmd) Run(cobraCmd *cobra.Command, args []string) error {
 			objects = append(objects, objs...)
 		}
 	}
-	if contains(cmd.Skip, "virtualclustertemplates") == false {
+	if !contains(cmd.Skip, "virtualclustertemplates") {
 		cmd.Log.Info("Backing up virtual cluster templates...")
 		objs, err := backupVirtualClusterTemplate(kubeConfig)
 		if err != nil {
@@ -201,7 +201,7 @@ func (cmd *BackupCmd) Run(cobraCmd *cobra.Command, args []string) error {
 			objects = append(objects, objs...)
 		}
 	}
-	if contains(cmd.Skip, "clusters") == false {
+	if !contains(cmd.Skip, "clusters") {
 		cmd.Log.Info("Backing up clusters...")
 		objs, err := backupClusters(kubeClient, kubeConfig)
 		if err != nil {
@@ -211,7 +211,7 @@ func (cmd *BackupCmd) Run(cobraCmd *cobra.Command, args []string) error {
 		}
 	}
 	projects := []string{}
-	if contains(cmd.Skip, "projects") == false {
+	if !contains(cmd.Skip, "projects") {
 		cmd.Log.Info("Backing up projects...")
 		objs, projectNames, err := backupProjects(kubeConfig)
 		if err != nil {
@@ -223,7 +223,7 @@ func (cmd *BackupCmd) Run(cobraCmd *cobra.Command, args []string) error {
 		projects = projectNames
 	}
 	if len(projects) > 0 {
-		if contains(cmd.Skip, "virtualclusterinstances") == false {
+		if !contains(cmd.Skip, "virtualclusterinstances") {
 			cmd.Log.Info("Backing up virtualcluster instances...")
 			objs, err := backupVirtualClusterInstances(kubeConfig, projects)
 			if err != nil {
@@ -232,7 +232,7 @@ func (cmd *BackupCmd) Run(cobraCmd *cobra.Command, args []string) error {
 				objects = append(objects, objs...)
 			}
 		}
-		if contains(cmd.Skip, "spaceinstances") == false {
+		if !contains(cmd.Skip, "spaceinstances") {
 			cmd.Log.Info("Backing up space instances...")
 			objs, err := backupSpaceInstances(kubeConfig, projects)
 			if err != nil {
@@ -241,7 +241,7 @@ func (cmd *BackupCmd) Run(cobraCmd *cobra.Command, args []string) error {
 				objects = append(objects, objs...)
 			}
 		}
-		if contains(cmd.Skip, "projectsecrets") == false {
+		if !contains(cmd.Skip, "projectsecrets") {
 			cmd.Log.Info("Backing up project secrets...")
 			objs, err := backupProjectSecrets(kubeClient, projects)
 			if err != nil {
@@ -705,7 +705,7 @@ func getSecret(kubeClient kubernetes.Interface, namespace, name string) (*corev1
 	}
 
 	secret, err := kubeClient.CoreV1().Secrets(namespace).Get(context.TODO(), name, metav1.GetOptions{})
-	if err != nil && kerrors.IsNotFound(err) == false {
+	if err != nil && !kerrors.IsNotFound(err) {
 		return nil, err
 	} else if secret != nil {
 		err = resetMetadata(secret)
