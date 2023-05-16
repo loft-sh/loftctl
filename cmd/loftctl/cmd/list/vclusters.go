@@ -102,7 +102,7 @@ func (cmd *VirtualClustersCmd) Run() error {
 		for _, virtualCluster := range virtualClusters {
 			status := "Active"
 			if virtualCluster.VirtualCluster.Status.HelmRelease != nil {
-				status = string(virtualCluster.VirtualCluster.Status.HelmRelease.Phase)
+				status = virtualCluster.VirtualCluster.Status.HelmRelease.Phase
 			}
 			vClusterName := virtualCluster.VirtualCluster.Name
 			if virtualCluster.VirtualCluster.Annotations != nil && virtualCluster.VirtualCluster.Annotations["loft.sh/display-name"] != "" {
