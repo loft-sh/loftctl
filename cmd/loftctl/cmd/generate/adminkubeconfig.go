@@ -2,7 +2,6 @@ package generate
 
 import (
 	"context"
-	"fmt"
 	"time"
 
 	"github.com/loft-sh/loftctl/v3/cmd/loftctl/flags"
@@ -177,7 +176,7 @@ func GetAuthToken(c *rest.Config, namespace, serviceAccount string) ([]byte, err
 		ok := false
 		token, ok = secret.Data["token"]
 		if !ok {
-			return false, fmt.Errorf("service account secret has unexpected contents")
+			return false, nil
 		}
 
 		return true, nil
