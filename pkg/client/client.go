@@ -38,7 +38,7 @@ import (
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
 )
 
-var cacheFolder = ".loft"
+var CacheFolder = ".loft"
 
 // DefaultCacheConfig is the path to the config
 var DefaultCacheConfig = "config.json"
@@ -53,8 +53,8 @@ const (
 
 func init() {
 	hd, _ := homedir.Dir()
-	cacheFolder = filepath.Join(hd, cacheFolder)
-	DefaultCacheConfig = filepath.Join(cacheFolder, DefaultCacheConfig)
+	CacheFolder = filepath.Join(hd, CacheFolder)
+	DefaultCacheConfig = filepath.Join(CacheFolder, DefaultCacheConfig)
 }
 
 type Client interface {

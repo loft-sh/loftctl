@@ -8,6 +8,7 @@ import (
 	storagev1 "github.com/loft-sh/api/v3/pkg/apis/storage/v1"
 	"github.com/loft-sh/loftctl/v3/cmd/loftctl/flags"
 	"github.com/loft-sh/loftctl/v3/pkg/client"
+	pdefaults "github.com/loft-sh/loftctl/v3/pkg/defaults"
 	"github.com/loft-sh/loftctl/v3/pkg/kube"
 	"github.com/loft-sh/loftctl/v3/pkg/log"
 	"github.com/loft-sh/loftctl/v3/pkg/survey"
@@ -37,7 +38,7 @@ type SecretCmd struct {
 }
 
 // NewSecretCmd creates a new command
-func NewSecretCmd(globalFlags *flags.GlobalFlags) *cobra.Command {
+func NewSecretCmd(globalFlags *flags.GlobalFlags, defaults *pdefaults.Defaults) *cobra.Command {
 	cmd := &SecretCmd{
 		GlobalFlags: globalFlags,
 		log:         log.GetInstance(),
@@ -78,8 +79,9 @@ devspace set secret test-secret.key value --project myproject
 		},
 	}
 
+	p, _ := defaults.Get(pdefaults.KeyProject, "")
 	c.Flags().StringVarP(&cmd.Namespace, "namespace", "n", "", "The namespace in the loft cluster to create the secret in. If omitted will use the namespace were loft is installed in")
-	c.Flags().StringVarP(&cmd.Project, "project", "p", "", "The project to create the project secret in.")
+	c.Flags().StringVarP(&cmd.Project, "project", "p", p, "The project to create the project secret in.")
 
 	return c
 }

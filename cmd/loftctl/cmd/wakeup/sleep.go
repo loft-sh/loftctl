@@ -2,12 +2,13 @@ package wakeup
 
 import (
 	"github.com/loft-sh/loftctl/v3/cmd/loftctl/flags"
+	pdefaults "github.com/loft-sh/loftctl/v3/pkg/defaults"
 	"github.com/loft-sh/loftctl/v3/pkg/upgrade"
 	"github.com/spf13/cobra"
 )
 
 // NewWakeUpCmd creates a new cobra command
-func NewWakeUpCmd(globalFlags *flags.GlobalFlags) *cobra.Command {
+func NewWakeUpCmd(globalFlags *flags.GlobalFlags, defaults *pdefaults.Defaults) *cobra.Command {
 	description := `
 #######################################################
 ##################### loft wakeup #####################
@@ -27,7 +28,7 @@ func NewWakeUpCmd(globalFlags *flags.GlobalFlags) *cobra.Command {
 		Args:  cobra.NoArgs,
 	}
 
-	cmd.AddCommand(NewSpaceCmd(globalFlags))
-	cmd.AddCommand(NewVClusterCmd(globalFlags))
+	cmd.AddCommand(NewSpaceCmd(globalFlags, defaults))
+	cmd.AddCommand(NewVClusterCmd(globalFlags, defaults))
 	return cmd
 }

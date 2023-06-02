@@ -26,6 +26,7 @@ import (
 	"github.com/loft-sh/loftctl/v3/pkg/client/helper"
 	"github.com/loft-sh/loftctl/v3/pkg/clihelper"
 	"github.com/loft-sh/loftctl/v3/pkg/constants"
+	pdefaults "github.com/loft-sh/loftctl/v3/pkg/defaults"
 	"github.com/loft-sh/loftctl/v3/pkg/kube"
 	"github.com/loft-sh/loftctl/v3/pkg/kubeconfig"
 	"github.com/loft-sh/loftctl/v3/pkg/log"
@@ -80,7 +81,7 @@ type VirtualClusterCmd struct {
 }
 
 // NewVirtualClusterCmd creates a new command
-func NewVirtualClusterCmd(globalFlags *flags.GlobalFlags) *cobra.Command {
+func NewVirtualClusterCmd(globalFlags *flags.GlobalFlags, defaults *pdefaults.Defaults) *cobra.Command {
 	cmd := &VirtualClusterCmd{
 		GlobalFlags: globalFlags,
 		Out:         os.Stdout,
@@ -127,11 +128,12 @@ devspace create vcluster test --project myproject
 		},
 	}
 
+	p, _ := defaults.Get(pdefaults.KeyProject, "")
 	c.Flags().StringVar(&cmd.DisplayName, "display-name", "", "The display name to show in the UI for this virtual cluster")
 	c.Flags().StringVar(&cmd.Description, "description", "", "The description to show in the UI for this virtual cluster")
 	c.Flags().StringSliceVar(&cmd.Links, "link", []string{}, linksHelpText)
 	c.Flags().StringVar(&cmd.Cluster, "cluster", "", "The cluster to create the virtual cluster in")
-	c.Flags().StringVarP(&cmd.Project, "project", "p", "", "The project to use")
+	c.Flags().StringVarP(&cmd.Project, "project", "p", p, "The project to use")
 	c.Flags().StringVar(&cmd.Space, "space", "", "The space to create the virtual cluster in")
 	c.Flags().StringVar(&cmd.User, "user", "", "The user to create the space for")
 	c.Flags().StringVar(&cmd.Team, "team", "", "The team to create the space for")
