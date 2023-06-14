@@ -18,7 +18,7 @@ func TestNamedPositionalArgsValidator(t *testing.T) {
 	// loop through maxExpectedArgCount lengths of expectedArgs
 	for len(expectedArgs) <= maxExpectedArgCount {
 		actualArgs := []string{}
-		// loop through maxActualArgCount lenghts of actualArgs
+		// loop through maxActualArgCount lengths of actualArgs
 		for len(actualArgs) <= maxActualArgsCount {
 			defer func() {
 				panicErr := recover()

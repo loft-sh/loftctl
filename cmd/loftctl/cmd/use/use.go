@@ -2,12 +2,13 @@ package use
 
 import (
 	"github.com/loft-sh/loftctl/v3/cmd/loftctl/flags"
+	pdefaults "github.com/loft-sh/loftctl/v3/pkg/defaults"
 	"github.com/loft-sh/loftctl/v3/pkg/upgrade"
 	"github.com/spf13/cobra"
 )
 
 // NewUseCmd creates a new cobra command
-func NewUseCmd(globalFlags *flags.GlobalFlags) *cobra.Command {
+func NewUseCmd(globalFlags *flags.GlobalFlags, defaults *pdefaults.Defaults) *cobra.Command {
 	description := `
 #######################################################
 ###################### loft use #######################
@@ -33,7 +34,7 @@ Activates a kube context for the given cluster / space / vcluster / management.
 
 	useCmd.AddCommand(NewClusterCmd(globalFlags))
 	useCmd.AddCommand(NewManagementCmd(globalFlags))
-	useCmd.AddCommand(NewSpaceCmd(globalFlags))
-	useCmd.AddCommand(NewVirtualClusterCmd(globalFlags))
+	useCmd.AddCommand(NewSpaceCmd(globalFlags, defaults))
+	useCmd.AddCommand(NewVirtualClusterCmd(globalFlags, defaults))
 	return useCmd
 }

@@ -57,7 +57,7 @@ devspace use management
 		Args:  cobra.MaximumNArgs(1),
 		RunE: func(cobraCmd *cobra.Command, args []string) error {
 			// Check for newer version
-			if cmd.Print == false {
+			if !cmd.Print {
 				upgrade.PrintNewerVersionWarning()
 			}
 

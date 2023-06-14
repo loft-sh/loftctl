@@ -3,6 +3,7 @@ package cmd
 import (
 	"github.com/loft-sh/loftctl/v3/cmd/loftctl/cmd/connect"
 	"github.com/loft-sh/loftctl/v3/cmd/loftctl/cmd/create"
+	cmddefaults "github.com/loft-sh/loftctl/v3/cmd/loftctl/cmd/defaults"
 	"github.com/loft-sh/loftctl/v3/cmd/loftctl/cmd/delete"
 	"github.com/loft-sh/loftctl/v3/cmd/loftctl/cmd/generate"
 	"github.com/loft-sh/loftctl/v3/cmd/loftctl/cmd/get"
@@ -16,6 +17,7 @@ import (
 	"github.com/loft-sh/loftctl/v3/cmd/loftctl/cmd/vars"
 	"github.com/loft-sh/loftctl/v3/cmd/loftctl/cmd/wakeup"
 	"github.com/loft-sh/loftctl/v3/cmd/loftctl/flags"
+	"github.com/loft-sh/loftctl/v3/pkg/defaults"
 	"github.com/loft-sh/loftctl/v3/pkg/log"
 	"github.com/loft-sh/loftctl/v3/pkg/upgrade"
 	"github.com/sirupsen/logrus"
@@ -65,6 +67,10 @@ func BuildRoot(log log.Logger) *cobra.Command {
 	rootCmd := NewRootCmd(log)
 	persistentFlags := rootCmd.PersistentFlags()
 	globalFlags = flags.SetGlobalFlags(persistentFlags)
+	defaults, err := defaults.NewFromPath(defaults.ConfigFolder, defaults.ConfigFile)
+	if err != nil {
+		log.Debugf("Error loading defaults: %v", err)
+	}
 
 	// add top level commands
 	rootCmd.AddCommand(NewStartCmd(globalFlags))
@@ -76,19 +82,20 @@ func BuildRoot(log log.Logger) *cobra.Command {
 
 	// add subcommands
 	rootCmd.AddCommand(list.NewListCmd(globalFlags))
-	rootCmd.AddCommand(use.NewUseCmd(globalFlags))
-	rootCmd.AddCommand(create.NewCreateCmd(globalFlags))
-	rootCmd.AddCommand(delete.NewDeleteCmd(globalFlags))
+	rootCmd.AddCommand(use.NewUseCmd(globalFlags, defaults))
+	rootCmd.AddCommand(create.NewCreateCmd(globalFlags, defaults))
+	rootCmd.AddCommand(delete.NewDeleteCmd(globalFlags, defaults))
 	rootCmd.AddCommand(generate.NewGenerateCmd(globalFlags))
-	rootCmd.AddCommand(get.NewGetCmd(globalFlags))
+	rootCmd.AddCommand(get.NewGetCmd(globalFlags, defaults))
 	rootCmd.AddCommand(vars.NewVarsCmd(globalFlags))
-	rootCmd.AddCommand(share.NewShareCmd(globalFlags))
-	rootCmd.AddCommand(set.NewSetCmd(globalFlags))
+	rootCmd.AddCommand(share.NewShareCmd(globalFlags, defaults))
+	rootCmd.AddCommand(set.NewSetCmd(globalFlags, defaults))
 	rootCmd.AddCommand(reset.NewResetCmd(globalFlags))
-	rootCmd.AddCommand(sleep.NewSleepCmd(globalFlags))
-	rootCmd.AddCommand(wakeup.NewWakeUpCmd(globalFlags))
+	rootCmd.AddCommand(sleep.NewSleepCmd(globalFlags, defaults))
+	rootCmd.AddCommand(wakeup.NewWakeUpCmd(globalFlags, defaults))
 	rootCmd.AddCommand(importcmd.NewImportCmd(globalFlags))
 	rootCmd.AddCommand(connect.NewConnectCmd(globalFlags))
+	rootCmd.AddCommand(cmddefaults.NewDefaultsCmd(globalFlags, defaults))
 
 	return rootCmd
 }

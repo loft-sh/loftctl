@@ -12,6 +12,7 @@ import (
 	"github.com/loft-sh/loftctl/v3/pkg/client"
 	"github.com/loft-sh/loftctl/v3/pkg/client/helper"
 	"github.com/loft-sh/loftctl/v3/pkg/client/naming"
+	pdefaults "github.com/loft-sh/loftctl/v3/pkg/defaults"
 	"github.com/loft-sh/loftctl/v3/pkg/log"
 	"github.com/loft-sh/loftctl/v3/pkg/upgrade"
 	"github.com/loft-sh/loftctl/v3/pkg/util"
@@ -32,7 +33,7 @@ type SpaceCmd struct {
 }
 
 // NewSpaceCmd creates a new command
-func NewSpaceCmd(globalFlags *flags.GlobalFlags) *cobra.Command {
+func NewSpaceCmd(globalFlags *flags.GlobalFlags, defaults *pdefaults.Defaults) *cobra.Command {
 	cmd := &SpaceCmd{
 		GlobalFlags: globalFlags,
 		Log:         log.GetInstance(),
@@ -73,7 +74,8 @@ devspace sleep space myspace --project myproject
 		},
 	}
 
-	c.Flags().StringVarP(&cmd.Project, "project", "p", "", "The project to use")
+	p, _ := defaults.Get(pdefaults.KeyProject, "")
+	c.Flags().StringVarP(&cmd.Project, "project", "p", p, "The project to use")
 	c.Flags().Int64Var(&cmd.ForceDuration, "prevent-wakeup", -1, "The amount of seconds this space should sleep until it can be woken up again (use 0 for infinite sleeping). During this time the space can only be woken up by `loft wakeup`, manually deleting the annotation on the namespace or through the loft UI")
 	c.Flags().StringVar(&cmd.Cluster, "cluster", "", "The cluster to use")
 	return c
@@ -139,7 +141,7 @@ func (cmd *SpaceCmd) sleepSpace(baseClient client.Client, spaceName string) erro
 		return spaceInstance.Status.Phase == storagev1.InstanceSleeping, nil
 	})
 	if err != nil {
-		return fmt.Errorf("error waiting for space to start sleeping: %v", err)
+		return fmt.Errorf("error waiting for space to start sleeping: %w", err)
 	}
 
 	cmd.Log.Donef("Successfully put space %s to sleep", spaceName)
@@ -163,7 +165,7 @@ func (cmd *SpaceCmd) legacySleepSpace(baseClient client.Client, spaceName string
 		sleepModeConfig.Spec.ForceSleepDuration = &cmd.ForceDuration
 	}
 
-	sleepModeConfig, err = clusterClient.Agent().ClusterV1().SleepModeConfigs(spaceName).Create(context.TODO(), sleepModeConfig, metav1.CreateOptions{})
+	_, err = clusterClient.Agent().ClusterV1().SleepModeConfigs(spaceName).Create(context.TODO(), sleepModeConfig, metav1.CreateOptions{})
 	if err != nil {
 		return err
 	}
@@ -180,7 +182,7 @@ func (cmd *SpaceCmd) legacySleepSpace(baseClient client.Client, spaceName string
 		return configs.Items[0].Status.SleepingSince != 0, nil
 	})
 	if err != nil {
-		return fmt.Errorf("error waiting for space to start sleeping: %v", err)
+		return fmt.Errorf("error waiting for space to start sleeping: %w", err)
 	}
 
 	cmd.Log.Donef("Successfully put space %s to sleep", spaceName)

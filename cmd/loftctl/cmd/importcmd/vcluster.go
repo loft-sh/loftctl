@@ -76,9 +76,9 @@ devspace import vcluster my-vcluster --cluster connected-cluster my-vcluster \
 	c.Flags().StringVar(&cmd.Project, "project", "", "The project to import the vcluster into")
 	c.Flags().StringVar(&cmd.ImportName, "importname", "", "The name of the vcluster under projects. If unspecified, will use the vcluster name")
 
-	c.MarkFlagRequired("cluster")
-	c.MarkFlagRequired("namespace")
-	c.MarkFlagRequired("project")
+	_ = c.MarkFlagRequired("cluster")
+	_ = c.MarkFlagRequired("namespace")
+	_ = c.MarkFlagRequired("project")
 
 	return c
 }

@@ -9,8 +9,8 @@ require (
 	github.com/evanphx/json-patch v5.6.0+incompatible
 	github.com/ghodss/yaml v1.0.0
 	github.com/k0kubun/go-ansi v0.0.0-20180517002512-3bf9e2903213
-	github.com/loft-sh/agentapi/v3 v3.2.0-beta.0
-	github.com/loft-sh/api/v3 v3.2.0-beta.0
+	github.com/loft-sh/agentapi/v3 v3.2.0-beta.3
+	github.com/loft-sh/api/v3 v3.2.0-beta.3
 	github.com/loft-sh/apiserver v0.0.0-20230203091244-1225c09820b1
 	github.com/mgutz/ansi v0.0.0-20200706080929-d51e80ef957d
 	github.com/mitchellh/go-homedir v1.1.0
@@ -137,10 +137,4 @@ require (
 	sigs.k8s.io/json v0.0.0-20221116044647-bc3834ca7abd // indirect
 	sigs.k8s.io/structured-merge-diff/v4 v4.2.3 // indirect
 	sigs.k8s.io/yaml v1.3.0 // indirect
-)
-
-replace (
-	github.com/loft-sh/agentapi/v3 => ./../../agentapi/v3
-	github.com/loft-sh/api/v3 => ./../../api/v3
-	github.com/loft-sh/loftctl/v3 => ./../../loftctl/v3
 )

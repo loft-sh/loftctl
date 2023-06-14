@@ -29,6 +29,7 @@ import (
 	"github.com/loft-sh/loftctl/v3/cmd/loftctl/flags"
 	"github.com/loft-sh/loftctl/v3/pkg/client"
 	"github.com/loft-sh/loftctl/v3/pkg/client/helper"
+	pdefaults "github.com/loft-sh/loftctl/v3/pkg/defaults"
 	"github.com/loft-sh/loftctl/v3/pkg/kubeconfig"
 	"github.com/loft-sh/loftctl/v3/pkg/log"
 	"github.com/loft-sh/loftctl/v3/pkg/upgrade"
@@ -70,7 +71,7 @@ type SpaceCmd struct {
 }
 
 // NewSpaceCmd creates a new command
-func NewSpaceCmd(globalFlags *flags.GlobalFlags) *cobra.Command {
+func NewSpaceCmd(globalFlags *flags.GlobalFlags, defaults *pdefaults.Defaults) *cobra.Command {
 	cmd := &SpaceCmd{
 		GlobalFlags: globalFlags,
 		Log:         log.GetInstance(),
@@ -116,11 +117,12 @@ devspace create space myspace --project myproject --team myteam
 		},
 	}
 
+	p, _ := defaults.Get(pdefaults.KeyProject, "")
 	c.Flags().StringVar(&cmd.DisplayName, "display-name", "", "The display name to show in the UI for this space")
 	c.Flags().StringVar(&cmd.Description, "description", "", "The description to show in the UI for this space")
 	c.Flags().StringSliceVar(&cmd.Links, "link", []string{}, linksHelpText)
 	c.Flags().StringVar(&cmd.Cluster, "cluster", "", "The cluster to use")
-	c.Flags().StringVarP(&cmd.Project, "project", "p", "", "The project to use")
+	c.Flags().StringVarP(&cmd.Project, "project", "p", p, "The project to use")
 	c.Flags().StringVar(&cmd.User, "user", "", "The user to create the space for")
 	c.Flags().StringVar(&cmd.Team, "team", "", "The team to create the space for")
 	c.Flags().Int64Var(&cmd.SleepAfter, "sleep-after", 0, "DEPRECATED: If set to non zero, will tell the space to sleep after specified seconds of inactivity")
@@ -192,12 +194,12 @@ func (cmd *SpaceCmd) createSpace(baseClient client.Client, spaceName string) err
 	if cmd.Recreate {
 		_, err := managementClient.Loft().ManagementV1().SpaceInstances(spaceNamespace).Get(context.TODO(), spaceName, metav1.GetOptions{})
 		if err != nil && !kerrors.IsNotFound(err) {
-			return fmt.Errorf("couldn't retrieve space instance: %v", err)
+			return fmt.Errorf("couldn't retrieve space instance: %w", err)
 		} else if err == nil {
 			// delete the space
 			err = managementClient.Loft().ManagementV1().SpaceInstances(spaceNamespace).Delete(context.TODO(), spaceName, metav1.DeleteOptions{})
 			if err != nil && !kerrors.IsNotFound(err) {
-				return fmt.Errorf("couldn't delete space instance: %v", err)
+				return fmt.Errorf("couldn't delete space instance: %w", err)
 			}
 		}
 	}
@@ -206,7 +208,7 @@ func (cmd *SpaceCmd) createSpace(baseClient client.Client, spaceName string) err
 	// make sure we wait until space is deleted
 	spaceInstance, err = managementClient.Loft().ManagementV1().SpaceInstances(spaceNamespace).Get(context.TODO(), spaceName, metav1.GetOptions{})
 	if err != nil && !kerrors.IsNotFound(err) {
-		return fmt.Errorf("couldn't retrieve space instance: %v", err)
+		return fmt.Errorf("couldn't retrieve space instance: %w", err)
 	} else if err == nil && spaceInstance.DeletionTimestamp != nil {
 		cmd.Log.Infof("Waiting until space is deleted...")
 

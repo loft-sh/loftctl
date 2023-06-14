@@ -26,6 +26,7 @@ import (
 	"github.com/loft-sh/loftctl/v3/pkg/client/helper"
 	"github.com/loft-sh/loftctl/v3/pkg/clihelper"
 	"github.com/loft-sh/loftctl/v3/pkg/constants"
+	pdefaults "github.com/loft-sh/loftctl/v3/pkg/defaults"
 	"github.com/loft-sh/loftctl/v3/pkg/kube"
 	"github.com/loft-sh/loftctl/v3/pkg/kubeconfig"
 	"github.com/loft-sh/loftctl/v3/pkg/log"
@@ -80,7 +81,7 @@ type VirtualClusterCmd struct {
 }
 
 // NewVirtualClusterCmd creates a new command
-func NewVirtualClusterCmd(globalFlags *flags.GlobalFlags) *cobra.Command {
+func NewVirtualClusterCmd(globalFlags *flags.GlobalFlags, defaults *pdefaults.Defaults) *cobra.Command {
 	cmd := &VirtualClusterCmd{
 		GlobalFlags: globalFlags,
 		Out:         os.Stdout,
@@ -91,7 +92,7 @@ func NewVirtualClusterCmd(globalFlags *flags.GlobalFlags) *cobra.Command {
 ################ loft create vcluster #################
 #######################################################
 Creates a new virtual cluster in a given space and
-cluster. If no space or cluster is specified the user 
+cluster. If no space or cluster is specified the user
 will be asked.
 
 Example:
@@ -105,7 +106,7 @@ loft create vcluster test --project myproject
 ############## devspace create vcluster ###############
 #######################################################
 Creates a new virtual cluster in a given space and
-cluster. If no space or cluster is specified the user 
+cluster. If no space or cluster is specified the user
 will be asked.
 
 Example:
@@ -127,11 +128,12 @@ devspace create vcluster test --project myproject
 		},
 	}
 
+	p, _ := defaults.Get(pdefaults.KeyProject, "")
 	c.Flags().StringVar(&cmd.DisplayName, "display-name", "", "The display name to show in the UI for this virtual cluster")
 	c.Flags().StringVar(&cmd.Description, "description", "", "The description to show in the UI for this virtual cluster")
 	c.Flags().StringSliceVar(&cmd.Links, "link", []string{}, linksHelpText)
 	c.Flags().StringVar(&cmd.Cluster, "cluster", "", "The cluster to create the virtual cluster in")
-	c.Flags().StringVarP(&cmd.Project, "project", "p", "", "The project to use")
+	c.Flags().StringVarP(&cmd.Project, "project", "p", p, "The project to use")
 	c.Flags().StringVar(&cmd.Space, "space", "", "The space to create the virtual cluster in")
 	c.Flags().StringVar(&cmd.User, "user", "", "The user to create the space for")
 	c.Flags().StringVar(&cmd.Team, "team", "", "The team to create the space for")
@@ -206,12 +208,12 @@ func (cmd *VirtualClusterCmd) createVirtualCluster(baseClient client.Client, vir
 	if cmd.Recreate {
 		_, err := managementClient.Loft().ManagementV1().VirtualClusterInstances(virtualClusterNamespace).Get(context.TODO(), virtualClusterName, metav1.GetOptions{})
 		if err != nil && !kerrors.IsNotFound(err) {
-			return fmt.Errorf("couldn't retrieve virtual cluster instance: %v", err)
+			return fmt.Errorf("couldn't retrieve virtual cluster instance: %w", err)
 		} else if err == nil {
 			// delete the virtual cluster
 			err = managementClient.Loft().ManagementV1().VirtualClusterInstances(virtualClusterNamespace).Delete(context.TODO(), virtualClusterName, metav1.DeleteOptions{})
 			if err != nil && !kerrors.IsNotFound(err) {
-				return fmt.Errorf("couldn't delete virtual cluster instance: %v", err)
+				return fmt.Errorf("couldn't delete virtual cluster instance: %w", err)
 			}
 		}
 	}
@@ -221,7 +223,7 @@ func (cmd *VirtualClusterCmd) createVirtualCluster(baseClient client.Client, vir
 	// make sure there is not existing virtual cluster
 	virtualClusterInstance, err = managementClient.Loft().ManagementV1().VirtualClusterInstances(virtualClusterNamespace).Get(context.TODO(), virtualClusterName, metav1.GetOptions{})
 	if err != nil && !kerrors.IsNotFound(err) {
-		return fmt.Errorf("couldn't retrieve virtual cluster instance: %v", err)
+		return fmt.Errorf("couldn't retrieve virtual cluster instance: %w", err)
 	} else if err == nil && !virtualClusterInstance.DeletionTimestamp.IsZero() {
 		cmd.Log.Infof("Waiting until virtual cluster is deleted...")
 

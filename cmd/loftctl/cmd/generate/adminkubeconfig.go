@@ -2,19 +2,18 @@ package generate
 
 import (
 	"context"
-	"fmt"
 	"time"
 
 	"github.com/loft-sh/loftctl/v3/cmd/loftctl/flags"
 	"github.com/loft-sh/loftctl/v3/pkg/kubeconfig"
 	"github.com/loft-sh/loftctl/v3/pkg/log"
 	"github.com/loft-sh/loftctl/v3/pkg/upgrade"
-	"github.com/pkg/errors"
+	perrors "github.com/pkg/errors"
 	"github.com/spf13/cobra"
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
-	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
@@ -87,7 +86,7 @@ devspace generate admin-kube-config --namespace mynamespace
 func (cmd *AdminKubeConfigCmd) Run(c *rest.Config, cobraCmd *cobra.Command, args []string) error {
 	token, err := GetAuthToken(c, cmd.Namespace, cmd.ServiceAccount)
 	if err != nil {
-		return errors.Wrap(err, "get auth token")
+		return perrors.Wrap(err, "get auth token")
 	}
 
 	// print kube config
@@ -97,36 +96,36 @@ func (cmd *AdminKubeConfigCmd) Run(c *rest.Config, cobraCmd *cobra.Command, args
 func GetAuthToken(c *rest.Config, namespace, serviceAccount string) ([]byte, error) {
 	client, err := kubernetes.NewForConfig(c)
 	if err != nil {
-		return []byte{}, errors.Wrap(err, "create kube client")
+		return []byte{}, perrors.Wrap(err, "create kube client")
 	}
 
 	// make sure namespace exists
 	_, err = client.CoreV1().Namespaces().Create(context.TODO(), &corev1.Namespace{
-		ObjectMeta: v1.ObjectMeta{
+		ObjectMeta: metav1.ObjectMeta{
 			Name: namespace,
 		},
-	}, v1.CreateOptions{})
+	}, metav1.CreateOptions{})
 	if err != nil {
-		if kerrors.IsAlreadyExists(err) == false {
+		if !kerrors.IsAlreadyExists(err) {
 			return []byte{}, err
 		}
 	}
 
 	// create service account
 	_, err = client.CoreV1().ServiceAccounts(namespace).Create(context.TODO(), &corev1.ServiceAccount{
-		ObjectMeta: v1.ObjectMeta{
+		ObjectMeta: metav1.ObjectMeta{
 			Name: serviceAccount,
 		},
-	}, v1.CreateOptions{})
+	}, metav1.CreateOptions{})
 	if err != nil {
-		if kerrors.IsAlreadyExists(err) == false {
+		if !kerrors.IsAlreadyExists(err) {
 			return []byte{}, err
 		}
 	}
 
 	// create clusterrolebinding
 	_, err = client.RbacV1().ClusterRoleBindings().Create(context.TODO(), &rbacv1.ClusterRoleBinding{
-		ObjectMeta: v1.ObjectMeta{
+		ObjectMeta: metav1.ObjectMeta{
 			Name: serviceAccount + "-binding",
 		},
 		Subjects: []rbacv1.Subject{
@@ -141,9 +140,9 @@ func GetAuthToken(c *rest.Config, namespace, serviceAccount string) ([]byte, err
 			Kind:     "ClusterRole",
 			Name:     "cluster-admin",
 		},
-	}, v1.CreateOptions{})
+	}, metav1.CreateOptions{})
 	if err != nil {
-		if kerrors.IsAlreadyExists(err) == false {
+		if !kerrors.IsAlreadyExists(err) {
 			return []byte{}, err
 		}
 	}
@@ -151,7 +150,7 @@ func GetAuthToken(c *rest.Config, namespace, serviceAccount string) ([]byte, err
 	// manually create token secret. This approach works for all kubernetes versions
 	tokenSecretName := serviceAccount + "-token"
 	_, err = client.CoreV1().Secrets(namespace).Create(context.TODO(), &corev1.Secret{
-		ObjectMeta: v1.ObjectMeta{
+		ObjectMeta: metav1.ObjectMeta{
 			Name:      tokenSecretName,
 			Namespace: namespace,
 			Annotations: map[string]string{
@@ -159,9 +158,9 @@ func GetAuthToken(c *rest.Config, namespace, serviceAccount string) ([]byte, err
 			},
 		},
 		Type: corev1.SecretTypeServiceAccountToken,
-	}, v1.CreateOptions{})
+	}, metav1.CreateOptions{})
 	if err != nil {
-		if kerrors.IsAlreadyExists(err) == false {
+		if !kerrors.IsAlreadyExists(err) {
 			return []byte{}, err
 		}
 	}
@@ -169,15 +168,15 @@ func GetAuthToken(c *rest.Config, namespace, serviceAccount string) ([]byte, err
 	// wait for secret token to be populated
 	token := []byte{}
 	err = wait.Poll(time.Millisecond*250, time.Minute*2, func() (bool, error) {
-		secret, err := client.CoreV1().Secrets(namespace).Get(context.TODO(), tokenSecretName, v1.GetOptions{})
+		secret, err := client.CoreV1().Secrets(namespace).Get(context.TODO(), tokenSecretName, metav1.GetOptions{})
 		if err != nil {
-			return false, errors.Wrap(err, "get service account secret")
+			return false, perrors.Wrap(err, "get service account secret")
 		}
 
 		ok := false
 		token, ok = secret.Data["token"]
 		if !ok {
-			return false, fmt.Errorf("service account secret has unexpected contents")
+			return false, nil
 		}
 
 		return true, nil

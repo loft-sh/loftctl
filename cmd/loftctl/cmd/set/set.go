@@ -2,12 +2,13 @@ package set
 
 import (
 	"github.com/loft-sh/loftctl/v3/cmd/loftctl/flags"
+	pdefaults "github.com/loft-sh/loftctl/v3/pkg/defaults"
 	"github.com/loft-sh/loftctl/v3/pkg/upgrade"
 	"github.com/spf13/cobra"
 )
 
 // NewSetCmd creates a new cobra command
-func NewSetCmd(globalFlags *flags.GlobalFlags) *cobra.Command {
+func NewSetCmd(globalFlags *flags.GlobalFlags, defaults *pdefaults.Defaults) *cobra.Command {
 	description := `
 #######################################################
 ###################### loft set #######################
@@ -27,6 +28,6 @@ func NewSetCmd(globalFlags *flags.GlobalFlags) *cobra.Command {
 		Args:  cobra.NoArgs,
 	}
 
-	c.AddCommand(NewSecretCmd(globalFlags))
+	c.AddCommand(NewSecretCmd(globalFlags, defaults))
 	return c
 }

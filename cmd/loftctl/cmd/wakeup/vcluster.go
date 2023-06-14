@@ -8,6 +8,7 @@ import (
 	"github.com/loft-sh/loftctl/v3/pkg/client"
 	"github.com/loft-sh/loftctl/v3/pkg/client/helper"
 	"github.com/loft-sh/loftctl/v3/pkg/client/naming"
+	pdefaults "github.com/loft-sh/loftctl/v3/pkg/defaults"
 	"github.com/loft-sh/loftctl/v3/pkg/log"
 	"github.com/loft-sh/loftctl/v3/pkg/upgrade"
 	"github.com/loft-sh/loftctl/v3/pkg/util"
@@ -25,7 +26,7 @@ type VClusterCmd struct {
 }
 
 // NewVClusterCmd creates a new command
-func NewVClusterCmd(globalFlags *flags.GlobalFlags) *cobra.Command {
+func NewVClusterCmd(globalFlags *flags.GlobalFlags, defaults *pdefaults.Defaults) *cobra.Command {
 	cmd := &VClusterCmd{
 		GlobalFlags: globalFlags,
 		Log:         log.GetInstance(),
@@ -66,7 +67,8 @@ devspace wakeup vcluster myvcluster --project myproject
 		},
 	}
 
-	c.Flags().StringVarP(&cmd.Project, "project", "p", "", "The project to use")
+	p, _ := defaults.Get(pdefaults.KeyProject, "")
+	c.Flags().StringVarP(&cmd.Project, "project", "p", p, "The project to use")
 	return c
 }
 

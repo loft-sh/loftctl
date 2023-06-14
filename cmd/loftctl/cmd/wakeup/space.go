@@ -15,6 +15,7 @@ import (
 	"github.com/loft-sh/loftctl/v3/pkg/client"
 	"github.com/loft-sh/loftctl/v3/pkg/client/helper"
 	"github.com/loft-sh/loftctl/v3/pkg/client/naming"
+	pdefaults "github.com/loft-sh/loftctl/v3/pkg/defaults"
 	"github.com/loft-sh/loftctl/v3/pkg/log"
 	"github.com/loft-sh/loftctl/v3/pkg/upgrade"
 	"github.com/spf13/cobra"
@@ -31,7 +32,7 @@ type SpaceCmd struct {
 }
 
 // NewSpaceCmd creates a new command
-func NewSpaceCmd(globalFlags *flags.GlobalFlags) *cobra.Command {
+func NewSpaceCmd(globalFlags *flags.GlobalFlags, defaults *pdefaults.Defaults) *cobra.Command {
 	cmd := &SpaceCmd{
 		GlobalFlags: globalFlags,
 		Log:         log.GetInstance(),
@@ -72,7 +73,8 @@ devspace wakeup space myspace --project myproject
 		},
 	}
 
-	c.Flags().StringVarP(&cmd.Project, "project", "p", "", "The project to use")
+	p, _ := defaults.Get(pdefaults.KeyProject, "")
+	c.Flags().StringVarP(&cmd.Project, "project", "p", p, "The project to use")
 	c.Flags().StringVar(&cmd.Cluster, "cluster", "", "The cluster to use")
 	return c
 }
@@ -144,7 +146,7 @@ func (cmd *SpaceCmd) legacySpaceWakeUp(baseClient client.Client, spaceName strin
 	sleepModeConfig.Spec.ForceSleepDuration = nil
 	sleepModeConfig.Status.LastActivity = time.Now().Unix()
 
-	sleepModeConfig, err = clusterClient.Agent().ClusterV1().SleepModeConfigs(spaceName).Create(context.TODO(), sleepModeConfig, metav1.CreateOptions{})
+	_, err = clusterClient.Agent().ClusterV1().SleepModeConfigs(spaceName).Create(context.TODO(), sleepModeConfig, metav1.CreateOptions{})
 	if err != nil {
 		return err
 	}
@@ -161,7 +163,7 @@ func (cmd *SpaceCmd) legacySpaceWakeUp(baseClient client.Client, spaceName strin
 		return configs.Items[0].Status.SleepingSince == 0, nil
 	})
 	if err != nil {
-		return fmt.Errorf("error waiting for space to wake up: %v", err)
+		return fmt.Errorf("error waiting for space to wake up: %w", err)
 	}
 
 	cmd.Log.Donef("Successfully woken up space %s", spaceName)

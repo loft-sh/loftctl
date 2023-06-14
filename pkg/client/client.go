@@ -4,11 +4,8 @@ import (
 	"context"
 	"crypto/x509"
 	"encoding/json"
+	"errors"
 	"fmt"
-	"github.com/blang/semver"
-	"github.com/loft-sh/loftctl/v3/pkg/client/naming"
-	"github.com/loft-sh/loftctl/v3/pkg/kubeconfig"
-	"k8s.io/utils/pointer"
 	"net/http"
 	"net/url"
 	"os"
@@ -17,6 +14,11 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/blang/semver"
+	"github.com/loft-sh/loftctl/v3/pkg/client/naming"
+	"github.com/loft-sh/loftctl/v3/pkg/kubeconfig"
+	"k8s.io/utils/pointer"
 
 	"github.com/loft-sh/api/v3/pkg/auth"
 
@@ -29,14 +31,14 @@ import (
 	"github.com/loft-sh/loftctl/v3/pkg/log"
 	"github.com/loft-sh/loftctl/v3/pkg/upgrade"
 	"github.com/mitchellh/go-homedir"
-	"github.com/pkg/errors"
+	perrors "github.com/pkg/errors"
 	"github.com/skratchdot/open-golang/open"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
 )
 
-var cacheFolder = ".loft"
+var CacheFolder = ".loft"
 
 // DefaultCacheConfig is the path to the config
 var DefaultCacheConfig = "config.json"
@@ -51,8 +53,8 @@ const (
 
 func init() {
 	hd, _ := homedir.Dir()
-	cacheFolder = filepath.Join(hd, cacheFolder)
-	DefaultCacheConfig = filepath.Join(cacheFolder, DefaultCacheConfig)
+	CacheFolder = filepath.Join(hd, CacheFolder)
+	DefaultCacheConfig = filepath.Join(CacheFolder, DefaultCacheConfig)
 }
 
 type Client interface {
@@ -139,7 +141,7 @@ func (c *client) initConfig() error {
 
 func (c *client) VirtualClusterAccessPointCertificate(project, virtualCluster string, forceRefresh bool) (string, string, error) {
 	if c.config == nil {
-		return "", "", errors.New("no config loaded")
+		return "", "", perrors.New("no config loaded")
 	}
 
 	contextName := kubeconfig.VirtualClusterInstanceContextName(project, virtualCluster)
@@ -168,10 +170,13 @@ func (c *client) VirtualClusterAccessPointCertificate(project, virtualCluster st
 		metav1.CreateOptions{},
 	)
 	if err != nil {
-		return "", "", errors.Wrap(err, "fetch certificate data")
+		return "", "", perrors.Wrap(err, "fetch certificate data")
 	}
 
 	certificateData, keyData, err := getCertificateAndKeyDataFromKubeConfig(kubeConfigResponse.Status.KubeConfig)
+	if err != nil {
+		return "", "", err
+	}
 
 	if c.config.VirtualClusterAccessPointCertificates == nil {
 		c.config.VirtualClusterAccessPointCertificates = make(map[string]VirtualClusterCertificatesEntry)
@@ -185,7 +190,7 @@ func (c *client) VirtualClusterAccessPointCertificate(project, virtualCluster st
 
 	err = c.Save()
 	if err != nil {
-		return "", "", errors.Wrap(err, "save config")
+		return "", "", perrors.Wrap(err, "save config")
 	}
 
 	return certificateData, keyData, nil
@@ -207,12 +212,12 @@ func getCertificateAndKeyDataFromKubeConfig(config string) (string, string, erro
 
 func (c *client) DirectClusterEndpointToken(forceRefresh bool) (string, error) {
 	if c.config == nil {
-		return "", errors.New("no config loaded")
+		return "", perrors.New("no config loaded")
 	}
 
 	// check if we can use existing token
 	now := metav1.Now()
-	if forceRefresh == false && c.config.DirectClusterEndpointToken != "" && c.config.DirectClusterEndpointTokenRequested != nil && c.config.DirectClusterEndpointTokenRequested.Add(RefreshToken).After(now.Time) {
+	if !forceRefresh && c.config.DirectClusterEndpointToken != "" && c.config.DirectClusterEndpointTokenRequested != nil && c.config.DirectClusterEndpointTokenRequested.Add(RefreshToken).After(now.Time) {
 		return c.config.DirectClusterEndpointToken, nil
 	}
 
@@ -230,14 +235,14 @@ func (c *client) DirectClusterEndpointToken(forceRefresh bool) (string, error) {
 
 		return "", err
 	} else if clusterGatewayToken.Status.Token == "" {
-		return "", errors.New("retrieved an empty token")
+		return "", perrors.New("retrieved an empty token")
 	}
 
 	c.config.DirectClusterEndpointToken = clusterGatewayToken.Status.Token
 	c.config.DirectClusterEndpointTokenRequested = &now
 	err = c.Save()
 	if err != nil {
-		return "", errors.Wrap(err, "save config")
+		return "", perrors.Wrap(err, "save config")
 	}
 
 	return c.config.DirectClusterEndpointToken, nil
@@ -248,7 +253,7 @@ func (c *client) Save() error {
 		return nil
 	}
 	if c.config == nil {
-		return errors.New("no config to write")
+		return perrors.New("no config to write")
 	}
 	if c.config.TypeMeta.Kind == "" {
 		c.config.TypeMeta.Kind = "Config"
@@ -344,7 +349,7 @@ type keyStruct struct {
 }
 
 func verifyHost(host string) error {
-	if strings.HasPrefix(host, "https") == false {
+	if !strings.HasPrefix(host, "https") {
 		return fmt.Errorf("cannot log into a non https loft instance '%s', please make sure you have TLS enabled", host)
 	}
 
@@ -364,13 +369,13 @@ func (c *client) Version() (*auth.Version, error) {
 
 	raw, err := restClient.CoreV1().RESTClient().Get().RequestURI("/version").DoRaw(context.Background())
 	if err != nil {
-		return nil, errors.New(fmt.Sprintf("%s\n\nYou may need to login again via `%s login %s --insecure` to allow self-signed certificates\n", err.Error(), os.Args[0], restConfig.Host))
+		return nil, perrors.New(fmt.Sprintf("%s\n\nYou may need to login again via `%s login %s --insecure` to allow self-signed certificates\n", err.Error(), os.Args[0], restConfig.Host))
 	}
 
 	version := &auth.Version{}
 	err = json.Unmarshal(raw, version)
 	if err != nil {
-		return nil, errors.Wrap(err, "parse version response")
+		return nil, perrors.Wrap(err, "parse version response")
 	}
 
 	return version, nil
@@ -391,7 +396,7 @@ func (c *client) Login(host string, insecure bool, log log.Logger) error {
 	server := startServer(fmt.Sprintf(RedirectPath, host), keyChannel, log)
 	err = open.Run(fmt.Sprintf(LoginPath, host))
 	if err != nil {
-		return fmt.Errorf("couldn't open the login page in a browser: %v. Please use the --access-key flag for the login command. You can generate an access key here: %s", err, fmt.Sprintf(AccessKeyPath, host))
+		return fmt.Errorf("couldn't open the login page in a browser: %w. Please use the --access-key flag for the login command. You can generate an access key here: %s", err, fmt.Sprintf(AccessKeyPath, host))
 	} else {
 		log.Infof("If the browser does not open automatically, please navigate to %s", loginUrl)
 		msg := "If you have problems logging in, please navigate to %s/profile/access-keys, click on 'Create Access Key' and then login via 'loft login %s --access-key ACCESS_KEY"
@@ -463,19 +468,21 @@ func (c *client) LoginWithAccessKey(host, accessKey string, insecure bool) error
 	// verify the connection works
 	managementClient, err := c.Management()
 	if err != nil {
-		return errors.Wrap(err, "create management client")
+		return perrors.Wrap(err, "create management client")
 	}
 
 	// try to get self
 	_, err = managementClient.Loft().ManagementV1().Selves().Create(context.TODO(), &managementv1.Self{}, metav1.CreateOptions{})
 	if err != nil {
-		if urlError, ok := err.(*url.Error); ok {
-			if _, ok := urlError.Err.(x509.UnknownAuthorityError); ok {
+		var urlError *url.Error
+		if errors.As(err, &urlError) {
+			var err x509.UnknownAuthorityError
+			if errors.As(urlError.Err, &err) {
 				return fmt.Errorf("unsafe login endpoint '%s', if you wish to login into an insecure loft endpoint run with the '--insecure' flag", c.config.Host)
 			}
 		}
 
-		return errors.Errorf("error logging in: %v", err)
+		return perrors.Errorf("error logging in: %v", err)
 	}
 
 	return c.Save()
@@ -490,7 +497,7 @@ func VerifyVersion(baseClient Client) error {
 
 	backendMajor, err := strconv.Atoi(v.Major)
 	if err != nil {
-		return errors.Wrap(err, "parse major version string")
+		return perrors.Wrap(err, "parse major version string")
 	}
 
 	cliVersionStr := upgrade.GetVersion()
@@ -499,6 +506,10 @@ func VerifyVersion(baseClient Client) error {
 	}
 
 	cliVersion, err := semver.Parse(cliVersionStr)
+	if err != nil {
+		return err
+	}
+
 	if int(cliVersion.Major) > backendMajor {
 		return fmt.Errorf("unsupported Loft version %[1]s. Please downgrade your CLI to below v%[2]d.0.0 to support this version, as Loft v%[2]d.0.0 and newer versions are incompatible with v%[3]d.x.x", v.Version, cliVersion.Major, backendMajor)
 	} else if int(cliVersion.Major) < backendMajor {
@@ -510,9 +521,9 @@ func VerifyVersion(baseClient Client) error {
 
 func (c *client) restConfig(hostSuffix string) (*rest.Config, error) {
 	if c.config == nil {
-		return nil, errors.New("no config loaded")
+		return nil, perrors.New("no config loaded")
 	} else if c.config.Host == "" || c.config.AccessKey == "" {
-		return nil, errors.New("not logged in, please make sure you have run 'loft login [loft-url]'")
+		return nil, perrors.New("not logged in, please make sure you have run 'loft login [loft-url]'")
 	}
 
 	// build a rest config
@@ -528,19 +539,19 @@ func getRestConfig(host, token string, insecure bool) (*rest.Config, error) {
 	contextName := "local"
 	kubeConfig := clientcmdapi.NewConfig()
 	kubeConfig.Contexts = map[string]*clientcmdapi.Context{
-		contextName: &clientcmdapi.Context{
+		contextName: {
 			Cluster:  contextName,
 			AuthInfo: contextName,
 		},
 	}
 	kubeConfig.Clusters = map[string]*clientcmdapi.Cluster{
-		contextName: &clientcmdapi.Cluster{
+		contextName: {
 			Server:                host,
 			InsecureSkipTLSVerify: insecure,
 		},
 	}
 	kubeConfig.AuthInfos = map[string]*clientcmdapi.AuthInfo{
-		contextName: &clientcmdapi.AuthInfo{
+		contextName: {
 			Token: token,
 		},
 	}
@@ -571,9 +582,8 @@ func startServer(redirectURI string, keyChannel chan keyStruct, log log.Logger) 
 	})
 
 	go func() {
-		if err := srv.ListenAndServe(); err != nil {
-			// cannot panic, because this probably is an intentional close
-		}
+		// cannot panic, because this probably is an intentional close
+		_ = srv.ListenAndServe()
 	}()
 
 	// returning reference so caller can call Shutdown()

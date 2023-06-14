@@ -2,11 +2,12 @@ package cmd
 
 import (
 	"bytes"
+	"os"
+	"text/template"
+
 	"github.com/loft-sh/loftctl/v3/cmd/loftctl/flags"
 	"github.com/loft-sh/loftctl/v3/pkg/log"
 	"github.com/spf13/cobra"
-	"os"
-	"text/template"
 )
 
 // CompletionCmd holds the cmd flags
@@ -64,7 +65,7 @@ $ {{.Use}} completion fish > ~/.config/fish/completions/{{.Use}}.fish
 		Long:                  completionDescription,
 		DisableFlagsInUseLine: true,
 		ValidArgs:             []string{"bash", "zsh", "fish", "powershell"},
-		Args:                  cobra.ExactValidArgs(1),
+		Args:                  cobra.MatchAll(cobra.ExactArgs(1), cobra.OnlyValidArgs),
 		RunE: func(cobraCmd *cobra.Command, args []string) error {
 			return cmd.Run(cobraCmd, args)
 		},

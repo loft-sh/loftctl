@@ -2,6 +2,9 @@ package list
 
 import (
 	"context"
+	"strings"
+	"time"
+
 	"github.com/loft-sh/loftctl/v3/cmd/loftctl/flags"
 	"github.com/loft-sh/loftctl/v3/pkg/client"
 	"github.com/loft-sh/loftctl/v3/pkg/log"
@@ -9,8 +12,6 @@ import (
 	"github.com/spf13/cobra"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/duration"
-	"strings"
-	"time"
 )
 
 // SharedSecretsCmd holds the cmd flags
@@ -97,7 +98,7 @@ func (cmd *SharedSecretsCmd) Run(cobraCmd *cobra.Command, args []string) error {
 			secret.Name,
 			secret.Namespace,
 			strings.Join(keyNames, ","),
-			duration.HumanDuration(time.Now().Sub(secret.CreationTimestamp.Time)),
+			duration.HumanDuration(time.Since(secret.CreationTimestamp.Time)),
 		})
 	}
 

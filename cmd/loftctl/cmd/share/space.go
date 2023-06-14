@@ -4,11 +4,12 @@ import (
 	"context"
 	"fmt"
 
-	storagev1 "github.com/loft-sh/agentapi/v3/pkg/apis/loft/storage/v1"
+	agentstoragev1 "github.com/loft-sh/agentapi/v3/pkg/apis/loft/storage/v1"
 	"github.com/loft-sh/loftctl/v3/cmd/loftctl/flags"
 	"github.com/loft-sh/loftctl/v3/pkg/client"
 	"github.com/loft-sh/loftctl/v3/pkg/client/helper"
 	"github.com/loft-sh/loftctl/v3/pkg/client/naming"
+	pdefaults "github.com/loft-sh/loftctl/v3/pkg/defaults"
 	"github.com/loft-sh/loftctl/v3/pkg/log"
 	"github.com/loft-sh/loftctl/v3/pkg/upgrade"
 	"github.com/loft-sh/loftctl/v3/pkg/util"
@@ -33,7 +34,7 @@ type SpaceCmd struct {
 }
 
 // NewSpaceCmd creates a new command
-func NewSpaceCmd(globalFlags *flags.GlobalFlags) *cobra.Command {
+func NewSpaceCmd(globalFlags *flags.GlobalFlags, defaults *pdefaults.Defaults) *cobra.Command {
 	cmd := &SpaceCmd{
 		GlobalFlags: globalFlags,
 		Log:         log.GetInstance(),
@@ -79,8 +80,9 @@ devspace share space myspace --project myproject --user admin
 		},
 	}
 
+	p, _ := defaults.Get(pdefaults.KeyProject, "")
 	c.Flags().StringVar(&cmd.Cluster, "cluster", "", "The cluster to use")
-	c.Flags().StringVarP(&cmd.Project, "project", "p", "", "The project to use")
+	c.Flags().StringVarP(&cmd.Project, "project", "p", p, "The project to use")
 	c.Flags().StringVar(&cmd.ClusterRole, "cluster-role", "loft-cluster-space-admin", "The cluster role which is assigned to the user or team for that space")
 	c.Flags().StringVar(&cmd.User, "user", "", "The user to share the space with. The user needs to have access to the cluster")
 	c.Flags().StringVar(&cmd.Team, "team", "", "The team to share the space with. The team needs to have access to the cluster")
@@ -122,7 +124,7 @@ func (cmd *SpaceCmd) shareSpace(baseClient client.Client, spaceName string) erro
 		return err
 	}
 
-	accessRule := storagev1.InstanceAccessRule{
+	accessRule := agentstoragev1.InstanceAccessRule{
 		ClusterRole: cmd.ClusterRole,
 	}
 	if cmd.User != "" {
@@ -157,7 +159,7 @@ func (cmd *SpaceCmd) legacyShareSpace(baseClient client.Client, spaceName string
 		return err
 	}
 
-	if userOrTeam.Team == false {
+	if !userOrTeam.Team {
 		cmd.Log.Donef("Successfully granted user %s access to space %s", ansi.Color(userOrTeam.ClusterMember.Info.Name, "white+b"), ansi.Color(spaceName, "white+b"))
 		cmd.Log.Infof("The user can access the space now via: %s", ansi.Color(fmt.Sprintf("loft use space %s --cluster %s", spaceName, cmd.Cluster), "white+b"))
 	} else {

@@ -8,6 +8,7 @@ import (
 	storagev1 "github.com/loft-sh/api/v3/pkg/apis/storage/v1"
 	"github.com/loft-sh/loftctl/v3/cmd/loftctl/flags"
 	"github.com/loft-sh/loftctl/v3/pkg/client"
+	pdefaults "github.com/loft-sh/loftctl/v3/pkg/defaults"
 	"github.com/loft-sh/loftctl/v3/pkg/kube"
 	"github.com/loft-sh/loftctl/v3/pkg/log"
 	"github.com/loft-sh/loftctl/v3/pkg/survey"
@@ -37,7 +38,7 @@ type SecretCmd struct {
 }
 
 // NewSecretCmd creates a new command
-func NewSecretCmd(globalFlags *flags.GlobalFlags) *cobra.Command {
+func NewSecretCmd(globalFlags *flags.GlobalFlags, defaults *pdefaults.Defaults) *cobra.Command {
 	cmd := &SecretCmd{
 		GlobalFlags: globalFlags,
 		log:         log.GetInstance(),
@@ -78,8 +79,9 @@ devspace set secret test-secret.key value --project myproject
 		},
 	}
 
+	p, _ := defaults.Get(pdefaults.KeyProject, "")
 	c.Flags().StringVarP(&cmd.Namespace, "namespace", "n", "", "The namespace in the loft cluster to create the secret in. If omitted will use the namespace were loft is installed in")
-	c.Flags().StringVarP(&cmd.Project, "project", "p", "", "The project to create the project secret in.")
+	c.Flags().StringVarP(&cmd.Project, "project", "p", p, "The project to create the project secret in.")
 
 	return c
 }
@@ -140,7 +142,7 @@ func (cmd *SecretCmd) Run(cobraCmd *cobra.Command, args []string) error {
 func (cmd *SecretCmd) setProjectSecret(managementClient kube.Interface, args []string, namespace, secretName, keyName string) error {
 	secret, err := managementClient.Loft().ManagementV1().ProjectSecrets(namespace).Get(context.TODO(), secretName, metav1.GetOptions{})
 	if err != nil {
-		if kerrors.IsNotFound(err) == false {
+		if !kerrors.IsNotFound(err) {
 			return errors.Wrap(err, "get secret")
 		}
 
@@ -207,7 +209,7 @@ func (cmd *SecretCmd) setProjectSecret(managementClient kube.Interface, args []s
 func (cmd *SecretCmd) setSharedSecret(managementClient kube.Interface, args []string, namespace, secretName, keyName string) error {
 	secret, err := managementClient.Loft().ManagementV1().SharedSecrets(namespace).Get(context.TODO(), secretName, metav1.GetOptions{})
 	if err != nil {
-		if kerrors.IsNotFound(err) == false {
+		if !kerrors.IsNotFound(err) {
 			return errors.Wrap(err, "get secret")
 		}
 

@@ -23,7 +23,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-var errNnoClusterAccess = errors.New("the user has no access to any cluster")
+var errNoClusterAccess = errors.New("the user has no access to any cluster")
 
 type VirtualClusterInstanceProject struct {
 	VirtualCluster *managementv1.VirtualClusterInstance
@@ -386,7 +386,7 @@ func SelectProjectOrCluster(baseClient client.Client, clusterName, projectName s
 	if len(projectNames) == 0 {
 		cluster, err := SelectCluster(baseClient, log)
 		if err != nil {
-			if err == errNnoClusterAccess {
+			if errors.Is(err, errNoClusterAccess) {
 				return "", "", fmt.Errorf("the user has no access to a project")
 			}
 
@@ -432,7 +432,7 @@ func SelectCluster(baseClient client.Client, log log.Logger) (string, error) {
 	}
 
 	if len(clusterNames) == 0 {
-		return "", errNnoClusterAccess
+		return "", errNoClusterAccess
 	} else if len(clusterNames) == 1 {
 		return clusterList.Items[0].Name, nil
 	}

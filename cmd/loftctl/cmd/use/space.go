@@ -10,6 +10,7 @@ import (
 	"github.com/loft-sh/loftctl/v3/pkg/client"
 	"github.com/loft-sh/loftctl/v3/pkg/client/helper"
 	"github.com/loft-sh/loftctl/v3/pkg/client/naming"
+	pdefaults "github.com/loft-sh/loftctl/v3/pkg/defaults"
 	"github.com/loft-sh/loftctl/v3/pkg/kubeconfig"
 	"github.com/loft-sh/loftctl/v3/pkg/log"
 	"github.com/loft-sh/loftctl/v3/pkg/space"
@@ -36,7 +37,7 @@ type SpaceCmd struct {
 }
 
 // NewSpaceCmd creates a new command
-func NewSpaceCmd(globalFlags *flags.GlobalFlags) *cobra.Command {
+func NewSpaceCmd(globalFlags *flags.GlobalFlags, defaults *pdefaults.Defaults) *cobra.Command {
 	cmd := &SpaceCmd{
 		GlobalFlags: globalFlags,
 		log:         log.GetInstance(),
@@ -49,7 +50,7 @@ func NewSpaceCmd(globalFlags *flags.GlobalFlags) *cobra.Command {
 Creates a new kube context for the given space.
 
 Example:
-loft use space 
+loft use space
 loft use space myspace
 loft use space myspace --project myproject
 #######################################################
@@ -62,7 +63,7 @@ loft use space myspace --project myproject
 Creates a new kube context for the given space.
 
 Example:
-devspace use space 
+devspace use space
 devspace use space myspace
 devspace use space myspace --project myproject
 #######################################################
@@ -76,7 +77,7 @@ devspace use space myspace --project myproject
 		Args:  validator,
 		RunE: func(cobraCmd *cobra.Command, args []string) error {
 			// Check for newer version
-			if cmd.Print == false {
+			if !cmd.Print {
 				upgrade.PrintNewerVersionWarning()
 			}
 
@@ -84,8 +85,9 @@ devspace use space myspace --project myproject
 		},
 	}
 
+	p, _ := defaults.Get(pdefaults.KeyProject, "")
 	c.Flags().StringVar(&cmd.Cluster, "cluster", "", "The cluster to use")
-	c.Flags().StringVarP(&cmd.Project, "project", "p", "", "The project to use")
+	c.Flags().StringVarP(&cmd.Project, "project", "p", p, "The project to use")
 	c.Flags().BoolVar(&cmd.Print, "print", false, "When enabled prints the context to stdout")
 	c.Flags().BoolVar(&cmd.SkipWait, "skip-wait", false, "If true, will not wait until the space is running")
 	c.Flags().BoolVar(&cmd.DisableDirectClusterEndpoint, "disable-direct-cluster-endpoint", false, "When enabled does not use an available direct cluster endpoint to connect to the cluster")
@@ -211,11 +213,11 @@ func CreateSpaceInstanceOptions(baseClient client.Client, config string, project
 		CurrentNamespace: spaceInstance.Spec.ClusterRef.Namespace,
 		SetActive:        setActive,
 	}
-	if disableClusterGateway == false && cluster.Annotations != nil && cluster.Annotations[LoftDirectClusterEndpoint] != "" {
+	if !disableClusterGateway && cluster.Annotations != nil && cluster.Annotations[LoftDirectClusterEndpoint] != "" {
 		contextOptions = ApplyDirectClusterEndpointOptions(contextOptions, cluster, "/kubernetes/project/"+projectName+"/space/"+spaceInstance.Name, log)
 		_, err := baseClient.DirectClusterEndpointToken(true)
 		if err != nil {
-			return kubeconfig.ContextOptions{}, fmt.Errorf("retrieving direct cluster endpoint token: %v. Use --disable-direct-cluster-endpoint to create a context without using direct cluster endpoints", err)
+			return kubeconfig.ContextOptions{}, fmt.Errorf("retrieving direct cluster endpoint token: %w. Use --disable-direct-cluster-endpoint to create a context without using direct cluster endpoints", err)
 		}
 	} else {
 		contextOptions.Server = baseClient.Config().Host + "/kubernetes/project/" + projectName + "/space/" + spaceInstance.Name

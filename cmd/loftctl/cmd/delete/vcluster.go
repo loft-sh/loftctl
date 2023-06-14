@@ -12,6 +12,7 @@ import (
 	"github.com/loft-sh/loftctl/v3/cmd/loftctl/flags"
 	"github.com/loft-sh/loftctl/v3/pkg/client"
 	"github.com/loft-sh/loftctl/v3/pkg/client/helper"
+	pdefaults "github.com/loft-sh/loftctl/v3/pkg/defaults"
 	"github.com/loft-sh/loftctl/v3/pkg/kubeconfig"
 	"github.com/loft-sh/loftctl/v3/pkg/log"
 	"github.com/loft-sh/loftctl/v3/pkg/upgrade"
@@ -36,7 +37,7 @@ type VirtualClusterCmd struct {
 }
 
 // NewVirtualClusterCmd creates a new command
-func NewVirtualClusterCmd(globalFlags *flags.GlobalFlags) *cobra.Command {
+func NewVirtualClusterCmd(globalFlags *flags.GlobalFlags, defaults *pdefaults.Defaults) *cobra.Command {
 	cmd := &VirtualClusterCmd{
 		GlobalFlags: globalFlags,
 		Log:         log.GetInstance(),
@@ -48,7 +49,7 @@ func NewVirtualClusterCmd(globalFlags *flags.GlobalFlags) *cobra.Command {
 Deletes a virtual cluster from a cluster
 
 Example:
-loft delete vcluster myvirtualcluster 
+loft delete vcluster myvirtualcluster
 loft delete vcluster myvirtualcluster --project myproject
 #######################################################
 	`
@@ -60,7 +61,7 @@ loft delete vcluster myvirtualcluster --project myproject
 Deletes a virtual cluster from a cluster
 
 Example:
-devspace delete vcluster myvirtualcluster 
+devspace delete vcluster myvirtualcluster
 devspace delete vcluster myvirtualcluster --project myproject
 #######################################################
 	`
@@ -78,9 +79,10 @@ devspace delete vcluster myvirtualcluster --project myproject
 		},
 	}
 
+	p, _ := defaults.Get(pdefaults.KeyProject, "")
 	c.Flags().StringVar(&cmd.Space, "space", "", "The space to use")
 	c.Flags().StringVar(&cmd.Cluster, "cluster", "", "The cluster to use")
-	c.Flags().StringVarP(&cmd.Project, "project", "p", "", "The project to use")
+	c.Flags().StringVarP(&cmd.Project, "project", "p", p, "The project to use")
 	c.Flags().BoolVar(&cmd.DeleteContext, "delete-context", true, "If the corresponding kube context should be deleted if there is any")
 	c.Flags().BoolVar(&cmd.DeleteSpace, "delete-space", false, "Should the corresponding space be deleted")
 	c.Flags().BoolVar(&cmd.Wait, "wait", false, "Termination of this command waits for space to be deleted. Without the flag delete-space, this flag has no effect.")

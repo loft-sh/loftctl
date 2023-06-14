@@ -254,6 +254,8 @@ func (s *StreamLogger) Print(level logrus.Level, args ...interface{}) {
 		s.Panic(args...)
 	case logrus.FatalLevel:
 		s.Fatal(args...)
+	case logrus.TraceLevel:
+		s.Debug(args...)
 	}
 }
 
@@ -272,6 +274,8 @@ func (s *StreamLogger) Printf(level logrus.Level, format string, args ...interfa
 		s.Panicf(format, args...)
 	case logrus.FatalLevel:
 		s.Fatalf(format, args...)
+	case logrus.TraceLevel:
+		s.Debugf(format, args...)
 	}
 }
 
@@ -311,5 +315,5 @@ func (s *StreamLogger) WriteString(message string) {
 
 // Question asks a new question
 func (s *StreamLogger) Question(params *survey.QuestionOptions) (string, error) {
-	return "", errors.New("Questions in discard logger not supported")
+	return "", errors.New("questions in discard logger not supported")
 }

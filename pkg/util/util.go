@@ -1,7 +1,9 @@
 package util
 
 import (
-	"k8s.io/apimachinery/pkg/api/errors"
+	"errors"
+
+	kerrors "k8s.io/apimachinery/pkg/api/errors"
 )
 
 func GetCause(err error) string {
@@ -9,7 +11,9 @@ func GetCause(err error) string {
 		return ""
 	}
 
-	if statusErr, ok := err.(*errors.StatusError); ok {
+	var statusErr *kerrors.StatusError
+
+	if errors.As(err, &statusErr) {
 		details := statusErr.Status().Details
 		if details != nil && len(details.Causes) > 0 {
 			return details.Causes[0].Message

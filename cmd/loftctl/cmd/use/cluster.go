@@ -4,6 +4,9 @@ import (
 	"context"
 	"encoding/base64"
 	"fmt"
+	"os"
+	"strings"
+
 	managementv1 "github.com/loft-sh/api/v3/pkg/apis/management/v1"
 	"github.com/loft-sh/loftctl/v3/cmd/loftctl/flags"
 	"github.com/loft-sh/loftctl/v3/pkg/client"
@@ -16,8 +19,6 @@ import (
 	"github.com/spf13/cobra"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"os"
-	"strings"
 )
 
 const (
@@ -80,7 +81,7 @@ devspace use cluster mycluster
 		Args:  cobra.MaximumNArgs(1),
 		RunE: func(cobraCmd *cobra.Command, args []string) error {
 			// Check for newer version
-			if cmd.Print == false {
+			if !cmd.Print {
 				upgrade.PrintNewerVersionWarning()
 			}
 
@@ -178,11 +179,11 @@ func CreateClusterContextOptions(baseClient client.Client, config string, cluste
 		CurrentNamespace: spaceName,
 		SetActive:        setActive,
 	}
-	if disableClusterGateway == false && cluster.Annotations != nil && cluster.Annotations[LoftDirectClusterEndpoint] != "" {
+	if !disableClusterGateway && cluster.Annotations != nil && cluster.Annotations[LoftDirectClusterEndpoint] != "" {
 		contextOptions = ApplyDirectClusterEndpointOptions(contextOptions, cluster, "/kubernetes/cluster", log)
 		_, err := baseClient.DirectClusterEndpointToken(true)
 		if err != nil {
-			return kubeconfig.ContextOptions{}, fmt.Errorf("retrieving direct cluster endpoint token: %v. Use --disable-direct-cluster-endpoint to create a context without using direct cluster endpoints", err)
+			return kubeconfig.ContextOptions{}, fmt.Errorf("retrieving direct cluster endpoint token: %w. Use --disable-direct-cluster-endpoint to create a context without using direct cluster endpoints", err)
 		}
 	} else {
 		contextOptions.Server = baseClient.Config().Host + "/kubernetes/cluster/" + cluster.Name
@@ -199,7 +200,7 @@ func CreateClusterContextOptions(baseClient client.Client, config string, cluste
 
 func ApplyDirectClusterEndpointOptions(options kubeconfig.ContextOptions, cluster *managementv1.Cluster, path string, log log.Logger) kubeconfig.ContextOptions {
 	server := strings.TrimSuffix(cluster.Annotations[LoftDirectClusterEndpoint], "/")
-	if strings.HasPrefix(server, "https://") == false {
+	if !strings.HasPrefix(server, "https://") {
 		server = "https://" + server
 	}
 
@@ -219,7 +220,7 @@ func retrieveCaData(cluster *managementv1.Cluster) ([]byte, error) {
 
 	data, err := base64.StdEncoding.DecodeString(cluster.Annotations[LoftDirectClusterEndpointCaData])
 	if err != nil {
-		return nil, fmt.Errorf("error decoding cluster %s annotation: %v", LoftDirectClusterEndpointCaData, err)
+		return nil, fmt.Errorf("error decoding cluster %s annotation: %w", LoftDirectClusterEndpointCaData, err)
 	}
 
 	return data, nil

@@ -2,6 +2,11 @@ package parameters
 
 import (
 	"fmt"
+	"os"
+	"regexp"
+	"strconv"
+	"strings"
+
 	"github.com/ghodss/yaml"
 	managementv1 "github.com/loft-sh/api/v3/pkg/apis/management/v1"
 	storagev1 "github.com/loft-sh/api/v3/pkg/apis/storage/v1"
@@ -9,10 +14,6 @@ import (
 	"github.com/loft-sh/loftctl/v3/pkg/log"
 	"github.com/loft-sh/loftctl/v3/pkg/survey"
 	"github.com/pkg/errors"
-	"os"
-	"regexp"
-	"strconv"
-	"strings"
 )
 
 type ParametersFile struct {
@@ -59,8 +60,6 @@ func SetDeepValue(parameters interface{}, path string, value interface{}) {
 
 		SetDeepValue(t[pathSegments[0]], strings.Join(pathSegments[1:], "."), value)
 	}
-
-	return
 }
 
 func GetDeepValue(parameters interface{}, path string) interface{} {
@@ -164,7 +163,7 @@ func ResolveAppParameters(apps []NamespacedApp, appFilename string, log log.Logg
 
 		parameters := map[string]interface{}{}
 		for _, parameter := range app.App.Spec.Parameters {
-			question := fmt.Sprintf("%s", parameter.Label)
+			question := parameter.Label
 			if parameter.Required {
 				question += " (Required)"
 			}
