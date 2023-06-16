@@ -2,6 +2,7 @@ package get
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"os"
 	"strings"
@@ -16,7 +17,14 @@ import (
 	"github.com/loft-sh/loftctl/v3/pkg/util"
 	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
+	"gopkg.in/yaml.v2"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+)
+
+const (
+	OutputYAML  string = "yaml"
+	OutputJSON  string = "json"
+	OutputValue string = "value"
 )
 
 // SecretCmd holds the flags
@@ -24,6 +32,8 @@ type SecretCmd struct {
 	*flags.GlobalFlags
 	Namespace string
 	Project   string
+	All       bool
+	Output    string
 
 	log log.Logger
 }
@@ -72,6 +82,8 @@ devspace get secret test-secret.key --project myproject
 	p, _ := defaults.Get(pdefaults.KeyProject, "")
 	c.Flags().StringVarP(&cmd.Project, "project", "p", p, "The project to read the project secret from.")
 	c.Flags().StringVarP(&cmd.Namespace, "namespace", "n", "", "The namespace in the loft cluster to read the secret from. If omitted will use the namespace were loft is installed in")
+	c.Flags().BoolVarP(&cmd.All, "all", "a", false, "Display all secret keys")
+	c.Flags().StringVarP(&cmd.Output, "output", "o", "", "Output format. One of: (json, yaml, value). If the --all flag is passed 'yaml' will be the default format")
 	return c
 }
 
@@ -93,6 +105,18 @@ func (cmd *SecretCmd) Run(args []string) error {
 		secretType = set.ProjectSecret
 	} else {
 		secretType = set.SharedSecret
+	}
+
+	output := cmd.Output
+
+	if cmd.All && output == "" {
+		output = OutputYAML
+	} else if output == "" {
+		output = OutputValue
+	}
+
+	if cmd.All && output == OutputValue {
+		return errors.Errorf("output format %s is not allowed with the --all flag.", OutputValue)
 	}
 
 	// get target namespace
@@ -161,6 +185,10 @@ func (cmd *SecretCmd) Run(args []string) error {
 		}
 	}
 
+	if cmd.All && keyName != "" {
+		cmd.log.Warnf("secret key %s ignored because --all was passed", keyName)
+	}
+
 	var secretData map[string][]byte
 
 	switch secretType {
@@ -184,28 +212,61 @@ func (cmd *SecretCmd) Run(args []string) error {
 		secretData = sSecret.Spec.Data
 	}
 
-	if keyName == "" {
-		keyNames := []string{}
+	kvs := secretData
+	if !cmd.All {
+		if keyName == "" {
+			var keyNames []string
 
-		for k := range secretData {
-			keyNames = append(keyNames, k)
+			for k := range secretData {
+				keyNames = append(keyNames, k)
+			}
+
+			keyName, err = cmd.log.Question(&survey.QuestionOptions{
+				Question:     "Please select a secret key to read",
+				DefaultValue: keyNames[0],
+				Options:      keyNames,
+			})
+			if err != nil {
+				return errors.Wrap(err, "ask question")
+			}
 		}
 
-		keyName, err = cmd.log.Question(&survey.QuestionOptions{
-			Question:     "Please select a secret key to read",
-			DefaultValue: keyNames[0],
-			Options:      keyNames,
-		})
-		if err != nil {
-			return errors.Wrap(err, "ask question")
+		keyValue, ok := secretData[keyName]
+		if ok {
+			kvs = map[string][]byte{
+				keyName: keyValue,
+			}
 		}
 	}
 
-	keyValue, ok := secretData[keyName]
-	if !ok {
-		return errors.Errorf("key %s does not exist in secret %s", keyName, secretName)
+	var outputData []byte
+	if output == OutputValue {
+		var ok bool
+		outputData, ok = kvs[keyName]
+		if !ok {
+			return errors.Errorf("key %s does not exist in secret %s", keyName, secretName)
+		}
+	} else {
+		stringValues := map[string]string{}
+		for k, v := range kvs {
+			stringValues[k] = string(v)
+		}
+
+		if output == OutputYAML {
+			outputData, err = yaml.Marshal(stringValues)
+			if err != nil {
+				return err
+			}
+		} else if output == OutputJSON {
+			outputData, err = json.Marshal(stringValues)
+			if err != nil {
+				return err
+			}
+		} else {
+			return errors.Errorf("unknown output format %s, allowed formats are: value, json, yaml", output)
+		}
 	}
 
-	_, err = os.Stdout.Write(keyValue)
+	_, err = os.Stdout.Write(outputData)
 	return err
 }
