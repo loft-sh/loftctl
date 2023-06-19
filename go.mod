@@ -9,7 +9,7 @@ require (
 	github.com/evanphx/json-patch v5.6.0+incompatible
 	github.com/ghodss/yaml v1.0.0
 	github.com/k0kubun/go-ansi v0.0.0-20180517002512-3bf9e2903213
-	github.com/loft-sh/agentapi/v3 v3.2.0
+	github.com/loft-sh/agentapi/v3 v3.2.1-0.20230619155624-50bd4c8cb391
 	github.com/loft-sh/api/v3 v3.0.0-20230614100247-8af0d4134acd
 	github.com/loft-sh/apiserver v0.0.0-20230203091244-1225c09820b1
 	github.com/mgutz/ansi v0.0.0-20200706080929-d51e80ef957d
@@ -22,6 +22,7 @@ require (
 	github.com/spf13/pflag v1.0.5
 	go.uber.org/atomic v1.10.0
 	gopkg.in/AlecAivazis/survey.v1 v1.8.8
+	gopkg.in/yaml.v2 v2.4.0
 	gotest.tools v2.2.0+incompatible
 	gotest.tools/v3 v3.0.3
 	k8s.io/api v0.26.1
@@ -127,7 +128,6 @@ require (
 	google.golang.org/grpc v1.52.3 // indirect
 	google.golang.org/protobuf v1.28.1 // indirect
 	gopkg.in/inf.v0 v0.9.1 // indirect
-	gopkg.in/yaml.v2 v2.4.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 	k8s.io/apiextensions-apiserver v0.26.1 // indirect
 	k8s.io/apiserver v0.26.1 // indirect
