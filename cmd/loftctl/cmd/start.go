@@ -579,14 +579,6 @@ func (cmd *StartCmd) waitForLoft() (*corev1.Pod, error) {
 		return nil, err
 	}
 
-	// wait for loft pod to start
-	cmd.Log.StartWait("Waiting for Loft Agent pod to be running...")
-	err = clihelper.WaitForReadyLoftAgentPod(cmd.KubeClient, cmd.Namespace, cmd.Log)
-	cmd.Log.StopWait()
-	if err != nil {
-		return nil, err
-	}
-
 	// ensure user admin secret is there
 	isNewPassword, err := clihelper.EnsureAdminPassword(cmd.KubeClient, cmd.RestConfig, cmd.Password, cmd.Log)
 	if err != nil {

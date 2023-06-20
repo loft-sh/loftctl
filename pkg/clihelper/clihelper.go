@@ -82,55 +82,6 @@ func GetLoftIngressHost(kubeClient kubernetes.Interface, namespace string) (stri
 	return "", fmt.Errorf("couldn't find any host in loft ingress '%s/loft-ingress', please make sure you have not changed any deployed resources", namespace)
 }
 
-func WaitForReadyLoftAgentPod(kubeClient kubernetes.Interface, namespace string, log log.Logger) error {
-	// wait until we have a running loft pod
-	err := wait.Poll(time.Second*2, time.Minute*10, func() (bool, error) {
-		pods, err := kubeClient.CoreV1().Pods(namespace).List(context.TODO(), metav1.ListOptions{
-			LabelSelector: "app=loft-agent",
-		})
-		if err != nil {
-			log.Warnf("Error trying to retrieve Loft Agent pod: %v", err)
-			return false, nil
-		} else if len(pods.Items) == 0 {
-			log.Debugf("No Loft Agent pod found in namespace %v, searching in all namespaces", namespace)
-			pods, err = kubeClient.CoreV1().Pods("").List(context.TODO(), metav1.ListOptions{
-				LabelSelector: "app=loft-agent",
-			})
-			if err != nil {
-				log.Warnf("Error trying to retrieve Loft Agent pod: %v", err)
-				return false, nil
-			} else if len(pods.Items) == 0 {
-				return false, nil
-			}
-		}
-
-		sort.Slice(pods.Items, func(i, j int) bool {
-			return pods.Items[i].CreationTimestamp.After(pods.Items[j].CreationTimestamp.Time)
-		})
-
-		loftPod := &pods.Items[0]
-		found := false
-		for _, containerStatus := range loftPod.Status.ContainerStatuses {
-			if containerStatus.State.Running != nil && containerStatus.Ready {
-				if containerStatus.Name == "agent" {
-					found = true
-				}
-
-				continue
-			}
-
-			return false, nil
-		}
-
-		return found, nil
-	})
-	if err != nil {
-		return err
-	}
-
-	return nil
-}
-
 func WaitForReadyLoftPod(kubeClient kubernetes.Interface, namespace string, log log.Logger) (*corev1.Pod, error) {
 	// wait until we have a running loft pod
 	now := time.Now()
