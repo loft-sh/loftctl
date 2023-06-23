@@ -1,6 +1,8 @@
 package cmd
 
 import (
+	"context"
+
 	"github.com/loft-sh/loftctl/v3/cmd/loftctl/cmd/connect"
 	"github.com/loft-sh/loftctl/v3/cmd/loftctl/cmd/create"
 	cmddefaults "github.com/loft-sh/loftctl/v3/cmd/loftctl/cmd/defaults"
@@ -52,7 +54,7 @@ func Execute() {
 	rootCmd.Version = upgrade.GetVersion()
 
 	// Execute command
-	err := rootCmd.Execute()
+	err := rootCmd.ExecuteContext(context.Background())
 	if err != nil {
 		if globalFlags.Debug {
 			log.Fatalf("%+v", err)

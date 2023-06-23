@@ -9,6 +9,7 @@ import (
 	clusterv1 "github.com/loft-sh/agentapi/v3/pkg/apis/loft/cluster/v1"
 	managementv1 "github.com/loft-sh/api/v3/pkg/apis/management/v1"
 	storagev1 "github.com/loft-sh/api/v3/pkg/apis/storage/v1"
+	"github.com/loft-sh/loftctl/v3/pkg/config"
 	"github.com/loft-sh/loftctl/v3/pkg/kube"
 	"github.com/loft-sh/loftctl/v3/pkg/log"
 	"github.com/loft-sh/loftctl/v3/pkg/util"
@@ -42,7 +43,7 @@ func WaitForSpaceInstance(ctx context.Context, managementClient kube.Interface, 
 	}
 
 	warnCounter := 0
-	return spaceInstance, wait.PollImmediate(time.Second, time.Minute*6, func() (bool, error) {
+	return spaceInstance, wait.PollImmediate(time.Second, config.Timeout(), func() (bool, error) {
 		spaceInstance, err = managementClient.Loft().ManagementV1().SpaceInstances(namespace).Get(ctx, name, metav1.GetOptions{})
 		if err != nil {
 			return false, err

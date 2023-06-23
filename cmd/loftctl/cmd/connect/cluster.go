@@ -7,6 +7,7 @@ import (
 
 	"github.com/loft-sh/loftctl/v3/pkg/client"
 	"github.com/loft-sh/loftctl/v3/pkg/client/helper"
+	"github.com/loft-sh/loftctl/v3/pkg/config"
 	"github.com/loft-sh/loftctl/v3/pkg/kube"
 	"github.com/loft-sh/loftctl/v3/pkg/log"
 	"github.com/pkg/errors"
@@ -151,7 +152,7 @@ func (cmd *ClusterCmd) Run(c *rest.Config, args []string) error {
 
 	if cmd.Wait {
 		cmd.Log.StartWait("Waiting for the cluster to be initialized")
-		waitErr := wait.Poll(time.Second, time.Minute*5, func() (done bool, err error) {
+		waitErr := wait.Poll(time.Second, config.Timeout(), func() (done bool, err error) {
 			clusterInstance, err := managementClient.Loft().ManagementV1().Clusters().Get(context.TODO(), clusterName, metav1.GetOptions{})
 			if err != nil && !kerrors.IsNotFound(err) {
 				return false, err

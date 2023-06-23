@@ -12,6 +12,7 @@ import (
 	"github.com/loft-sh/loftctl/v3/pkg/client"
 	"github.com/loft-sh/loftctl/v3/pkg/client/helper"
 	"github.com/loft-sh/loftctl/v3/pkg/client/naming"
+	"github.com/loft-sh/loftctl/v3/pkg/config"
 	pdefaults "github.com/loft-sh/loftctl/v3/pkg/defaults"
 	"github.com/loft-sh/loftctl/v3/pkg/log"
 	"github.com/loft-sh/loftctl/v3/pkg/upgrade"
@@ -132,7 +133,7 @@ func (cmd *SpaceCmd) sleepSpace(baseClient client.Client, spaceName string) erro
 	// wait for sleeping
 	cmd.Log.StartWait("Wait until space is sleeping")
 	defer cmd.Log.StopWait()
-	err = wait.Poll(time.Second, time.Minute, func() (bool, error) {
+	err = wait.Poll(time.Second, config.Timeout(), func() (bool, error) {
 		spaceInstance, err := managementClient.Loft().ManagementV1().SpaceInstances(naming.ProjectNamespace(cmd.Project)).Get(context.TODO(), spaceName, metav1.GetOptions{})
 		if err != nil {
 			return false, err
@@ -173,7 +174,7 @@ func (cmd *SpaceCmd) legacySleepSpace(baseClient client.Client, spaceName string
 	// wait for sleeping
 	cmd.Log.StartWait("Wait until space is sleeping")
 	defer cmd.Log.StopWait()
-	err = wait.Poll(time.Second, time.Minute, func() (bool, error) {
+	err = wait.Poll(time.Second, config.Timeout(), func() (bool, error) {
 		configs, err := clusterClient.Agent().ClusterV1().SleepModeConfigs(spaceName).List(context.TODO(), metav1.ListOptions{})
 		if err != nil {
 			return false, err

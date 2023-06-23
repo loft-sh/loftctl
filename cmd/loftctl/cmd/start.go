@@ -15,6 +15,7 @@ import (
 	"k8s.io/kubectl/pkg/util/term"
 
 	"github.com/loft-sh/loftctl/v3/pkg/clihelper"
+	"github.com/loft-sh/loftctl/v3/pkg/config"
 	"github.com/loft-sh/loftctl/v3/pkg/printhelper"
 	"github.com/loft-sh/loftctl/v3/pkg/upgrade"
 	"github.com/mgutz/ansi"
@@ -556,7 +557,7 @@ func (cmd *StartCmd) successRemote(host string) error {
 	printhelper.PrintDNSConfiguration(host, cmd.Log)
 
 	cmd.Log.StartWait("Waiting for you to configure DNS, so loft can be reached on https://" + host)
-	err = wait.PollImmediate(time.Second*5, time.Hour*24, func() (bool, error) {
+	err = wait.PollImmediate(time.Second*5, config.Timeout(), func() (bool, error) {
 		return clihelper.IsLoftReachable(host)
 	})
 	cmd.Log.StopWait()
@@ -609,7 +610,7 @@ func (cmd *StartCmd) startPortForwarding(loftPod *corev1.Pod) error {
 		},
 	}
 	cmd.Log.Infof("Waiting until loft is reachable at https://localhost:%s", cmd.LocalPort)
-	err = wait.PollImmediate(time.Second, time.Minute*10, func() (bool, error) {
+	err = wait.PollImmediate(time.Second, config.Timeout(), func() (bool, error) {
 		resp, err := httpClient.Get("https://localhost:" + cmd.LocalPort + "/version")
 		if err != nil {
 			return false, nil

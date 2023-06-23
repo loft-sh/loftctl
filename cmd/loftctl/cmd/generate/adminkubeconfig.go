@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/loft-sh/loftctl/v3/cmd/loftctl/flags"
+	"github.com/loft-sh/loftctl/v3/pkg/config"
 	"github.com/loft-sh/loftctl/v3/pkg/kubeconfig"
 	"github.com/loft-sh/loftctl/v3/pkg/log"
 	"github.com/loft-sh/loftctl/v3/pkg/upgrade"
@@ -167,7 +168,7 @@ func GetAuthToken(c *rest.Config, namespace, serviceAccount string) ([]byte, err
 
 	// wait for secret token to be populated
 	token := []byte{}
-	err = wait.Poll(time.Millisecond*250, time.Minute*2, func() (bool, error) {
+	err = wait.Poll(time.Millisecond*250, config.Timeout(), func() (bool, error) {
 		secret, err := client.CoreV1().Secrets(namespace).Get(context.TODO(), tokenSecretName, metav1.GetOptions{})
 		if err != nil {
 			return false, perrors.Wrap(err, "get service account secret")

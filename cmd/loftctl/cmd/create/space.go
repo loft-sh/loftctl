@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/loft-sh/loftctl/v3/pkg/client/naming"
+	"github.com/loft-sh/loftctl/v3/pkg/config"
 	"github.com/loft-sh/loftctl/v3/pkg/space"
 	"github.com/loft-sh/loftctl/v3/pkg/util"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -213,7 +214,7 @@ func (cmd *SpaceCmd) createSpace(baseClient client.Client, spaceName string) err
 		cmd.Log.Infof("Waiting until space is deleted...")
 
 		// wait until the space instance is deleted
-		waitErr := wait.Poll(time.Second, time.Minute*5, func() (done bool, err error) {
+		waitErr := wait.Poll(time.Second, config.Timeout(), func() (done bool, err error) {
 			spaceInstance, err = managementClient.Loft().ManagementV1().SpaceInstances(spaceNamespace).Get(context.TODO(), spaceName, metav1.GetOptions{})
 			if err != nil && !kerrors.IsNotFound(err) {
 				return false, err

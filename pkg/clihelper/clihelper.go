@@ -23,6 +23,7 @@ import (
 
 	jsonpatch "github.com/evanphx/json-patch"
 	loftclientset "github.com/loft-sh/api/v3/pkg/client/clientset_generated/clientset"
+	"github.com/loft-sh/loftctl/v3/pkg/config"
 	"github.com/loft-sh/loftctl/v3/pkg/log"
 	"github.com/loft-sh/loftctl/v3/pkg/portforward"
 	"github.com/loft-sh/loftctl/v3/pkg/survey"
@@ -87,7 +88,7 @@ func WaitForReadyLoftPod(kubeClient kubernetes.Interface, namespace string, log 
 	now := time.Now()
 	warningPrinted := false
 	pod := &corev1.Pod{}
-	err := wait.Poll(time.Second*2, time.Minute*10, func() (bool, error) {
+	err := wait.Poll(time.Second*2, config.Timeout(), func() (bool, error) {
 		pods, err := kubeClient.CoreV1().Pods(namespace).List(context.TODO(), metav1.ListOptions{
 			LabelSelector: "app=loft",
 		})

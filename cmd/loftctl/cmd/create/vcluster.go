@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/loft-sh/loftctl/v3/pkg/client/naming"
+	"github.com/loft-sh/loftctl/v3/pkg/config"
 	"github.com/loft-sh/loftctl/v3/pkg/util"
 	"github.com/loft-sh/loftctl/v3/pkg/vcluster"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -228,7 +229,7 @@ func (cmd *VirtualClusterCmd) createVirtualCluster(baseClient client.Client, vir
 		cmd.Log.Infof("Waiting until virtual cluster is deleted...")
 
 		// wait until the virtual cluster instance is deleted
-		waitErr := wait.Poll(time.Second, time.Minute*5, func() (done bool, err error) {
+		waitErr := wait.Poll(time.Second, config.Timeout(), func() (done bool, err error) {
 			virtualClusterInstance, err = managementClient.Loft().ManagementV1().VirtualClusterInstances(virtualClusterNamespace).Get(context.TODO(), virtualClusterName, metav1.GetOptions{})
 			if err != nil && !kerrors.IsNotFound(err) {
 				return false, err
