@@ -8,9 +8,10 @@ require (
 	github.com/docker/docker v0.7.3-0.20190327010347-be7ac8be2ae0
 	github.com/evanphx/json-patch v5.6.0+incompatible
 	github.com/ghodss/yaml v1.0.0
+	github.com/gorilla/websocket v1.4.2
 	github.com/k0kubun/go-ansi v0.0.0-20180517002512-3bf9e2903213
 	github.com/loft-sh/agentapi/v3 v3.2.1-0.20230623084322-a85206ddf851
-	github.com/loft-sh/api/v3 v3.0.0-20230623084333-7e5805150981
+	github.com/loft-sh/api/v3 v3.0.0-20230627141530-28333c2773cb
 	github.com/loft-sh/apiserver v0.0.0-20230203091244-1225c09820b1
 	github.com/mgutz/ansi v0.0.0-20200706080929-d51e80ef957d
 	github.com/mitchellh/go-homedir v1.1.0

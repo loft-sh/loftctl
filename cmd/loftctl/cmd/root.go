@@ -7,6 +7,7 @@ import (
 	"github.com/loft-sh/loftctl/v3/cmd/loftctl/cmd/create"
 	cmddefaults "github.com/loft-sh/loftctl/v3/cmd/loftctl/cmd/defaults"
 	"github.com/loft-sh/loftctl/v3/cmd/loftctl/cmd/delete"
+	"github.com/loft-sh/loftctl/v3/cmd/loftctl/cmd/devpod"
 	"github.com/loft-sh/loftctl/v3/cmd/loftctl/cmd/generate"
 	"github.com/loft-sh/loftctl/v3/cmd/loftctl/cmd/get"
 	"github.com/loft-sh/loftctl/v3/cmd/loftctl/cmd/importcmd"
@@ -98,6 +99,7 @@ func BuildRoot(log log.Logger) *cobra.Command {
 	rootCmd.AddCommand(importcmd.NewImportCmd(globalFlags))
 	rootCmd.AddCommand(connect.NewConnectCmd(globalFlags))
 	rootCmd.AddCommand(cmddefaults.NewDefaultsCmd(globalFlags, defaults))
+	rootCmd.AddCommand(devpod.NewDevPodCmd(globalFlags))
 
 	return rootCmd
 }
