@@ -18,10 +18,9 @@ import (
 	"strings"
 	"time"
 
+	jsonpatch "github.com/evanphx/json-patch"
 	clusterv1 "github.com/loft-sh/agentapi/v3/pkg/apis/loft/cluster/v1"
 	storagev1 "github.com/loft-sh/api/v3/pkg/apis/storage/v1"
-
-	jsonpatch "github.com/evanphx/json-patch"
 	loftclientset "github.com/loft-sh/api/v3/pkg/client/clientset_generated/clientset"
 	"github.com/loft-sh/loftctl/v3/pkg/config"
 	"github.com/loft-sh/loftctl/v3/pkg/log"
@@ -44,6 +43,14 @@ const defaultReleaseName = "loft"
 func GetDisplayName(name string, displayName string) string {
 	if displayName != "" {
 		return displayName
+	}
+
+	return name
+}
+
+func GetTableDisplayName(name string, displayName string) string {
+	if displayName != "" && displayName != name {
+		return displayName + " (" + name + ")"
 	}
 
 	return name

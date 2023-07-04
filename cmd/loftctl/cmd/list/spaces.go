@@ -87,7 +87,7 @@ func (cmd *SpacesCmd) RunSpaces() error {
 	}
 	for _, space := range spaceInstances {
 		values = append(values, []string{
-			clihelper.GetDisplayName(space.SpaceInstance.Name, space.SpaceInstance.Spec.DisplayName),
+			clihelper.GetTableDisplayName(space.SpaceInstance.Name, space.SpaceInstance.Spec.DisplayName),
 			space.Project,
 			space.SpaceInstance.Spec.ClusterRef.Cluster,
 			strconv.FormatBool(space.SpaceInstance.Status.Phase == storagev1.InstanceSleeping),

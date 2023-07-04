@@ -86,7 +86,7 @@ func (cmd *VirtualClustersCmd) Run() error {
 
 	for _, virtualCluster := range virtualClusterInstances {
 		values = append(values, []string{
-			clihelper.GetDisplayName(virtualCluster.VirtualClusterInstance.Name, virtualCluster.VirtualClusterInstance.Spec.DisplayName),
+			clihelper.GetTableDisplayName(virtualCluster.VirtualClusterInstance.Name, virtualCluster.VirtualClusterInstance.Spec.DisplayName),
 			virtualCluster.Project,
 			virtualCluster.VirtualClusterInstance.Spec.ClusterRef.Cluster,
 			virtualCluster.VirtualClusterInstance.Spec.ClusterRef.Namespace,
