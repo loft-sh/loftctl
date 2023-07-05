@@ -557,7 +557,7 @@ func (cmd *StartCmd) successRemote(host string) error {
 	printhelper.PrintDNSConfiguration(host, cmd.Log)
 
 	cmd.Log.StartWait("Waiting for you to configure DNS, so loft can be reached on https://" + host)
-	err = wait.PollImmediate(time.Second*5, config.Timeout(), func() (bool, error) {
+	err = wait.PollUntilContextTimeout(context.TODO(), time.Second*5, config.Timeout(), true, func(ctx context.Context) (bool, error) {
 		return clihelper.IsLoftReachable(host)
 	})
 	cmd.Log.StopWait()
@@ -610,8 +610,13 @@ func (cmd *StartCmd) startPortForwarding(loftPod *corev1.Pod) error {
 		},
 	}
 	cmd.Log.Infof("Waiting until loft is reachable at https://localhost:%s", cmd.LocalPort)
-	err = wait.PollImmediate(time.Second, config.Timeout(), func() (bool, error) {
-		resp, err := httpClient.Get("https://localhost:" + cmd.LocalPort + "/version")
+	err = wait.PollUntilContextTimeout(context.TODO(), time.Second, config.Timeout(), true, func(ctx context.Context) (bool, error) {
+		req, err := http.NewRequestWithContext(ctx, http.MethodGet, "https://localhost:"+cmd.LocalPort+"/version", nil)
+		if err != nil {
+			return false, nil
+		}
+
+		resp, err := httpClient.Do(req)
 		if err != nil {
 			return false, nil
 		}

@@ -32,7 +32,7 @@ func WaitForVCluster(ctx context.Context, baseClient client.Client, clusterName,
 
 	warnCounter := 0
 
-	return wait.PollImmediate(time.Second, config.Timeout(), func() (bool, error) {
+	return wait.PollUntilContextTimeout(ctx, time.Second, config.Timeout(), true, func(ctx context.Context) (bool, error) {
 		_, err = vClusterClient.CoreV1().ServiceAccounts("default").Get(ctx, "default", metav1.GetOptions{})
 		if err != nil && time.Now().After(nextMessage) {
 			if warnCounter > 1 {
@@ -73,7 +73,7 @@ func WaitForVirtualClusterInstance(ctx context.Context, managementClient kube.In
 	}
 
 	warnCounter := 0
-	return virtualClusterInstance, wait.PollImmediate(time.Second, config.Timeout(), func() (bool, error) {
+	return virtualClusterInstance, wait.PollUntilContextTimeout(ctx, time.Second, config.Timeout(), true, func(ctx context.Context) (bool, error) {
 		virtualClusterInstance, err = managementClient.Loft().ManagementV1().VirtualClusterInstances(namespace).Get(ctx, name, metav1.GetOptions{})
 		if err != nil {
 			return false, err

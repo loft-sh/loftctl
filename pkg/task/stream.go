@@ -45,7 +45,7 @@ func StreamTask(ctx context.Context, managementClient kube.Interface, task *mana
 	}
 
 	// wait for the task to be ready
-	err = wait.PollImmediate(time.Second, config.Timeout(), func() (done bool, err error) {
+	err = wait.PollUntilContextTimeout(ctx, time.Second, config.Timeout(), true, func(ctx context.Context) (done bool, err error) {
 		task, err := managementClient.Loft().ManagementV1().Tasks().Get(ctx, createdTask.Name, metav1.GetOptions{})
 		if err != nil {
 			return false, err
