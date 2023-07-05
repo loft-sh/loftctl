@@ -3,7 +3,7 @@ package create
 import (
 	"strings"
 
-	"github.com/loft-sh/loftctl/v3/pkg/log"
+	"github.com/loft-sh/log"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 

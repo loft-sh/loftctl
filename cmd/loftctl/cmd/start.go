@@ -12,6 +12,7 @@ import (
 	"regexp"
 	"time"
 
+	"github.com/sirupsen/logrus"
 	"k8s.io/kubectl/pkg/util/term"
 
 	"github.com/loft-sh/loftctl/v3/pkg/clihelper"
@@ -25,8 +26,8 @@ import (
 
 	"github.com/loft-sh/loftctl/v3/cmd/loftctl/flags"
 	"github.com/loft-sh/loftctl/v3/pkg/client"
-	"github.com/loft-sh/loftctl/v3/pkg/log"
-	"github.com/loft-sh/loftctl/v3/pkg/survey"
+	"github.com/loft-sh/log"
+	"github.com/loft-sh/log/survey"
 	"github.com/spf13/cobra"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -125,7 +126,7 @@ func (cmd *StartCmd) Run() error {
 	if err != nil {
 		return err
 	}
-	cmd.Log.WriteString("\n")
+	cmd.Log.WriteString(logrus.InfoLevel, "\n")
 
 	// Uninstall already existing Loft instance
 	if cmd.Reset {
@@ -496,9 +497,8 @@ func (cmd *StartCmd) success() error {
 	}
 
 	// get login link
-	cmd.Log.StartWait("Checking Loft status...")
+	cmd.Log.Info("Checking Loft status...")
 	host, err := clihelper.GetLoftIngressHost(cmd.KubeClient, cmd.Namespace)
-	cmd.Log.StopWait()
 	if err != nil {
 		return err
 	}
@@ -556,11 +556,10 @@ func (cmd *StartCmd) successRemote(host string) error {
 	// Print DNS Configuration
 	printhelper.PrintDNSConfiguration(host, cmd.Log)
 
-	cmd.Log.StartWait("Waiting for you to configure DNS, so loft can be reached on https://" + host)
-	err = wait.PollUntilContextTimeout(context.TODO(), time.Second*5, config.Timeout(), true, func(ctx context.Context) (bool, error) {
+	cmd.Log.Info("Waiting for you to configure DNS, so loft can be reached on https://" + host)
+	err = wait.PollImmediate(time.Second*5, config.Timeout(), func() (bool, error) {
 		return clihelper.IsLoftReachable(host)
 	})
-	cmd.Log.StopWait()
 	if err != nil {
 		return err
 	}
@@ -572,9 +571,8 @@ func (cmd *StartCmd) successRemote(host string) error {
 
 func (cmd *StartCmd) waitForLoft() (*corev1.Pod, error) {
 	// wait for loft pod to start
-	cmd.Log.StartWait("Waiting for Loft pod to be running...")
+	cmd.Log.Info("Waiting for Loft pod to be running...")
 	loftPod, err := clihelper.WaitForReadyLoftPod(cmd.KubeClient, cmd.Namespace, cmd.Log)
-	cmd.Log.StopWait()
 	cmd.Log.Donef("Loft pod successfully started")
 	if err != nil {
 		return nil, err
@@ -636,9 +634,8 @@ func (cmd *StartCmd) restartPortForwarding(stopChan chan struct{}) {
 		cmd.Log.Info("Restart port forwarding")
 
 		// wait for loft pod to start
-		cmd.Log.StartWait("Waiting until loft pod has been started...")
+		cmd.Log.Info("Waiting until loft pod has been started...")
 		loftPod, err := clihelper.WaitForReadyLoftPod(cmd.KubeClient, cmd.Namespace, cmd.Log)
-		cmd.Log.StopWait()
 		if err != nil {
 			cmd.Log.Fatalf("Error waiting for ready loft pod: %v", err)
 		}

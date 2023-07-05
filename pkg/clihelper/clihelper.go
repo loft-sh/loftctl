@@ -18,14 +18,16 @@ import (
 	"strings"
 	"time"
 
-	jsonpatch "github.com/evanphx/json-patch"
 	clusterv1 "github.com/loft-sh/agentapi/v3/pkg/apis/loft/cluster/v1"
 	storagev1 "github.com/loft-sh/api/v3/pkg/apis/storage/v1"
+	"github.com/sirupsen/logrus"
+
+	jsonpatch "github.com/evanphx/json-patch"
 	loftclientset "github.com/loft-sh/api/v3/pkg/client/clientset_generated/clientset"
 	"github.com/loft-sh/loftctl/v3/pkg/config"
-	"github.com/loft-sh/loftctl/v3/pkg/log"
 	"github.com/loft-sh/loftctl/v3/pkg/portforward"
-	"github.com/loft-sh/loftctl/v3/pkg/survey"
+	"github.com/loft-sh/log"
+	"github.com/loft-sh/log/survey"
 	"github.com/pkg/errors"
 	corev1 "k8s.io/api/core/v1"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
@@ -150,7 +152,7 @@ func WaitForReadyLoftPod(kubeClient kubernetes.Interface, namespace string, log 
 }
 
 func StartPortForwarding(config *rest.Config, client kubernetes.Interface, pod *corev1.Pod, localPort string, log log.Logger) (chan struct{}, error) {
-	log.WriteString("\n")
+	log.WriteString(logrus.InfoLevel, "\n")
 	log.Info("Starting port-forwarding to the Loft pod")
 	execRequest := client.CoreV1().RESTClient().Post().
 		Resource("pods").
@@ -340,9 +342,7 @@ func IsLoftAlreadyInstalled(kubeClient kubernetes.Interface, namespace string) (
 }
 
 func UninstallLoft(kubeClient kubernetes.Interface, restConfig *rest.Config, kubeContext, namespace string, log log.Logger) error {
-	log.StartWait("Uninstalling loft...")
-	defer log.StopWait()
-
+	log.Infof("Uninstalling loft...")
 	releaseName := defaultReleaseName
 	deploy, err := kubeClient.AppsV1().Deployments(namespace).Get(context.TODO(), "loft", metav1.GetOptions{})
 	if err != nil && !kerrors.IsNotFound(err) {
@@ -401,7 +401,7 @@ func UninstallLoft(kubeClient kubernetes.Interface, restConfig *rest.Config, kub
 		"--namespace",
 		namespace,
 	}
-	log.WriteString("\n")
+	log.WriteString(logrus.InfoLevel, "\n")
 	log.Infof("Executing command: helm %s", strings.Join(args, " "))
 	output, err = exec.Command("helm", args...).CombinedOutput()
 	if err != nil {
@@ -434,10 +434,9 @@ func UninstallLoft(kubeClient kubernetes.Interface, restConfig *rest.Config, kub
 		return err
 	}
 
-	log.StopWait()
-	log.WriteString("\n")
+	log.WriteString(logrus.InfoLevel, "\n")
 	log.Done("Successfully uninstalled Loft")
-	log.WriteString("\n")
+	log.WriteString(logrus.InfoLevel, "\n")
 
 	return nil
 }
@@ -507,12 +506,11 @@ func EnsureIngressController(kubeClient kubernetes.Interface, kubeContext string
 			"controller.config.hsts=false",
 			"--wait",
 		}
-		log.WriteString("\n")
+		log.WriteString(logrus.InfoLevel, "\n")
 		log.Infof("Executing command: helm %s\n", strings.Join(args, " "))
-		log.StartWait("Waiting for ingress controller deployment, this can take several minutes...")
+		log.Info("Waiting for ingress controller deployment, this can take several minutes...")
 		helmCmd := exec.Command("helm", args...)
 		output, err := helmCmd.CombinedOutput()
-		log.StopWait()
 		if err != nil {
 			return fmt.Errorf("error during helm command: %s (%w)", string(output), err)
 		}
@@ -577,9 +575,9 @@ func UpgradeLoft(chartName, chartRepo, kubeContext, namespace string, extraArgs 
 	}
 	args = append(args, extraArgs...)
 
-	log.WriteString("\n")
+	log.WriteString(logrus.InfoLevel, "\n")
 	log.Infof("Executing command: helm %s\n", strings.Join(args, " "))
-	log.StartWait("Waiting for helm command, this can take up to several minutes...")
+	log.Info("Waiting for helm command, this can take up to several minutes...")
 	helmCmd := exec.Command("helm", args...)
 	if chartRepo != "" {
 		helmWorkDir, err := getHelmWorkdir(chartName)
@@ -590,7 +588,6 @@ func UpgradeLoft(chartName, chartRepo, kubeContext, namespace string, extraArgs 
 		helmCmd.Dir = helmWorkDir
 	}
 	output, err := helmCmd.CombinedOutput()
-	log.StopWait()
 	if err != nil {
 		return fmt.Errorf("error during helm command: %s (%w)", string(output), err)
 	}

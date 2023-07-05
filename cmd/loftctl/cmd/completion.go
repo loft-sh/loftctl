@@ -6,7 +6,7 @@ import (
 	"text/template"
 
 	"github.com/loft-sh/loftctl/v3/cmd/loftctl/flags"
-	"github.com/loft-sh/loftctl/v3/pkg/log"
+	"github.com/loft-sh/log"
 	"github.com/spf13/cobra"
 )
 

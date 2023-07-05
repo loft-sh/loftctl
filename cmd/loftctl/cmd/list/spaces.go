@@ -9,8 +9,9 @@ import (
 	"github.com/loft-sh/loftctl/v3/pkg/client"
 	"github.com/loft-sh/loftctl/v3/pkg/client/helper"
 	"github.com/loft-sh/loftctl/v3/pkg/clihelper"
-	"github.com/loft-sh/loftctl/v3/pkg/log"
 	"github.com/loft-sh/loftctl/v3/pkg/upgrade"
+	"github.com/loft-sh/log"
+	"github.com/loft-sh/log/table"
 	"github.com/spf13/cobra"
 	"k8s.io/apimachinery/pkg/util/duration"
 )
@@ -122,6 +123,6 @@ func (cmd *SpacesCmd) RunSpaces() error {
 		}
 	}
 
-	log.PrintTable(cmd.log, header, values)
+	table.PrintTable(cmd.log, header, values)
 	return nil
 }

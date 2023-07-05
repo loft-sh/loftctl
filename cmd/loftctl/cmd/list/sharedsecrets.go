@@ -7,8 +7,9 @@ import (
 
 	"github.com/loft-sh/loftctl/v3/cmd/loftctl/flags"
 	"github.com/loft-sh/loftctl/v3/pkg/client"
-	"github.com/loft-sh/loftctl/v3/pkg/log"
 	"github.com/loft-sh/loftctl/v3/pkg/upgrade"
+	"github.com/loft-sh/log"
+	"github.com/loft-sh/log/table"
 	"github.com/spf13/cobra"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/duration"
@@ -102,6 +103,6 @@ func (cmd *SharedSecretsCmd) Run(cobraCmd *cobra.Command, args []string) error {
 		})
 	}
 
-	log.PrintTable(cmd.log, header, values)
+	table.PrintTable(cmd.log, header, values)
 	return nil
 }

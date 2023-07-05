@@ -9,7 +9,7 @@ import (
 	"github.com/loft-sh/loftctl/v3/pkg/client/helper"
 	"github.com/loft-sh/loftctl/v3/pkg/config"
 	"github.com/loft-sh/loftctl/v3/pkg/kube"
-	"github.com/loft-sh/loftctl/v3/pkg/log"
+	"github.com/loft-sh/log"
 	"github.com/pkg/errors"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -151,7 +151,7 @@ func (cmd *ClusterCmd) Run(c *rest.Config, args []string) error {
 	}
 
 	if cmd.Wait {
-		cmd.Log.StartWait("Waiting for the cluster to be initialized")
+		cmd.Log.Info("Waiting for the cluster to be initialized...")
 		waitErr := wait.Poll(time.Second, config.Timeout(), func() (done bool, err error) {
 			clusterInstance, err := managementClient.Loft().ManagementV1().Clusters().Get(context.TODO(), clusterName, metav1.GetOptions{})
 			if err != nil && !kerrors.IsNotFound(err) {
@@ -160,8 +160,6 @@ func (cmd *ClusterCmd) Run(c *rest.Config, args []string) error {
 
 			return clusterInstance.Status.Phase == storagev1.ClusterStatusPhaseInitialized, nil
 		})
-		cmd.Log.StopWait()
-
 		if waitErr != nil {
 			return errors.Wrap(waitErr, "get cluster")
 		}

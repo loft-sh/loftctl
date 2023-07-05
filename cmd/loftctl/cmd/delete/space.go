@@ -13,8 +13,8 @@ import (
 	"github.com/loft-sh/loftctl/v3/pkg/client/helper"
 	"github.com/loft-sh/loftctl/v3/pkg/kube"
 	"github.com/loft-sh/loftctl/v3/pkg/kubeconfig"
-	"github.com/loft-sh/loftctl/v3/pkg/log"
 	"github.com/loft-sh/loftctl/v3/pkg/upgrade"
+	"github.com/loft-sh/log"
 	"github.com/mgutz/ansi"
 	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
@@ -133,11 +133,10 @@ func (cmd *SpaceCmd) deleteSpace(baseClient client.Client, spaceName string) err
 
 	// wait until deleted
 	if cmd.Wait {
-		cmd.Log.StartWait("Waiting for space to be deleted")
+		cmd.Log.Info("Waiting for space to be deleted...")
 		for isSpaceInstanceStillThere(managementClient, naming.ProjectNamespace(cmd.Project), spaceName) {
 			time.Sleep(time.Second)
 		}
-		cmd.Log.StopWait()
 		cmd.Log.Done("Space is deleted")
 	}
 
@@ -175,11 +174,10 @@ func (cmd *SpaceCmd) legacyDeleteSpace(baseClient client.Client, spaceName strin
 
 	// update kube config
 	if cmd.Wait {
-		cmd.Log.StartWait("Waiting for space to be deleted")
+		cmd.Log.Info("Waiting for space to be deleted...")
 		for isSpaceStillThere(clusterClient, spaceName) {
 			time.Sleep(time.Second)
 		}
-		cmd.Log.StopWait()
 		cmd.Log.Done("Space is deleted")
 	}
 

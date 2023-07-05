@@ -4,8 +4,8 @@ import (
 	"context"
 
 	"github.com/loft-sh/loftctl/v3/pkg/client"
-	"github.com/loft-sh/loftctl/v3/pkg/log"
 	"github.com/loft-sh/loftctl/v3/pkg/util"
+	"github.com/loft-sh/log"
 	"github.com/mgutz/ansi"
 
 	managementv1 "github.com/loft-sh/api/v3/pkg/apis/management/v1"

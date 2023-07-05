@@ -12,8 +12,8 @@ import (
 	"github.com/loft-sh/loftctl/v3/pkg/client"
 	"github.com/loft-sh/loftctl/v3/pkg/config"
 	"github.com/loft-sh/loftctl/v3/pkg/kube"
-	"github.com/loft-sh/loftctl/v3/pkg/log"
 	"github.com/loft-sh/loftctl/v3/pkg/util"
+	"github.com/loft-sh/log"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
 	client2 "sigs.k8s.io/controller-runtime/pkg/client"
@@ -59,8 +59,7 @@ func WaitForVirtualClusterInstance(ctx context.Context, managementClient kube.In
 	}
 
 	if virtualClusterInstance.Status.Phase == storagev1.InstanceSleeping {
-		log.StartWait("Wait until vcluster wakes up")
-		defer log.StopWait()
+		log.Info("Wait until vcluster wakes up")
 		defer log.Donef("Successfully woken up vcluster %s", name)
 		err := wakeup(ctx, managementClient, virtualClusterInstance)
 		if err != nil {

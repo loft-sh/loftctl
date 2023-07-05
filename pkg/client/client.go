@@ -28,8 +28,8 @@ import (
 
 	"github.com/loft-sh/loftctl/v3/pkg/constants"
 	"github.com/loft-sh/loftctl/v3/pkg/kube"
-	"github.com/loft-sh/loftctl/v3/pkg/log"
 	"github.com/loft-sh/loftctl/v3/pkg/upgrade"
+	"github.com/loft-sh/log"
 	"github.com/mitchellh/go-homedir"
 	perrors "github.com/pkg/errors"
 	"github.com/skratchdot/open-golang/open"
@@ -405,8 +405,7 @@ func (c *client) Login(host string, insecure bool, log log.Logger) error {
 		}
 		msg += "'"
 		log.Infof(msg, host, host)
-		log.StartWait("Logging into loft...")
-		defer log.StopWait()
+		log.Info("Logging into loft...")
 
 		key = <-keyChannel
 	}
@@ -527,7 +526,7 @@ func (c *client) restConfig(hostSuffix string) (*rest.Config, error) {
 	}
 
 	// build a rest config
-	config, err := getRestConfig(c.config.Host+hostSuffix, c.config.AccessKey, c.config.Insecure)
+	config, err := GetRestConfig(c.config.Host+hostSuffix, c.config.AccessKey, c.config.Insecure)
 	if err != nil {
 		return nil, err
 	}
@@ -535,7 +534,7 @@ func (c *client) restConfig(hostSuffix string) (*rest.Config, error) {
 	return config, err
 }
 
-func getRestConfig(host, token string, insecure bool) (*rest.Config, error) {
+func GetRestConfig(host, token string, insecure bool) (*rest.Config, error) {
 	contextName := "local"
 	kubeConfig := clientcmdapi.NewConfig()
 	kubeConfig.Contexts = map[string]*clientcmdapi.Context{

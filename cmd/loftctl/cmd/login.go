@@ -17,10 +17,11 @@ import (
 	"github.com/loft-sh/loftctl/v3/pkg/clihelper"
 	"github.com/loft-sh/loftctl/v3/pkg/docker"
 	"github.com/loft-sh/loftctl/v3/pkg/kube"
-	"github.com/loft-sh/loftctl/v3/pkg/log"
 	"github.com/loft-sh/loftctl/v3/pkg/upgrade"
+	"github.com/loft-sh/log"
 	"github.com/mgutz/ansi"
 	"github.com/pkg/errors"
+	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -112,7 +113,7 @@ func (cmd *LoginCmd) RunLogin(args []string) error {
 				cmd.Log.Fatalf("%s\n\nYou may need to log in again via: %s login %s %s\n", err.Error(), os.Args[0], config.Host, insecureFlag)
 			}
 
-			cmd.Log.WriteString(fmt.Sprintf("\nTo log in as a different user, run: %s login %s %s\n\n", os.Args[0], config.Host, insecureFlag))
+			cmd.Log.WriteString(logrus.InfoLevel, fmt.Sprintf("\nTo log in as a different user, run: %s login %s %s\n\n", os.Args[0], config.Host, insecureFlag))
 
 			return nil
 		}

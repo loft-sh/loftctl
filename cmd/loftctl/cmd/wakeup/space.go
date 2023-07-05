@@ -17,8 +17,8 @@ import (
 	"github.com/loft-sh/loftctl/v3/pkg/client/helper"
 	"github.com/loft-sh/loftctl/v3/pkg/client/naming"
 	pdefaults "github.com/loft-sh/loftctl/v3/pkg/defaults"
-	"github.com/loft-sh/loftctl/v3/pkg/log"
 	"github.com/loft-sh/loftctl/v3/pkg/upgrade"
+	"github.com/loft-sh/log"
 	"github.com/spf13/cobra"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -153,8 +153,7 @@ func (cmd *SpaceCmd) legacySpaceWakeUp(baseClient client.Client, spaceName strin
 	}
 
 	// wait for sleeping
-	cmd.Log.StartWait("Wait until space wakes up")
-	defer cmd.Log.StopWait()
+	cmd.Log.Info("Wait until space wakes up...")
 	err = wait.Poll(time.Second, config.Timeout(), func() (bool, error) {
 		configs, err := clusterClient.Agent().ClusterV1().SleepModeConfigs(spaceName).List(context.TODO(), metav1.ListOptions{})
 		if err != nil {

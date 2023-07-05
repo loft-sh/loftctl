@@ -11,8 +11,8 @@ import (
 	storagev1 "github.com/loft-sh/api/v3/pkg/apis/storage/v1"
 	"github.com/loft-sh/loftctl/v3/pkg/config"
 	"github.com/loft-sh/loftctl/v3/pkg/kube"
-	"github.com/loft-sh/loftctl/v3/pkg/log"
 	"github.com/loft-sh/loftctl/v3/pkg/util"
+	"github.com/loft-sh/log"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -29,8 +29,7 @@ func WaitForSpaceInstance(ctx context.Context, managementClient kube.Interface, 
 	}
 
 	if spaceInstance.Status.Phase == storagev1.InstanceSleeping {
-		log.StartWait("Wait until space wakes up")
-		defer log.StopWait()
+		log.Info("Wait until space wakes up")
 		defer log.Donef("Successfully woken up space %s", name)
 		err := wakeup(ctx, managementClient, spaceInstance)
 		if err != nil {

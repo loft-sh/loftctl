@@ -11,9 +11,10 @@ import (
 	managementv1 "github.com/loft-sh/api/v3/pkg/apis/management/v1"
 	storagev1 "github.com/loft-sh/api/v3/pkg/apis/storage/v1"
 	"github.com/loft-sh/loftctl/v3/pkg/clihelper"
-	"github.com/loft-sh/loftctl/v3/pkg/log"
-	"github.com/loft-sh/loftctl/v3/pkg/survey"
+	"github.com/loft-sh/log"
+	"github.com/loft-sh/log/survey"
 	"github.com/pkg/errors"
+	"github.com/sirupsen/logrus"
 )
 
 type ParametersFile struct {
@@ -154,7 +155,7 @@ func ResolveAppParameters(apps []NamespacedApp, appFilename string, log log.Logg
 			continue
 		}
 
-		log.WriteString("\n")
+		log.WriteString(logrus.InfoLevel, "\n")
 		if app.Namespace != "" {
 			log.Infof("Please specify parameters for app %s in namespace %s", clihelper.GetDisplayName(app.App.Name, app.App.Spec.DisplayName), app.Namespace)
 		} else {
