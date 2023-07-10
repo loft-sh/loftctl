@@ -138,6 +138,7 @@ func createWorkspace(ctx context.Context, baseClient client.Client, log log.Logg
 			return false, nil
 		}
 
+		log.Debugf("Workspace %s is ready", workspace.Name)
 		return true, nil
 	})
 	if err != nil {
