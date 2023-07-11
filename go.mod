@@ -9,8 +9,8 @@ require (
 	github.com/evanphx/json-patch v5.6.0+incompatible
 	github.com/ghodss/yaml v1.0.0
 	github.com/gorilla/websocket v1.4.2
-	github.com/loft-sh/agentapi/v3 v3.2.1-0.20230705083803-72ea556a8e68
-	github.com/loft-sh/api/v3 v3.0.0-20230705162659-b2b622d76dcf
+	github.com/loft-sh/agentapi/v3 v3.3.0-beta.1
+	github.com/loft-sh/api/v3 v3.3.0-beta.1
 	github.com/loft-sh/apiserver v0.0.0-20230628051307-f26967fbb40f
 	github.com/loft-sh/log v0.0.0-20230704152604-0dafb779f2c3
 	github.com/mgutz/ansi v0.0.0-20200706080929-d51e80ef957d
