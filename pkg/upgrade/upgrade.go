@@ -101,7 +101,7 @@ func SetVersion(verText string) {
 	if len(verText) > 0 {
 		_version, err := eraseVersionPrefix(verText)
 		if err != nil {
-			klog.Errorf("Error parsing version: %v", err)
+			klog.ErrorS(err, "Error parsing version")
 			return
 		}
 

@@ -20,7 +20,7 @@ func ExecuteConn(ctx context.Context, rawConn *websocket.Conn, stdin io.Reader, 
 	defer func() {
 		err := conn.WriteMessage(websocket.CloseMessage, websocket.FormatCloseMessage(websocket.CloseNormalClosure, ""))
 		if err != nil {
-			klog.Errorf("write close: %v", err)
+			klog.ErrorS(err, "write close")
 			return
 		}
 	}()
@@ -34,7 +34,7 @@ func ExecuteConn(ctx context.Context, rawConn *websocket.Conn, stdin io.Reader, 
 	go func() {
 		err := NewStream(conn, StdinData, StdinClose).Read(stdin)
 		if err != nil {
-			klog.Errorf("pipe stdin: %v", err)
+			klog.ErrorS(err, "pipe stdin")
 		}
 	}()
 
@@ -47,7 +47,7 @@ func ExecuteConn(ctx context.Context, rawConn *websocket.Conn, stdin io.Reader, 
 
 		message, err := ParseMessage(bytes.NewReader(raw))
 		if err != nil {
-			klog.Errorf("Unexpected message: %v", err)
+			klog.ErrorS(err, "Unexpected message")
 			continue
 		}
 

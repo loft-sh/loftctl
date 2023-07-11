@@ -37,7 +37,7 @@ func (s *Stream) Write(writer io.WriteCloser) error {
 
 		message, err := ParseMessage(bytes.NewReader(raw))
 		if err != nil {
-			klog.Errorf("Unexpected message: %v", err)
+			klog.ErrorS(err, "Unexpected message")
 			continue
 		}
 

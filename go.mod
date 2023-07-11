@@ -9,10 +9,10 @@ require (
 	github.com/evanphx/json-patch v5.6.0+incompatible
 	github.com/ghodss/yaml v1.0.0
 	github.com/gorilla/websocket v1.4.2
-	github.com/loft-sh/agentapi/v3 v3.2.1-0.20230705083803-72ea556a8e68
-	github.com/loft-sh/api/v3 v3.0.0-20230705162659-b2b622d76dcf
+	github.com/loft-sh/agentapi/v3 v3.3.0-beta.1.0.20230711131219-62d9365de116
+	github.com/loft-sh/api/v3 v3.0.0-20230711131302-70bc10ea42bf
 	github.com/loft-sh/apiserver v0.0.0-20230628051307-f26967fbb40f
-	github.com/loft-sh/log v0.0.0-20230704152604-0dafb779f2c3
+	github.com/loft-sh/log v0.0.0-20230711085734-91feb84367ca
 	github.com/mgutz/ansi v0.0.0-20200706080929-d51e80ef957d
 	github.com/mitchellh/go-homedir v1.1.0
 	github.com/pkg/errors v0.9.1
@@ -28,7 +28,7 @@ require (
 	k8s.io/api v0.27.3
 	k8s.io/apimachinery v0.27.3
 	k8s.io/client-go v0.27.3
-	k8s.io/klog/v2 v2.100.1
+	k8s.io/klog/v2 v2.100.2-0.20230613134558-6632ba5cc9a5
 	k8s.io/kube-aggregator v0.27.3
 	k8s.io/kubectl v0.27.3
 	k8s.io/utils v0.0.0-20230505201702-9f6742963106
