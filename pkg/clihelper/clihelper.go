@@ -366,11 +366,6 @@ func UninstallLoft(kubeClient kubernetes.Interface, restConfig *rest.Config, kub
 	}
 
 	// we also cleanup the validating webhook configuration and apiservice
-	err = kubeClient.AdmissionregistrationV1().ValidatingWebhookConfigurations().Delete(context.TODO(), "loft", metav1.DeleteOptions{})
-	if err != nil && !kerrors.IsNotFound(err) {
-		return err
-	}
-
 	apiRegistrationClient, err := clientset.NewForConfig(restConfig)
 	if err != nil {
 		return err
@@ -389,23 +384,6 @@ func UninstallLoft(kubeClient kubernetes.Interface, restConfig *rest.Config, kub
 	err = kubeClient.CoreV1().Secrets(namespace).Delete(context.Background(), "loft-user-secret-admin", metav1.DeleteOptions{})
 	if err != nil && !kerrors.IsNotFound(err) {
 		return err
-	}
-
-	// uninstall agent
-	releaseName = "loft-agent"
-	args = []string{
-		"uninstall",
-		releaseName,
-		"--kube-context",
-		kubeContext,
-		"--namespace",
-		namespace,
-	}
-	log.WriteString(logrus.InfoLevel, "\n")
-	log.Infof("Executing command: helm %s", strings.Join(args, " "))
-	output, err = exec.Command("helm", args...).CombinedOutput()
-	if err != nil {
-		log.Errorf("error during helm command: %s (%v)", string(output), err)
 	}
 
 	// we also cleanup the validating webhook configuration and apiservice
