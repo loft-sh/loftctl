@@ -10,7 +10,7 @@ require (
 	github.com/ghodss/yaml v1.0.0
 	github.com/gorilla/websocket v1.4.2
 	github.com/loft-sh/agentapi/v3 v3.3.0-beta.1.0.20230711131219-62d9365de116
-	github.com/loft-sh/api/v3 v3.0.0-20230711131302-70bc10ea42bf
+	github.com/loft-sh/api/v3 v3.0.0-20230715103819-e6ac790b55fd
 	github.com/loft-sh/apiserver v0.0.0-20230628051307-f26967fbb40f
 	github.com/loft-sh/log v0.0.0-20230711085734-91feb84367ca
 	github.com/mgutz/ansi v0.0.0-20200706080929-d51e80ef957d

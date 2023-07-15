@@ -8,6 +8,9 @@ import (
 )
 
 const (
+	// Time allowed to write a message to the peer.
+	writeWait = 10 * time.Second
+
 	PingWaitDuration = 60 * time.Second
 )
 
@@ -58,6 +61,7 @@ func (w *WebsocketConn) WriteControl(messageType int, data []byte, deadline time
 	w.m.Lock()
 	defer w.m.Unlock()
 
+	_ = w.ws.SetWriteDeadline(time.Now().Add(writeWait))
 	return w.ws.WriteControl(messageType, data, deadline)
 }
 
@@ -65,6 +69,7 @@ func (w *WebsocketConn) WriteMessage(messageType int, data []byte) error {
 	w.m.Lock()
 	defer w.m.Unlock()
 
+	_ = w.ws.SetWriteDeadline(time.Now().Add(writeWait))
 	return w.ws.WriteMessage(messageType, data)
 }
 

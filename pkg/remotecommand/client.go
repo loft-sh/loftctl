@@ -6,10 +6,10 @@ import (
 	"io"
 
 	"github.com/gorilla/websocket"
-	"k8s.io/klog/v2"
+	"github.com/loft-sh/log"
 )
 
-func ExecuteConn(ctx context.Context, rawConn *websocket.Conn, stdin io.Reader, stdout io.Writer, stderr io.Writer) (int, error) {
+func ExecuteConn(ctx context.Context, rawConn *websocket.Conn, stdin io.Reader, stdout io.Writer, stderr io.Writer, log log.Logger) (int, error) {
 	conn := NewWebsocketConn(rawConn)
 
 	ctx, cancel := context.WithCancel(ctx)
@@ -20,7 +20,7 @@ func ExecuteConn(ctx context.Context, rawConn *websocket.Conn, stdin io.Reader, 
 	defer func() {
 		err := conn.WriteMessage(websocket.CloseMessage, websocket.FormatCloseMessage(websocket.CloseNormalClosure, ""))
 		if err != nil {
-			klog.ErrorS(err, "write close")
+			log.Debugf("error write close: %v", err)
 			return
 		}
 	}()
@@ -34,7 +34,7 @@ func ExecuteConn(ctx context.Context, rawConn *websocket.Conn, stdin io.Reader, 
 	go func() {
 		err := NewStream(conn, StdinData, StdinClose).Read(stdin)
 		if err != nil {
-			klog.ErrorS(err, "pipe stdin")
+			log.Debugf("error pipe stdin: %v", err)
 		}
 	}()
 
@@ -42,24 +42,28 @@ func ExecuteConn(ctx context.Context, rawConn *websocket.Conn, stdin io.Reader, 
 	for {
 		_, raw, err := conn.ReadMessage()
 		if err != nil {
+			log.Debugf("error read message: %v", err)
 			return 0, err
 		}
 
 		message, err := ParseMessage(bytes.NewReader(raw))
 		if err != nil {
-			klog.ErrorS(err, "Unexpected message")
+			log.Debugf("error parse message: %v", err)
 			continue
 		}
 
 		if message.messageType == StdoutData {
 			if _, err := io.Copy(stdout, message.data); err != nil {
+				log.Debugf("error read stdout: %v", err)
 				return 1, err
 			}
 		} else if message.messageType == StderrData {
 			if _, err := io.Copy(stderr, message.data); err != nil {
+				log.Debugf("error read stderr: %v", err)
 				return 1, err
 			}
 		} else if message.messageType == ExitCode {
+			log.Debugf("exit code: %d", message.exitCode)
 			return int(message.exitCode), nil
 		}
 	}
