@@ -656,6 +656,10 @@ func CanAccessSpaceInstance(managementClient kube.Interface, namespace, name str
 	return canAccessInstance(managementClient, namespace, name, "spaceinstances")
 }
 
+func CanAccessProjectSecret(managementClient kube.Interface, namespace, name string) (bool, error) {
+	return canAccessInstance(managementClient, namespace, name, "projectsecrets")
+}
+
 func canAccessInstance(managementClient kube.Interface, namespace, name string, resource string) (bool, error) {
 	selfSubjectAccessReview, err := managementClient.Loft().ManagementV1().SelfSubjectAccessReviews().Create(context.TODO(), &managementv1.SelfSubjectAccessReview{
 		Spec: managementv1.SelfSubjectAccessReviewSpec{
@@ -713,6 +717,59 @@ func GetSpaceInstances(baseClient client.Client) ([]ProjectSpace, error) {
 	}
 
 	return retSpaces, nil
+}
+
+type ProjectProjectSecret struct {
+	ProjectSecret managementv1.ProjectSecret
+	Project       string
+}
+
+func GetProjectSecrets(ctx context.Context, managementClient kube.Interface, projectNames ...string) ([]*ProjectProjectSecret, error) {
+	var projects []*managementv1.Project
+	if len(projectNames) == 0 {
+		projectList, err := managementClient.Loft().ManagementV1().Projects().List(ctx, metav1.ListOptions{})
+		if err != nil {
+			return nil, err
+		}
+
+		for idx := range projectList.Items {
+			projectItem := projectList.Items[idx]
+			projects = append(projects, &projectItem)
+		}
+	} else {
+		for _, projectName := range projectNames {
+			project, err := managementClient.Loft().ManagementV1().Projects().Get(ctx, projectName, metav1.GetOptions{})
+			if err != nil {
+				return nil, err
+			}
+
+			projects = append(projects, project)
+		}
+	}
+
+	var retSecrets []*ProjectProjectSecret
+	for _, project := range projects {
+		projectSecrets, err := managementClient.Loft().ManagementV1().ProjectSecrets(naming.ProjectNamespace(project.Name)).List(ctx, metav1.ListOptions{})
+		if err != nil {
+			return nil, err
+		}
+
+		for _, projectSecret := range projectSecrets.Items {
+			canAccess, err := CanAccessProjectSecret(managementClient, projectSecret.Namespace, projectSecret.Name)
+			if err != nil {
+				return nil, err
+			} else if !canAccess {
+				continue
+			}
+
+			retSecrets = append(retSecrets, &ProjectProjectSecret{
+				ProjectSecret: projectSecret,
+				Project:       project.Name,
+			})
+		}
+	}
+
+	return retSecrets, nil
 }
 
 type ClusterSpace struct {

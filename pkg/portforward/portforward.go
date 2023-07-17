@@ -398,7 +398,7 @@ func (pf *PortForwarder) handleConnection(conn net.Conn, port ForwardedPort) {
 	go func() {
 		// Copy from the remote side to the local port.
 		if _, err := io.Copy(conn, dataStream); err != nil && !strings.Contains(err.Error(), "use of closed network connection") {
-			klog.Infof("error copying from remote stream to local connection: %w", err)
+			klog.ErrorS(err, "error copying from remote stream to local connection")
 		}
 
 		// inform the select below that the remote copy is done
@@ -411,7 +411,7 @@ func (pf *PortForwarder) handleConnection(conn net.Conn, port ForwardedPort) {
 
 		// Copy from the local port to the remote side.
 		if _, err := io.Copy(dataStream, conn); err != nil && !strings.Contains(err.Error(), "use of closed network connection") {
-			klog.Infof("error copying from local connection to remote stream: %w", err)
+			klog.ErrorS(err, "error copying from local connection to remote stream")
 
 			// break out of the select below without waiting for the other copy to finish
 			close(localError)
@@ -431,7 +431,7 @@ func (pf *PortForwarder) handleConnection(conn net.Conn, port ForwardedPort) {
 		if strings.Contains(err.Error(), "container") {
 			pf.raiseError(err)
 		} else {
-			klog.Info(err)
+			klog.ErrorS(err, "Failed handling connection")
 		}
 	}
 }

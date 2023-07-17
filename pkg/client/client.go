@@ -534,13 +534,14 @@ func (c *client) restConfig(hostSuffix string) (*rest.Config, error) {
 	return config, err
 }
 
-func GetRestConfig(host, token string, insecure bool) (*rest.Config, error) {
+func GetKubeConfig(host, token, namespace string, insecure bool) clientcmd.ClientConfig {
 	contextName := "local"
 	kubeConfig := clientcmdapi.NewConfig()
 	kubeConfig.Contexts = map[string]*clientcmdapi.Context{
 		contextName: {
-			Cluster:  contextName,
-			AuthInfo: contextName,
+			Cluster:   contextName,
+			AuthInfo:  contextName,
+			Namespace: namespace,
 		},
 	}
 	kubeConfig.Clusters = map[string]*clientcmdapi.Cluster{
@@ -555,7 +556,11 @@ func GetRestConfig(host, token string, insecure bool) (*rest.Config, error) {
 		},
 	}
 	kubeConfig.CurrentContext = contextName
-	config, err := clientcmd.NewDefaultClientConfig(*kubeConfig, &clientcmd.ConfigOverrides{}).ClientConfig()
+	return clientcmd.NewDefaultClientConfig(*kubeConfig, &clientcmd.ConfigOverrides{})
+}
+
+func GetRestConfig(host, token string, insecure bool) (*rest.Config, error) {
+	config, err := GetKubeConfig(host, token, "", insecure).ClientConfig()
 	if err != nil {
 		return nil, err
 	}

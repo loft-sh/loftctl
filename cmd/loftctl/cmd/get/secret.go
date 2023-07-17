@@ -81,7 +81,7 @@ devspace get secret test-secret.key --project myproject
 
 	p, _ := defaults.Get(pdefaults.KeyProject, "")
 	c.Flags().StringVarP(&cmd.Project, "project", "p", p, "The project to read the project secret from.")
-	c.Flags().StringVarP(&cmd.Namespace, "namespace", "n", "", "The namespace in the loft cluster to read the secret from. If omitted will use the namespace were loft is installed in")
+	c.Flags().StringVarP(&cmd.Namespace, "namespace", "n", "", "The namespace in the loft cluster to read the secret from. If omitted will use the namespace where loft is installed in")
 	c.Flags().BoolVarP(&cmd.All, "all", "a", false, "Display all secret keys")
 	c.Flags().StringVarP(&cmd.Output, "output", "o", "", "Output format. One of: (json, yaml, value). If the --all flag is passed 'yaml' will be the default format")
 	return c
