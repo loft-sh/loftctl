@@ -13,7 +13,8 @@ import (
 )
 
 func TestSetVersion(t *testing.T) {
-	SetVersion("sasd0.0.1hello")
+	err := SetVersion("sasd0.0.1hello")
+	assert.NilError(t, err, "Error setting version")
 	assert.Equal(t, "0.0.1hello", GetVersion(), "Wrong version set")
 }
 

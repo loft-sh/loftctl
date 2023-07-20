@@ -8,7 +8,6 @@ import (
 	"sync"
 
 	"github.com/pkg/errors"
-	klog "k8s.io/klog/v2"
 
 	"github.com/blang/semver"
 	"github.com/loft-sh/log"
@@ -97,16 +96,17 @@ func GetVersion() string {
 }
 
 // SetVersion sets the application version
-func SetVersion(verText string) {
+func SetVersion(verText string) error {
 	if len(verText) > 0 {
 		_version, err := eraseVersionPrefix(verText)
 		if err != nil {
-			klog.ErrorS(err, "Error parsing version")
-			return
+			return fmt.Errorf("error parsing version: %w", err)
 		}
 
 		version = _version
 	}
+
+	return nil
 }
 
 var (

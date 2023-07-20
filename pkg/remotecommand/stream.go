@@ -2,6 +2,7 @@ package remotecommand
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"io"
 
@@ -24,7 +25,7 @@ type Stream struct {
 	closeType MessageType
 }
 
-func (s *Stream) Write(writer io.WriteCloser) error {
+func (s *Stream) Write(ctx context.Context, writer io.WriteCloser) error {
 	if writer == nil {
 		return nil
 	}
@@ -37,7 +38,7 @@ func (s *Stream) Write(writer io.WriteCloser) error {
 
 		message, err := ParseMessage(bytes.NewReader(raw))
 		if err != nil {
-			klog.ErrorS(err, "Unexpected message")
+			klog.FromContext(ctx).Error(err, "Unexpected message")
 			continue
 		}
 

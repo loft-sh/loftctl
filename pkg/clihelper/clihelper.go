@@ -151,7 +151,7 @@ func WaitForReadyLoftPod(kubeClient kubernetes.Interface, namespace string, log 
 	return pod, nil
 }
 
-func StartPortForwarding(config *rest.Config, client kubernetes.Interface, pod *corev1.Pod, localPort string, log log.Logger) (chan struct{}, error) {
+func StartPortForwarding(ctx context.Context, config *rest.Config, client kubernetes.Interface, pod *corev1.Pod, localPort string, log log.Logger) (chan struct{}, error) {
 	log.WriteString(logrus.InfoLevel, "\n")
 	log.Info("Starting port-forwarding to the Loft pod")
 	execRequest := client.CoreV1().RESTClient().Post().
@@ -176,7 +176,7 @@ func StartPortForwarding(config *rest.Config, client kubernetes.Interface, pod *
 	}
 
 	go func() {
-		err := forwarder.ForwardPorts()
+		err := forwarder.ForwardPorts(ctx)
 		if err != nil {
 			errChan <- err
 		}

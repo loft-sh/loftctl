@@ -17,6 +17,7 @@ limitations under the License.
 package portforward
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"io"
@@ -207,7 +208,7 @@ func (pf *PortForwarder) NumConnections() int64 {
 
 // ForwardPorts formats and executes a port forwarding request. The connection will remain
 // open until stopChan is closed.
-func (pf *PortForwarder) ForwardPorts() error {
+func (pf *PortForwarder) ForwardPorts(ctx context.Context) error {
 	defer pf.Close()
 
 	var err error
@@ -217,19 +218,19 @@ func (pf *PortForwarder) ForwardPorts() error {
 	}
 	defer pf.streamConn.Close()
 
-	return pf.forward()
+	return pf.forward(ctx)
 }
 
 // forward dials the remote host specific in req, upgrades the request, starts
 // listeners for each port specified in ports, and forwards local connections
 // to the remote host via streams.
-func (pf *PortForwarder) forward() error {
+func (pf *PortForwarder) forward(ctx context.Context) error {
 	var err error
 
 	listenSuccess := false
 	for i := range pf.ports {
 		port := &pf.ports[i]
-		err = pf.listenOnPort(port)
+		err = pf.listenOnPort(ctx, port)
 		switch {
 		case err == nil:
 			listenSuccess = true
@@ -260,12 +261,12 @@ func (pf *PortForwarder) forward() error {
 
 // listenOnPort delegates listener creation and waits for connections on requested bind addresses.
 // An error is raised based on address groups (default and localhost) and their failure modes
-func (pf *PortForwarder) listenOnPort(port *ForwardedPort) error {
+func (pf *PortForwarder) listenOnPort(ctx context.Context, port *ForwardedPort) error {
 	var errors []error
 	failCounters := make(map[string]int, 2)
 	successCounters := make(map[string]int, 2)
 	for _, addr := range pf.addresses {
-		err := pf.listenOnPortAndAddress(port, addr.protocol, addr.address)
+		err := pf.listenOnPortAndAddress(ctx, port, addr.protocol, addr.address)
 		if err != nil {
 			errors = append(errors, err)
 			failCounters[addr.failureMode]++
@@ -284,13 +285,13 @@ func (pf *PortForwarder) listenOnPort(port *ForwardedPort) error {
 
 // listenOnPortAndAddress delegates listener creation and waits for new connections
 // in the background f
-func (pf *PortForwarder) listenOnPortAndAddress(port *ForwardedPort, protocol string, address string) error {
+func (pf *PortForwarder) listenOnPortAndAddress(ctx context.Context, port *ForwardedPort, protocol string, address string) error {
 	listener, err := pf.getListener(protocol, address, port)
 	if err != nil {
 		return err
 	}
 	pf.listeners = append(pf.listeners, listener)
-	go pf.waitForConnection(listener, *port)
+	go pf.waitForConnection(ctx, listener, *port)
 	return nil
 }
 
@@ -319,7 +320,7 @@ func (pf *PortForwarder) getListener(protocol string, hostname string, port *For
 
 // waitForConnection waits for new connections to listener and handles them in
 // the background.
-func (pf *PortForwarder) waitForConnection(listener net.Listener, port ForwardedPort) {
+func (pf *PortForwarder) waitForConnection(ctx context.Context, listener net.Listener, port ForwardedPort) {
 	for {
 		select {
 		case <-pf.streamConn.CloseChan():
@@ -333,7 +334,7 @@ func (pf *PortForwarder) waitForConnection(listener net.Listener, port Forwarded
 				}
 				return
 			}
-			go pf.handleConnection(conn, port)
+			go pf.handleConnection(ctx, conn, port)
 		}
 	}
 }
@@ -348,8 +349,10 @@ func (pf *PortForwarder) nextRequestID() int {
 
 // handleConnection copies data between the local connection and the stream to
 // the remote server.
-func (pf *PortForwarder) handleConnection(conn net.Conn, port ForwardedPort) {
+func (pf *PortForwarder) handleConnection(ctx context.Context, conn net.Conn, port ForwardedPort) {
 	defer conn.Close()
+
+	logger := klog.FromContext(ctx)
 
 	pf.numConnections.Inc()
 	defer pf.numConnections.Dec()
@@ -398,7 +401,7 @@ func (pf *PortForwarder) handleConnection(conn net.Conn, port ForwardedPort) {
 	go func() {
 		// Copy from the remote side to the local port.
 		if _, err := io.Copy(conn, dataStream); err != nil && !strings.Contains(err.Error(), "use of closed network connection") {
-			klog.ErrorS(err, "error copying from remote stream to local connection")
+			logger.Error(err, "error copying from remote stream to local connection")
 		}
 
 		// inform the select below that the remote copy is done
@@ -411,7 +414,7 @@ func (pf *PortForwarder) handleConnection(conn net.Conn, port ForwardedPort) {
 
 		// Copy from the local port to the remote side.
 		if _, err := io.Copy(dataStream, conn); err != nil && !strings.Contains(err.Error(), "use of closed network connection") {
-			klog.ErrorS(err, "error copying from local connection to remote stream")
+			logger.Error(err, "error copying from local connection to remote stream")
 
 			// break out of the select below without waiting for the other copy to finish
 			close(localError)
@@ -431,7 +434,7 @@ func (pf *PortForwarder) handleConnection(conn net.Conn, port ForwardedPort) {
 		if strings.Contains(err.Error(), "container") {
 			pf.raiseError(err)
 		} else {
-			klog.ErrorS(err, "Failed handling connection")
+			logger.Error(err, "Failed handling connection")
 		}
 	}
 }
