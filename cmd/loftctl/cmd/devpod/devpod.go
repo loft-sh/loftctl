@@ -36,5 +36,6 @@ func NewDevPodCmd(globalFlags *flags.GlobalFlags) *cobra.Command {
 	c.AddCommand(NewSshCmd(globalFlags))
 	c.AddCommand(NewStatusCmd(globalFlags))
 	c.AddCommand(NewDeleteCmd(globalFlags))
+	c.AddCommand(NewImportCmd(globalFlags))
 	return c
 }

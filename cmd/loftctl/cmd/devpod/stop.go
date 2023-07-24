@@ -46,7 +46,7 @@ func NewStopCmd(globalFlags *flags.GlobalFlags) *cobra.Command {
 	`,
 		Args: cobra.NoArgs,
 		RunE: func(cobraCmd *cobra.Command, args []string) error {
-			return cmd.Run(context.Background())
+			return cmd.Run(cobraCmd.Context())
 		},
 	}
 

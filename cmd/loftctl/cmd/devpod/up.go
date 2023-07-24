@@ -45,7 +45,7 @@ func NewUpCmd(globalFlags *flags.GlobalFlags) *cobra.Command {
 	`,
 		Args: cobra.NoArgs,
 		RunE: func(cobraCmd *cobra.Command, args []string) error {
-			return cmd.Run(context.Background(), log.GetInstance().ErrorStreamOnly())
+			return cmd.Run(cobraCmd.Context(), log.GetInstance().ErrorStreamOnly())
 		},
 	}
 
@@ -54,6 +54,11 @@ func NewUpCmd(globalFlags *flags.GlobalFlags) *cobra.Command {
 
 func (cmd *UpCmd) Run(ctx context.Context, log log.Logger) error {
 	baseClient, err := client.NewClientFromPath(cmd.Config)
+	if err != nil {
+		return err
+	}
+
+	_, err = findWorkspaceTemplate(ctx, baseClient, log)
 	if err != nil {
 		return err
 	}
@@ -84,6 +89,27 @@ func (cmd *UpCmd) Run(ctx context.Context, log log.Logger) error {
 	return nil
 }
 
+func findWorkspaceTemplate(ctx context.Context, baseClient client.Client, log log.Logger) (*managementv1.DevPodWorkspaceTemplate, error) {
+	managementClient, err := baseClient.Management()
+	if err != nil {
+		return nil, err
+	}
+
+	// find in deployed templates if the one we want is present
+	list, err := managementClient.Loft().ManagementV1().DevPodWorkspaceTemplates().List(ctx, metav1.ListOptions{})
+	if err != nil {
+		return nil, err
+	}
+
+	for _, v := range list.Items {
+		if v.ObjectMeta.Name == os.Getenv("LOFT_TEMPLATE") {
+			return &v, nil
+		}
+	}
+
+	return nil, fmt.Errorf("template %s not found, please deploy one", os.Getenv("LOFT_TEMPLATE"))
+}
+
 func createWorkspace(ctx context.Context, baseClient client.Client, log log.Logger) (*managementv1.DevPodWorkspaceInstance, error) {
 	workspaceID, workspaceUID, projectName, err := getWorkspaceInfo()
 	if err != nil {
@@ -96,6 +122,11 @@ func createWorkspace(ctx context.Context, baseClient client.Client, log log.Logg
 		return nil, fmt.Errorf("%s is missing in environment", LOFT_TEMPLATE_OPTION)
 	}
 
+	// get workspace picture
+	workspacePicture := os.Getenv("WORKSPACE_PICTURE")
+	// get workspace source
+	workspaceSource := os.Getenv("WORKSPACE_SOURCE")
+
 	workspace := &managementv1.DevPodWorkspaceInstance{
 		ObjectMeta: metav1.ObjectMeta{
 			GenerateName: naming.SafeConcatNameMax([]string{workspaceID}, 53) + "-",
@@ -103,6 +134,10 @@ func createWorkspace(ctx context.Context, baseClient client.Client, log log.Logg
 			Labels: map[string]string{
 				storagev1.DevPodWorkspaceIDLabel:  workspaceID,
 				storagev1.DevPodWorkspaceUIDLabel: workspaceUID,
+			},
+			Annotations: map[string]string{
+				storagev1.DevPodWorkspacePictureAnnotation: workspacePicture,
+				storagev1.DevPodWorkspaceSourceAnnotation:  workspaceSource,
 			},
 		},
 		Spec: managementv1.DevPodWorkspaceInstanceSpec{
