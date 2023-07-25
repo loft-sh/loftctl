@@ -363,7 +363,7 @@ func SelectSpaceInstanceOrSpace(baseClient client.Client, spaceName, projectName
 
 func SelectProjectOrCluster(baseClient client.Client, clusterName, projectName string, log log.Logger) (cluster string, project string, err error) {
 	if projectName != "" {
-		return "", projectName, nil
+		return clusterName, projectName, nil
 	} else if clusterName != "" {
 		return clusterName, "", nil
 	}
