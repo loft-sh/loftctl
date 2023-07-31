@@ -2,6 +2,7 @@ package devpod
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"os"
 
@@ -53,7 +54,18 @@ func (cmd *StatusCmd) Run(ctx context.Context) error {
 	if err != nil {
 		return err
 	} else if workspace == nil {
-		return fmt.Errorf("couldn't find workspace")
+		out, err := json.Marshal(&storagev1.WorkspaceStatusResult{
+			ID:       os.Getenv(LOFT_WORKSPACE_ID),
+			Context:  os.Getenv(LOFT_WORKSPACE_CONTEXT),
+			State:    string(storagev1.WorkspaceStatusNotFound),
+			Provider: os.Getenv(LOFT_WORKSPACE_PROVIDER),
+		})
+		if err != nil {
+			return err
+		}
+
+		fmt.Println(string(out))
+		return nil
 	}
 
 	conn, err := dialWorkspace(baseClient, workspace, "getstatus", optionsFromEnv(storagev1.DevPodFlagsStatus))
