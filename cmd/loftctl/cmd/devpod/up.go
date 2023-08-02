@@ -109,6 +109,9 @@ func createWorkspace(ctx context.Context, baseClient client.Client, log log.Logg
 
 	// get template version
 	templateVersion := os.Getenv(LOFT_TEMPLATE_VERSION_OPTION)
+	if templateVersion == "latest" {
+		templateVersion = ""
+	}
 
 	// find parameters
 	resolvedParameters, err := getParametersFromEnvironment(ctx, managementClient, projectName, template, templateVersion)
