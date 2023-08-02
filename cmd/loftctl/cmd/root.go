@@ -2,6 +2,8 @@ package cmd
 
 import (
 	"context"
+	"fmt"
+	"os"
 
 	"github.com/loft-sh/loftctl/v3/cmd/loftctl/cmd/connect"
 	"github.com/loft-sh/loftctl/v3/cmd/loftctl/cmd/create"
@@ -28,16 +30,29 @@ import (
 )
 
 // NewRootCmd returns a new root command
-func NewRootCmd(log log.Logger) *cobra.Command {
+func NewRootCmd(streamLogger *log.StreamLogger) *cobra.Command {
 	return &cobra.Command{
 		Use:           "loft",
 		SilenceUsage:  true,
 		SilenceErrors: true,
 		Short:         "Welcome to Loft!",
-		PersistentPreRun: func(cobraCmd *cobra.Command, args []string) {
+		PersistentPreRunE: func(cobraCmd *cobra.Command, args []string) error {
 			if globalFlags.Silent {
-				log.SetLevel(logrus.FatalLevel)
+				streamLogger.SetLevel(logrus.FatalLevel)
 			}
+			if globalFlags.Config == "" && os.Getenv("LOFT_CONFIG") != "" {
+				globalFlags.Config = os.Getenv("LOFT_CONFIG")
+			}
+
+			if globalFlags.LogOutput == "json" {
+				streamLogger.SetFormat(log.JSONFormat)
+			} else if globalFlags.LogOutput == "raw" {
+				streamLogger.SetFormat(log.RawFormat)
+			} else if globalFlags.LogOutput != "plain" {
+				return fmt.Errorf("unrecognized log format %s, needs to be either plain or json", globalFlags.LogOutput)
+			}
+
+			return nil
 		},
 		Long: `Loft CLI - www.loft.sh`,
 	}
@@ -48,7 +63,7 @@ var globalFlags *flags.GlobalFlags
 // Execute adds all child commands to the root command and sets flags appropriately.
 // This is called by main.main(). It only needs to happen once to the rootCmd.
 func Execute() {
-	log := log.GetInstance()
+	log := log.Default
 	rootCmd := BuildRoot(log)
 
 	// Set version for --version flag
@@ -66,7 +81,7 @@ func Execute() {
 }
 
 // BuildRoot creates a new root command from the
-func BuildRoot(log log.Logger) *cobra.Command {
+func BuildRoot(log *log.StreamLogger) *cobra.Command {
 	rootCmd := NewRootCmd(log)
 	persistentFlags := rootCmd.PersistentFlags()
 	globalFlags = flags.SetGlobalFlags(persistentFlags)

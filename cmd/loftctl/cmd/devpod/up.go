@@ -7,14 +7,19 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"strings"
 	"time"
 
+	"github.com/ghodss/yaml"
 	"github.com/gorilla/websocket"
 	managementv1 "github.com/loft-sh/api/v3/pkg/apis/management/v1"
 	storagev1 "github.com/loft-sh/api/v3/pkg/apis/storage/v1"
+	"github.com/loft-sh/loftctl/v3/cmd/loftctl/cmd/devpod/list"
 	"github.com/loft-sh/loftctl/v3/cmd/loftctl/flags"
 	"github.com/loft-sh/loftctl/v3/pkg/client"
 	"github.com/loft-sh/loftctl/v3/pkg/client/naming"
+	"github.com/loft-sh/loftctl/v3/pkg/kube"
+	"github.com/loft-sh/loftctl/v3/pkg/parameters"
 	"github.com/loft-sh/loftctl/v3/pkg/remotecommand"
 	"github.com/loft-sh/log"
 	"github.com/spf13/cobra"
@@ -58,11 +63,6 @@ func (cmd *UpCmd) Run(ctx context.Context, log log.Logger) error {
 		return err
 	}
 
-	_, err = findWorkspaceTemplate(ctx, baseClient, log)
-	if err != nil {
-		return err
-	}
-
 	workspace, err := findWorkspace(ctx, baseClient)
 	if err != nil {
 		return err
@@ -89,27 +89,6 @@ func (cmd *UpCmd) Run(ctx context.Context, log log.Logger) error {
 	return nil
 }
 
-func findWorkspaceTemplate(ctx context.Context, baseClient client.Client, log log.Logger) (*managementv1.DevPodWorkspaceTemplate, error) {
-	managementClient, err := baseClient.Management()
-	if err != nil {
-		return nil, err
-	}
-
-	// find in deployed templates if the one we want is present
-	list, err := managementClient.Loft().ManagementV1().DevPodWorkspaceTemplates().List(ctx, metav1.ListOptions{})
-	if err != nil {
-		return nil, err
-	}
-
-	for _, v := range list.Items {
-		if v.ObjectMeta.Name == os.Getenv("LOFT_TEMPLATE") {
-			return &v, nil
-		}
-	}
-
-	return nil, fmt.Errorf("template %s not found, please deploy one", os.Getenv("LOFT_TEMPLATE"))
-}
-
 func createWorkspace(ctx context.Context, baseClient client.Client, log log.Logger) (*managementv1.DevPodWorkspaceInstance, error) {
 	workspaceID, workspaceUID, projectName, err := getWorkspaceInfo()
 	if err != nil {
@@ -120,6 +99,21 @@ func createWorkspace(ctx context.Context, baseClient client.Client, log log.Logg
 	template := os.Getenv(LOFT_TEMPLATE_OPTION)
 	if template == "" {
 		return nil, fmt.Errorf("%s is missing in environment", LOFT_TEMPLATE_OPTION)
+	}
+
+	// create client
+	managementClient, err := baseClient.Management()
+	if err != nil {
+		return nil, err
+	}
+
+	// get template version
+	templateVersion := os.Getenv(LOFT_TEMPLATE_VERSION_OPTION)
+
+	// find parameters
+	resolvedParameters, err := getParametersFromEnvironment(ctx, managementClient, projectName, template, templateVersion)
+	if err != nil {
+		return nil, fmt.Errorf("resolve parameters: %w", err)
 	}
 
 	// get workspace picture
@@ -143,15 +137,13 @@ func createWorkspace(ctx context.Context, baseClient client.Client, log log.Logg
 		Spec: managementv1.DevPodWorkspaceInstanceSpec{
 			DevPodWorkspaceInstanceSpec: storagev1.DevPodWorkspaceInstanceSpec{
 				DisplayName: workspaceID,
+				Parameters:  resolvedParameters,
 				TemplateRef: &storagev1.TemplateRef{
-					Name: template,
+					Name:    template,
+					Version: templateVersion,
 				},
 			},
 		},
-	}
-	managementClient, err := baseClient.Management()
-	if err != nil {
-		return nil, err
 	}
 
 	// create instance
@@ -181,6 +173,62 @@ func createWorkspace(ctx context.Context, baseClient client.Client, log log.Logg
 	}
 
 	return workspace, nil
+}
+
+func getParametersFromEnvironment(ctx context.Context, kubeClient kube.Interface, projectName, templateName, templateVersion string) (string, error) {
+	// are there any parameters in environment?
+	environmentVariables := os.Environ()
+	envMap := map[string]string{}
+	for _, v := range environmentVariables {
+		splitted := strings.SplitN(v, "=", 2)
+		if len(splitted) != 2 {
+			continue
+		} else if !strings.HasPrefix(splitted[0], "TEMPLATE_OPTION_") {
+			continue
+		}
+
+		envMap[splitted[0]] = splitted[1]
+	}
+	if len(envMap) == 0 {
+		return "", nil
+	}
+
+	// find these in the template
+	template, err := list.FindTemplate(ctx, kubeClient, projectName, templateName)
+	if err != nil {
+		return "", fmt.Errorf("find template: %w", err)
+	}
+
+	// find version
+	var templateParameters []storagev1.AppParameter
+	if len(template.Spec.Versions) > 0 {
+		templateParameters, err = list.GetTemplateParameters(template, templateVersion)
+		if err != nil {
+			return "", err
+		}
+	} else {
+		templateParameters = template.Spec.Parameters
+	}
+
+	// parse versions
+	outMap := map[string]interface{}{}
+	for _, parameter := range templateParameters {
+		// check if its in environment
+		val := envMap[list.VariableToEnvironmentVariable(parameter.Variable)]
+		outVal, err := parameters.VerifyValue(val, parameter)
+		if err != nil {
+			return "", fmt.Errorf("validate parameter %s: %w", parameter.Variable, err)
+		}
+
+		outMap[parameter.Variable] = outVal
+	}
+
+	// convert to string
+	out, err := yaml.Marshal(outMap)
+	if err != nil {
+		return "", err
+	}
+	return string(out), nil
 }
 
 func isReady(workspace *managementv1.DevPodWorkspaceInstance) bool {

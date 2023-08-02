@@ -3,6 +3,7 @@ package devpod
 import (
 	"os"
 
+	"github.com/loft-sh/loftctl/v3/cmd/loftctl/cmd/devpod/list"
 	"github.com/loft-sh/loftctl/v3/cmd/loftctl/flags"
 	"github.com/loft-sh/log"
 	"github.com/sirupsen/logrus"
@@ -24,6 +25,9 @@ func NewDevPodCmd(globalFlags *flags.GlobalFlags) *cobra.Command {
 			if os.Getenv("DEVPOD_DEBUG") == "true" {
 				log.Default.SetLevel(logrus.DebugLevel)
 			}
+			if globalFlags.Config == "" && os.Getenv("LOFT_CONFIG") != "" {
+				globalFlags.Config = os.Getenv("LOFT_CONFIG")
+			}
 
 			log.Default.SetFormat(log.JSONFormat)
 			return nil
@@ -31,6 +35,7 @@ func NewDevPodCmd(globalFlags *flags.GlobalFlags) *cobra.Command {
 		Args: cobra.NoArgs,
 	}
 
+	c.AddCommand(list.NewListCmd(globalFlags))
 	c.AddCommand(NewUpCmd(globalFlags))
 	c.AddCommand(NewStopCmd(globalFlags))
 	c.AddCommand(NewSshCmd(globalFlags))
