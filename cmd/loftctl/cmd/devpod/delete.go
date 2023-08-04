@@ -11,7 +11,6 @@ import (
 	"github.com/loft-sh/loftctl/v3/pkg/remotecommand"
 	"github.com/loft-sh/log"
 	"github.com/spf13/cobra"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 // DeleteCmd holds the cmd flags
@@ -37,7 +36,7 @@ func NewDeleteCmd(globalFlags *flags.GlobalFlags) *cobra.Command {
 	`,
 		Args: cobra.NoArgs,
 		RunE: func(cobraCmd *cobra.Command, args []string) error {
-			return cmd.Run(context.Background())
+			return cmd.Run(cobraCmd.Context())
 		},
 	}
 
@@ -65,17 +64,6 @@ func (cmd *DeleteCmd) Run(ctx context.Context) error {
 	_, err = remotecommand.ExecuteConn(ctx, conn, os.Stdin, os.Stdout, os.Stderr, cmd.log.ErrorStreamOnly())
 	if err != nil {
 		return fmt.Errorf("error executing: %w", err)
-	}
-
-	// delete the object
-	managementClient, err := baseClient.Management()
-	if err != nil {
-		return err
-	}
-
-	err = managementClient.Loft().ManagementV1().DevPodWorkspaceInstances(workspace.Namespace).Delete(ctx, workspace.Name, metav1.DeleteOptions{})
-	if err != nil {
-		return fmt.Errorf("delete workspace: %w", err)
 	}
 
 	return nil

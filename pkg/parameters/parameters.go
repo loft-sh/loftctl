@@ -180,7 +180,7 @@ func ResolveAppParameters(apps []NamespacedApp, appFilename string, log log.Logg
 					return nil, err
 				}
 
-				outVal, err := verifyValue(value, parameter)
+				outVal, err := VerifyValue(value, parameter)
 				if err != nil {
 					log.Errorf(err.Error())
 					continue
@@ -205,7 +205,7 @@ func ResolveAppParameters(apps []NamespacedApp, appFilename string, log log.Logg
 	return ret, nil
 }
 
-func verifyValue(value string, parameter storagev1.AppParameter) (interface{}, error) {
+func VerifyValue(value string, parameter storagev1.AppParameter) (interface{}, error) {
 	switch parameter.Type {
 	case "":
 		fallthrough
@@ -339,7 +339,7 @@ func fillParameters(parameters []storagev1.AppParameter, set []string, values ma
 			}
 		}
 
-		outVal, err := verifyValue(strVal, parameter)
+		outVal, err := VerifyValue(strVal, parameter)
 		if err != nil {
 			return "", errors.Wrap(err, "validate parameters")
 		}

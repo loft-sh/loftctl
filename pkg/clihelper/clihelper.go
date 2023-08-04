@@ -42,6 +42,8 @@ import (
 
 const defaultReleaseName = "loft"
 
+const LoftRouterDomainSecret = "loft-router-domain"
+
 func GetDisplayName(name string, displayName string) string {
 	if displayName != "" {
 		return displayName
@@ -97,7 +99,7 @@ func WaitForReadyLoftPod(kubeClient kubernetes.Interface, namespace string, log 
 	now := time.Now()
 	warningPrinted := false
 	pod := &corev1.Pod{}
-	err := wait.Poll(time.Second*2, config.Timeout(), func() (bool, error) {
+	err := wait.PollUntilContextTimeout(context.TODO(), time.Second*2, config.Timeout(), true, func(ctx context.Context) (bool, error) {
 		pods, err := kubeClient.CoreV1().Pods(namespace).List(context.TODO(), metav1.ListOptions{
 			LabelSelector: "app=loft",
 		})
@@ -151,7 +153,7 @@ func WaitForReadyLoftPod(kubeClient kubernetes.Interface, namespace string, log 
 	return pod, nil
 }
 
-func StartPortForwarding(config *rest.Config, client kubernetes.Interface, pod *corev1.Pod, localPort string, log log.Logger) (chan struct{}, error) {
+func StartPortForwarding(ctx context.Context, config *rest.Config, client kubernetes.Interface, pod *corev1.Pod, localPort string, log log.Logger) (chan struct{}, error) {
 	log.WriteString(logrus.InfoLevel, "\n")
 	log.Info("Starting port-forwarding to the Loft pod")
 	execRequest := client.CoreV1().RESTClient().Post().
@@ -176,7 +178,7 @@ func StartPortForwarding(config *rest.Config, client kubernetes.Interface, pod *
 	}
 
 	go func() {
-		err := forwarder.ForwardPorts()
+		err := forwarder.ForwardPorts(ctx)
 		if err != nil {
 			errChan <- err
 		}
@@ -382,6 +384,11 @@ func UninstallLoft(kubeClient kubernetes.Interface, restConfig *rest.Config, kub
 	}
 
 	err = kubeClient.CoreV1().Secrets(namespace).Delete(context.Background(), "loft-user-secret-admin", metav1.DeleteOptions{})
+	if err != nil && !kerrors.IsNotFound(err) {
+		return err
+	}
+
+	err = kubeClient.CoreV1().Secrets(namespace).Delete(context.Background(), LoftRouterDomainSecret, metav1.DeleteOptions{})
 	if err != nil && !kerrors.IsNotFound(err) {
 		return err
 	}

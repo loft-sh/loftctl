@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/sirupsen/logrus"
+	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/kubectl/pkg/util/term"
 
 	"github.com/loft-sh/loftctl/v3/pkg/clihelper"
@@ -97,7 +98,7 @@ before running this command:
 			// Check for newer version
 			upgrade.PrintNewerVersionWarning()
 
-			return cmd.Run()
+			return cmd.Run(cobraCmd.Context())
 		},
 	}
 
@@ -121,7 +122,7 @@ before running this command:
 }
 
 // Run executes the functionality "loft start"
-func (cmd *StartCmd) Run() error {
+func (cmd *StartCmd) Run(ctx context.Context) error {
 	err := cmd.prepare()
 	if err != nil {
 		return err
@@ -154,7 +155,7 @@ func (cmd *StartCmd) Run() error {
 
 	// Upgrade Loft if already installed
 	if isInstalled {
-		return cmd.handleAlreadyExistingInstallation()
+		return cmd.handleAlreadyExistingInstallation(ctx)
 	}
 
 	// Install Loft
@@ -193,7 +194,7 @@ func (cmd *StartCmd) Run() error {
 		return err
 	}
 
-	return cmd.success()
+	return cmd.success(ctx)
 }
 
 func (cmd *StartCmd) prepareInstall() error {
@@ -278,7 +279,7 @@ func (cmd *StartCmd) prepare() error {
 	return nil
 }
 
-func (cmd *StartCmd) handleAlreadyExistingInstallation() error {
+func (cmd *StartCmd) handleAlreadyExistingInstallation(ctx context.Context) error {
 	enableIngress := false
 
 	// Only ask if ingress should be enabled if --upgrade flag is not provided
@@ -291,31 +292,6 @@ func (cmd *StartCmd) handleAlreadyExistingInstallation() error {
 		// Skip question if --host flag is provided
 		if cmd.Host != "" {
 			enableIngress = true
-		} else {
-			// Ask if we should enable the ingress for Loft
-			const (
-				NoOption  = "No"
-				YesOption = "Yes, I want to enable the ingress to be able to access Loft via a domain."
-			)
-
-			defaultOption := YesOption
-			if isLocal {
-				defaultOption = NoOption
-			}
-
-			answer, err := cmd.Log.Question(&survey.QuestionOptions{
-				Question:     "Do you want to enable access to Loft via ingress?",
-				DefaultValue: defaultOption,
-				Options: []string{
-					NoOption,
-					YesOption,
-				},
-			})
-			if err != nil {
-				return err
-			}
-
-			enableIngress = answer == YesOption
 		}
 
 		if enableIngress {
@@ -395,7 +371,7 @@ func (cmd *StartCmd) handleAlreadyExistingInstallation() error {
 		}
 	}
 
-	return cmd.success()
+	return cmd.success(ctx)
 }
 
 func (cmd *StartCmd) upgradeLoft(email string) error {
@@ -470,7 +446,7 @@ func (cmd *StartCmd) upgradeLoft(email string) error {
 	return nil
 }
 
-func (cmd *StartCmd) success() error {
+func (cmd *StartCmd) success(ctx context.Context) error {
 	if cmd.NoWait {
 		return nil
 	}
@@ -488,7 +464,17 @@ func (cmd *StartCmd) success() error {
 	// check if Loft was installed locally
 	isLocal := clihelper.IsLoftInstalledLocally(cmd.KubeClient, cmd.Namespace)
 	if isLocal {
-		err = cmd.startPortForwarding(loftPod)
+		// check if loft domain secret is there
+		loftRouterDomain, err := cmd.pingLoftRouter(ctx, loftPod)
+		if err != nil {
+			cmd.Log.Errorf("Error retrieving loft router domain: %v", err)
+			cmd.Log.Info("Fallback to use port-forwarding")
+		} else if loftRouterDomain != "" {
+			return cmd.successRemote(loftRouterDomain)
+		}
+
+		// start port-forwarding
+		err = cmd.startPortForwarding(ctx, loftPod)
 		if err != nil {
 			return err
 		}
@@ -524,7 +510,7 @@ func (cmd *StartCmd) success() error {
 		}
 
 		if answer == YesOption {
-			err = cmd.startPortForwarding(loftPod)
+			err = cmd.startPortForwarding(ctx, loftPod)
 			if err != nil {
 				return err
 			}
@@ -592,12 +578,56 @@ func (cmd *StartCmd) waitForLoft() (*corev1.Pod, error) {
 	return loftPod, nil
 }
 
-func (cmd *StartCmd) startPortForwarding(loftPod *corev1.Pod) error {
-	stopChan, err := clihelper.StartPortForwarding(cmd.RestConfig, cmd.KubeClient, loftPod, cmd.LocalPort, cmd.Log)
+func (cmd *StartCmd) pingLoftRouter(ctx context.Context, loftPod *corev1.Pod) (string, error) {
+	loftRouterSecret, err := cmd.KubeClient.CoreV1().Secrets(loftPod.Namespace).Get(ctx, clihelper.LoftRouterDomainSecret, metav1.GetOptions{})
+	if err != nil {
+		if kerrors.IsNotFound(err) {
+			return "", nil
+		}
+
+		return "", fmt.Errorf("find loft router domain secret: %w", err)
+	} else if loftRouterSecret.Data == nil || len(loftRouterSecret.Data["domain"]) == 0 {
+		return "", nil
+	}
+
+	// get the domain from secret
+	loftRouterDomain := string(loftRouterSecret.Data["domain"])
+
+	// wait until loft is reachable at the given url
+	httpClient := &http.Client{
+		Transport: &http.Transport{
+			TLSClientConfig: &tls.Config{
+				InsecureSkipVerify: true,
+			},
+		},
+	}
+	cmd.Log.Infof("Waiting until loft is reachable at https://%s", loftRouterDomain)
+	err = wait.PollUntilContextTimeout(context.TODO(), time.Second*3, time.Minute*5, true, func(ctx context.Context) (bool, error) {
+		req, err := http.NewRequestWithContext(ctx, http.MethodGet, "https://"+loftRouterDomain+"/version", nil)
+		if err != nil {
+			return false, nil
+		}
+
+		resp, err := httpClient.Do(req)
+		if err != nil {
+			return false, nil
+		}
+
+		return resp.StatusCode == http.StatusOK, nil
+	})
+	if err != nil {
+		return "", err
+	}
+
+	return loftRouterDomain, nil
+}
+
+func (cmd *StartCmd) startPortForwarding(ctx context.Context, loftPod *corev1.Pod) error {
+	stopChan, err := clihelper.StartPortForwarding(ctx, cmd.RestConfig, cmd.KubeClient, loftPod, cmd.LocalPort, cmd.Log)
 	if err != nil {
 		return err
 	}
-	go cmd.restartPortForwarding(stopChan)
+	go cmd.restartPortForwarding(ctx, stopChan)
 
 	// wait until loft is reachable at the given url
 	httpClient := &http.Client{
@@ -628,7 +658,7 @@ func (cmd *StartCmd) startPortForwarding(loftPod *corev1.Pod) error {
 	return nil
 }
 
-func (cmd *StartCmd) restartPortForwarding(stopChan chan struct{}) {
+func (cmd *StartCmd) restartPortForwarding(ctx context.Context, stopChan chan struct{}) {
 	for {
 		<-stopChan
 		cmd.Log.Info("Restart port forwarding")
@@ -641,7 +671,7 @@ func (cmd *StartCmd) restartPortForwarding(stopChan chan struct{}) {
 		}
 
 		// restart port forwarding
-		stopChan, err = clihelper.StartPortForwarding(cmd.RestConfig, cmd.KubeClient, loftPod, cmd.LocalPort, cmd.Log)
+		stopChan, err = clihelper.StartPortForwarding(ctx, cmd.RestConfig, cmd.KubeClient, loftPod, cmd.LocalPort, cmd.Log)
 		if err != nil {
 			cmd.Log.Fatalf("Error starting port forwarding: %v", err)
 		}

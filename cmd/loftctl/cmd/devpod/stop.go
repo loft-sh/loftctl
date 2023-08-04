@@ -14,13 +14,16 @@ import (
 )
 
 var (
-	LOFT_WORKSPACE_ID = "WORKSPACE_ID"
+	LOFT_WORKSPACE_ID       = "WORKSPACE_ID"
+	LOFT_WORKSPACE_CONTEXT  = "WORKSPACE_CONTEXT"
+	LOFT_WORKSPACE_PROVIDER = "WORKSPACE_PROVIDER"
 
 	LOFT_WORKSPACE_UID = "WORKSPACE_UID"
 
 	LOFT_PROJECT_OPTION = "LOFT_PROJECT"
 
-	LOFT_TEMPLATE_OPTION = "LOFT_TEMPLATE"
+	LOFT_TEMPLATE_OPTION         = "LOFT_TEMPLATE"
+	LOFT_TEMPLATE_VERSION_OPTION = "LOFT_TEMPLATE_VERSION"
 )
 
 // StopCmd holds the cmd flags
@@ -46,7 +49,7 @@ func NewStopCmd(globalFlags *flags.GlobalFlags) *cobra.Command {
 	`,
 		Args: cobra.NoArgs,
 		RunE: func(cobraCmd *cobra.Command, args []string) error {
-			return cmd.Run(context.Background())
+			return cmd.Run(cobraCmd.Context())
 		},
 	}
 
