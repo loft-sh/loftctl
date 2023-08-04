@@ -6,8 +6,9 @@ import (
 	"github.com/loft-sh/loftctl/v3/cmd/loftctl/flags"
 	"github.com/loft-sh/loftctl/v3/pkg/client"
 	"github.com/loft-sh/loftctl/v3/pkg/client/helper"
-	"github.com/loft-sh/loftctl/v3/pkg/log"
 	"github.com/loft-sh/loftctl/v3/pkg/upgrade"
+	"github.com/loft-sh/log"
+	"github.com/loft-sh/log/table"
 	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
 )
@@ -93,6 +94,6 @@ func (cmd *UserCmd) Run() error {
 		userName.Email,
 	})
 
-	log.PrintTable(cmd.log, header, values)
+	table.PrintTable(cmd.log, header, values)
 	return nil
 }

@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/loft-sh/loftctl/v3/pkg/client/naming"
+	"github.com/loft-sh/loftctl/v3/pkg/config"
 	"github.com/loft-sh/loftctl/v3/pkg/util"
 	"github.com/loft-sh/loftctl/v3/pkg/vcluster"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -29,12 +30,12 @@ import (
 	pdefaults "github.com/loft-sh/loftctl/v3/pkg/defaults"
 	"github.com/loft-sh/loftctl/v3/pkg/kube"
 	"github.com/loft-sh/loftctl/v3/pkg/kubeconfig"
-	"github.com/loft-sh/loftctl/v3/pkg/log"
 	"github.com/loft-sh/loftctl/v3/pkg/parameters"
 	"github.com/loft-sh/loftctl/v3/pkg/random"
 	"github.com/loft-sh/loftctl/v3/pkg/task"
 	"github.com/loft-sh/loftctl/v3/pkg/upgrade"
 	"github.com/loft-sh/loftctl/v3/pkg/version"
+	"github.com/loft-sh/log"
 	"github.com/mgutz/ansi"
 	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
@@ -228,7 +229,7 @@ func (cmd *VirtualClusterCmd) createVirtualCluster(baseClient client.Client, vir
 		cmd.Log.Infof("Waiting until virtual cluster is deleted...")
 
 		// wait until the virtual cluster instance is deleted
-		waitErr := wait.Poll(time.Second, time.Minute*5, func() (done bool, err error) {
+		waitErr := wait.Poll(time.Second, config.Timeout(), func() (done bool, err error) {
 			virtualClusterInstance, err = managementClient.Loft().ManagementV1().VirtualClusterInstances(virtualClusterNamespace).Get(context.TODO(), virtualClusterName, metav1.GetOptions{})
 			if err != nil && !kerrors.IsNotFound(err) {
 				return false, err

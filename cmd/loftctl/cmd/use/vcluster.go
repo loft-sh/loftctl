@@ -13,10 +13,10 @@ import (
 	"github.com/loft-sh/loftctl/v3/pkg/client/naming"
 	pdefaults "github.com/loft-sh/loftctl/v3/pkg/defaults"
 	"github.com/loft-sh/loftctl/v3/pkg/kubeconfig"
-	"github.com/loft-sh/loftctl/v3/pkg/log"
 	"github.com/loft-sh/loftctl/v3/pkg/upgrade"
 	"github.com/loft-sh/loftctl/v3/pkg/util"
 	"github.com/loft-sh/loftctl/v3/pkg/vcluster"
+	"github.com/loft-sh/log"
 	"github.com/mgutz/ansi"
 	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
@@ -232,10 +232,9 @@ func (cmd *VirtualClusterCmd) legacyUseVirtualCluster(baseClient client.Client, 
 
 	// get token for virtual cluster
 	if !cmd.Print && !cmd.PrintToken {
-		cmd.Log.StartWait("Waiting for virtual cluster to become ready...")
+		cmd.Log.Info("Waiting for virtual cluster to become ready...")
 	}
 	err = vcluster.WaitForVCluster(context.TODO(), baseClient, cmd.Cluster, cmd.Space, virtualClusterName, cmd.Log)
-	cmd.Log.StopWait()
 	if err != nil {
 		return err
 	}

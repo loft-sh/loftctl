@@ -9,8 +9,9 @@ import (
 	"github.com/loft-sh/loftctl/v3/pkg/client"
 	"github.com/loft-sh/loftctl/v3/pkg/client/helper"
 	"github.com/loft-sh/loftctl/v3/pkg/clihelper"
-	"github.com/loft-sh/loftctl/v3/pkg/log"
 	"github.com/loft-sh/loftctl/v3/pkg/upgrade"
+	"github.com/loft-sh/log"
+	"github.com/loft-sh/log/table"
 	"github.com/spf13/cobra"
 	"k8s.io/apimachinery/pkg/util/duration"
 )
@@ -87,7 +88,7 @@ func (cmd *SpacesCmd) RunSpaces() error {
 	}
 	for _, space := range spaceInstances {
 		values = append(values, []string{
-			clihelper.GetDisplayName(space.SpaceInstance.Name, space.SpaceInstance.Spec.DisplayName),
+			clihelper.GetTableDisplayName(space.SpaceInstance.Name, space.SpaceInstance.Spec.DisplayName),
 			space.Project,
 			space.SpaceInstance.Spec.ClusterRef.Cluster,
 			strconv.FormatBool(space.SpaceInstance.Status.Phase == storagev1.InstanceSleeping),
@@ -122,6 +123,6 @@ func (cmd *SpacesCmd) RunSpaces() error {
 		}
 	}
 
-	log.PrintTable(cmd.log, header, values)
+	table.PrintTable(cmd.log, header, values)
 	return nil
 }

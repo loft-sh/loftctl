@@ -14,8 +14,8 @@ import (
 	"github.com/loft-sh/loftctl/v3/pkg/client/helper"
 	pdefaults "github.com/loft-sh/loftctl/v3/pkg/defaults"
 	"github.com/loft-sh/loftctl/v3/pkg/kubeconfig"
-	"github.com/loft-sh/loftctl/v3/pkg/log"
 	"github.com/loft-sh/loftctl/v3/pkg/upgrade"
+	"github.com/loft-sh/log"
 	"github.com/mgutz/ansi"
 	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
@@ -138,11 +138,10 @@ func (cmd *VirtualClusterCmd) deleteVirtualCluster(baseClient client.Client, vir
 
 	// wait until deleted
 	if cmd.Wait {
-		cmd.Log.StartWait("Waiting for virtual cluster to be deleted")
+		cmd.Log.Info("Waiting for virtual cluster to be deleted...")
 		for isVirtualClusterInstanceStillThere(managementClient, naming.ProjectNamespace(cmd.Project), virtualClusterName) {
 			time.Sleep(time.Second)
 		}
-		cmd.Log.StopWait()
 		cmd.Log.Done("Virtual Cluster is deleted")
 	}
 
@@ -193,11 +192,10 @@ func (cmd *VirtualClusterCmd) legacyDeleteVirtualCluster(baseClient client.Clien
 
 		// wait for termination
 		if cmd.Wait {
-			cmd.Log.StartWait("Waiting for space to be deleted")
+			cmd.Log.Info("Waiting for space to be deleted...")
 			for isSpaceStillThere(clusterClient, cmd.Space) {
 				time.Sleep(time.Second)
 			}
-			cmd.Log.StopWait()
 		}
 
 		cmd.Log.Donef("Successfully deleted space %s", cmd.Space)

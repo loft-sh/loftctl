@@ -9,9 +9,10 @@ import (
 	clusterv1 "github.com/loft-sh/agentapi/v3/pkg/apis/loft/cluster/v1"
 	managementv1 "github.com/loft-sh/api/v3/pkg/apis/management/v1"
 	storagev1 "github.com/loft-sh/api/v3/pkg/apis/storage/v1"
+	"github.com/loft-sh/loftctl/v3/pkg/config"
 	"github.com/loft-sh/loftctl/v3/pkg/kube"
-	"github.com/loft-sh/loftctl/v3/pkg/log"
 	"github.com/loft-sh/loftctl/v3/pkg/util"
+	"github.com/loft-sh/log"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -28,8 +29,7 @@ func WaitForSpaceInstance(ctx context.Context, managementClient kube.Interface, 
 	}
 
 	if spaceInstance.Status.Phase == storagev1.InstanceSleeping {
-		log.StartWait("Wait until space wakes up")
-		defer log.StopWait()
+		log.Info("Wait until space wakes up")
 		defer log.Donef("Successfully woken up space %s", name)
 		err := wakeup(ctx, managementClient, spaceInstance)
 		if err != nil {
@@ -42,7 +42,7 @@ func WaitForSpaceInstance(ctx context.Context, managementClient kube.Interface, 
 	}
 
 	warnCounter := 0
-	return spaceInstance, wait.PollImmediate(time.Second, time.Minute*6, func() (bool, error) {
+	return spaceInstance, wait.PollUntilContextTimeout(ctx, time.Second, config.Timeout(), true, func(ctx context.Context) (bool, error) {
 		spaceInstance, err = managementClient.Loft().ManagementV1().SpaceInstances(namespace).Get(ctx, name, metav1.GetOptions{})
 		if err != nil {
 			return false, err

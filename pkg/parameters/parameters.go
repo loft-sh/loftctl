@@ -11,9 +11,10 @@ import (
 	managementv1 "github.com/loft-sh/api/v3/pkg/apis/management/v1"
 	storagev1 "github.com/loft-sh/api/v3/pkg/apis/storage/v1"
 	"github.com/loft-sh/loftctl/v3/pkg/clihelper"
-	"github.com/loft-sh/loftctl/v3/pkg/log"
-	"github.com/loft-sh/loftctl/v3/pkg/survey"
+	"github.com/loft-sh/log"
+	"github.com/loft-sh/log/survey"
 	"github.com/pkg/errors"
+	"github.com/sirupsen/logrus"
 )
 
 type ParametersFile struct {
@@ -154,7 +155,7 @@ func ResolveAppParameters(apps []NamespacedApp, appFilename string, log log.Logg
 			continue
 		}
 
-		log.WriteString("\n")
+		log.WriteString(logrus.InfoLevel, "\n")
 		if app.Namespace != "" {
 			log.Infof("Please specify parameters for app %s in namespace %s", clihelper.GetDisplayName(app.App.Name, app.App.Spec.DisplayName), app.Namespace)
 		} else {
@@ -179,7 +180,7 @@ func ResolveAppParameters(apps []NamespacedApp, appFilename string, log log.Logg
 					return nil, err
 				}
 
-				outVal, err := verifyValue(value, parameter)
+				outVal, err := VerifyValue(value, parameter)
 				if err != nil {
 					log.Errorf(err.Error())
 					continue
@@ -204,7 +205,7 @@ func ResolveAppParameters(apps []NamespacedApp, appFilename string, log log.Logg
 	return ret, nil
 }
 
-func verifyValue(value string, parameter storagev1.AppParameter) (interface{}, error) {
+func VerifyValue(value string, parameter storagev1.AppParameter) (interface{}, error) {
 	switch parameter.Type {
 	case "":
 		fallthrough
@@ -338,7 +339,7 @@ func fillParameters(parameters []storagev1.AppParameter, set []string, values ma
 			}
 		}
 
-		outVal, err := verifyValue(strVal, parameter)
+		outVal, err := VerifyValue(strVal, parameter)
 		if err != nil {
 			return "", errors.Wrap(err, "validate parameters")
 		}

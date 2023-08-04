@@ -3,7 +3,7 @@ package defaults
 import (
 	"github.com/loft-sh/loftctl/v3/cmd/loftctl/flags"
 	pdefaults "github.com/loft-sh/loftctl/v3/pkg/defaults"
-	"github.com/loft-sh/loftctl/v3/pkg/log"
+	"github.com/loft-sh/log"
 	"github.com/spf13/cobra"
 )
 

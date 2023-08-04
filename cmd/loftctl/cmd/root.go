@@ -1,10 +1,15 @@
 package cmd
 
 import (
+	"context"
+	"fmt"
+	"os"
+
 	"github.com/loft-sh/loftctl/v3/cmd/loftctl/cmd/connect"
 	"github.com/loft-sh/loftctl/v3/cmd/loftctl/cmd/create"
 	cmddefaults "github.com/loft-sh/loftctl/v3/cmd/loftctl/cmd/defaults"
 	"github.com/loft-sh/loftctl/v3/cmd/loftctl/cmd/delete"
+	"github.com/loft-sh/loftctl/v3/cmd/loftctl/cmd/devpod"
 	"github.com/loft-sh/loftctl/v3/cmd/loftctl/cmd/generate"
 	"github.com/loft-sh/loftctl/v3/cmd/loftctl/cmd/get"
 	"github.com/loft-sh/loftctl/v3/cmd/loftctl/cmd/importcmd"
@@ -18,23 +23,36 @@ import (
 	"github.com/loft-sh/loftctl/v3/cmd/loftctl/cmd/wakeup"
 	"github.com/loft-sh/loftctl/v3/cmd/loftctl/flags"
 	"github.com/loft-sh/loftctl/v3/pkg/defaults"
-	"github.com/loft-sh/loftctl/v3/pkg/log"
 	"github.com/loft-sh/loftctl/v3/pkg/upgrade"
+	"github.com/loft-sh/log"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 )
 
 // NewRootCmd returns a new root command
-func NewRootCmd(log log.Logger) *cobra.Command {
+func NewRootCmd(streamLogger *log.StreamLogger) *cobra.Command {
 	return &cobra.Command{
 		Use:           "loft",
 		SilenceUsage:  true,
 		SilenceErrors: true,
 		Short:         "Welcome to Loft!",
-		PersistentPreRun: func(cobraCmd *cobra.Command, args []string) {
+		PersistentPreRunE: func(cobraCmd *cobra.Command, args []string) error {
 			if globalFlags.Silent {
-				log.SetLevel(logrus.FatalLevel)
+				streamLogger.SetLevel(logrus.FatalLevel)
 			}
+			if globalFlags.Config == "" && os.Getenv("LOFT_CONFIG") != "" {
+				globalFlags.Config = os.Getenv("LOFT_CONFIG")
+			}
+
+			if globalFlags.LogOutput == "json" {
+				streamLogger.SetFormat(log.JSONFormat)
+			} else if globalFlags.LogOutput == "raw" {
+				streamLogger.SetFormat(log.RawFormat)
+			} else if globalFlags.LogOutput != "plain" {
+				return fmt.Errorf("unrecognized log format %s, needs to be either plain or json", globalFlags.LogOutput)
+			}
+
+			return nil
 		},
 		Long: `Loft CLI - www.loft.sh`,
 	}
@@ -45,14 +63,14 @@ var globalFlags *flags.GlobalFlags
 // Execute adds all child commands to the root command and sets flags appropriately.
 // This is called by main.main(). It only needs to happen once to the rootCmd.
 func Execute() {
-	log := log.GetInstance()
+	log := log.Default
 	rootCmd := BuildRoot(log)
 
 	// Set version for --version flag
 	rootCmd.Version = upgrade.GetVersion()
 
 	// Execute command
-	err := rootCmd.Execute()
+	err := rootCmd.ExecuteContext(context.Background())
 	if err != nil {
 		if globalFlags.Debug {
 			log.Fatalf("%+v", err)
@@ -63,7 +81,7 @@ func Execute() {
 }
 
 // BuildRoot creates a new root command from the
-func BuildRoot(log log.Logger) *cobra.Command {
+func BuildRoot(log *log.StreamLogger) *cobra.Command {
 	rootCmd := NewRootCmd(log)
 	persistentFlags := rootCmd.PersistentFlags()
 	globalFlags = flags.SetGlobalFlags(persistentFlags)
@@ -96,6 +114,7 @@ func BuildRoot(log log.Logger) *cobra.Command {
 	rootCmd.AddCommand(importcmd.NewImportCmd(globalFlags))
 	rootCmd.AddCommand(connect.NewConnectCmd(globalFlags))
 	rootCmd.AddCommand(cmddefaults.NewDefaultsCmd(globalFlags, defaults))
+	rootCmd.AddCommand(devpod.NewDevPodCmd(globalFlags))
 
 	return rootCmd
 }

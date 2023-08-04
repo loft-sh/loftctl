@@ -20,12 +20,14 @@ import (
 
 	clusterv1 "github.com/loft-sh/agentapi/v3/pkg/apis/loft/cluster/v1"
 	storagev1 "github.com/loft-sh/api/v3/pkg/apis/storage/v1"
+	"github.com/sirupsen/logrus"
 
 	jsonpatch "github.com/evanphx/json-patch"
 	loftclientset "github.com/loft-sh/api/v3/pkg/client/clientset_generated/clientset"
-	"github.com/loft-sh/loftctl/v3/pkg/log"
+	"github.com/loft-sh/loftctl/v3/pkg/config"
 	"github.com/loft-sh/loftctl/v3/pkg/portforward"
-	"github.com/loft-sh/loftctl/v3/pkg/survey"
+	"github.com/loft-sh/log"
+	"github.com/loft-sh/log/survey"
 	"github.com/pkg/errors"
 	corev1 "k8s.io/api/core/v1"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
@@ -43,6 +45,14 @@ const defaultReleaseName = "loft"
 func GetDisplayName(name string, displayName string) string {
 	if displayName != "" {
 		return displayName
+	}
+
+	return name
+}
+
+func GetTableDisplayName(name string, displayName string) string {
+	if displayName != "" && displayName != name {
+		return displayName + " (" + name + ")"
 	}
 
 	return name
@@ -82,61 +92,12 @@ func GetLoftIngressHost(kubeClient kubernetes.Interface, namespace string) (stri
 	return "", fmt.Errorf("couldn't find any host in loft ingress '%s/loft-ingress', please make sure you have not changed any deployed resources", namespace)
 }
 
-func WaitForReadyLoftAgentPod(kubeClient kubernetes.Interface, namespace string, log log.Logger) error {
-	// wait until we have a running loft pod
-	err := wait.Poll(time.Second*2, time.Minute*10, func() (bool, error) {
-		pods, err := kubeClient.CoreV1().Pods(namespace).List(context.TODO(), metav1.ListOptions{
-			LabelSelector: "app=loft-agent",
-		})
-		if err != nil {
-			log.Warnf("Error trying to retrieve Loft Agent pod: %v", err)
-			return false, nil
-		} else if len(pods.Items) == 0 {
-			log.Debugf("No Loft Agent pod found in namespace %v, searching in all namespaces", namespace)
-			pods, err = kubeClient.CoreV1().Pods("").List(context.TODO(), metav1.ListOptions{
-				LabelSelector: "app=loft-agent",
-			})
-			if err != nil {
-				log.Warnf("Error trying to retrieve Loft Agent pod: %v", err)
-				return false, nil
-			} else if len(pods.Items) == 0 {
-				return false, nil
-			}
-		}
-
-		sort.Slice(pods.Items, func(i, j int) bool {
-			return pods.Items[i].CreationTimestamp.After(pods.Items[j].CreationTimestamp.Time)
-		})
-
-		loftPod := &pods.Items[0]
-		found := false
-		for _, containerStatus := range loftPod.Status.ContainerStatuses {
-			if containerStatus.State.Running != nil && containerStatus.Ready {
-				if containerStatus.Name == "agent" {
-					found = true
-				}
-
-				continue
-			}
-
-			return false, nil
-		}
-
-		return found, nil
-	})
-	if err != nil {
-		return err
-	}
-
-	return nil
-}
-
 func WaitForReadyLoftPod(kubeClient kubernetes.Interface, namespace string, log log.Logger) (*corev1.Pod, error) {
 	// wait until we have a running loft pod
 	now := time.Now()
 	warningPrinted := false
 	pod := &corev1.Pod{}
-	err := wait.Poll(time.Second*2, time.Minute*10, func() (bool, error) {
+	err := wait.Poll(time.Second*2, config.Timeout(), func() (bool, error) {
 		pods, err := kubeClient.CoreV1().Pods(namespace).List(context.TODO(), metav1.ListOptions{
 			LabelSelector: "app=loft",
 		})
@@ -190,8 +151,8 @@ func WaitForReadyLoftPod(kubeClient kubernetes.Interface, namespace string, log 
 	return pod, nil
 }
 
-func StartPortForwarding(config *rest.Config, client kubernetes.Interface, pod *corev1.Pod, localPort string, log log.Logger) (chan struct{}, error) {
-	log.WriteString("\n")
+func StartPortForwarding(ctx context.Context, config *rest.Config, client kubernetes.Interface, pod *corev1.Pod, localPort string, log log.Logger) (chan struct{}, error) {
+	log.WriteString(logrus.InfoLevel, "\n")
 	log.Info("Starting port-forwarding to the Loft pod")
 	execRequest := client.CoreV1().RESTClient().Post().
 		Resource("pods").
@@ -215,7 +176,7 @@ func StartPortForwarding(config *rest.Config, client kubernetes.Interface, pod *
 	}
 
 	go func() {
-		err := forwarder.ForwardPorts()
+		err := forwarder.ForwardPorts(ctx)
 		if err != nil {
 			errChan <- err
 		}
@@ -381,9 +342,7 @@ func IsLoftAlreadyInstalled(kubeClient kubernetes.Interface, namespace string) (
 }
 
 func UninstallLoft(kubeClient kubernetes.Interface, restConfig *rest.Config, kubeContext, namespace string, log log.Logger) error {
-	log.StartWait("Uninstalling loft...")
-	defer log.StopWait()
-
+	log.Infof("Uninstalling loft...")
 	releaseName := defaultReleaseName
 	deploy, err := kubeClient.AppsV1().Deployments(namespace).Get(context.TODO(), "loft", metav1.GetOptions{})
 	if err != nil && !kerrors.IsNotFound(err) {
@@ -407,11 +366,6 @@ func UninstallLoft(kubeClient kubernetes.Interface, restConfig *rest.Config, kub
 	}
 
 	// we also cleanup the validating webhook configuration and apiservice
-	err = kubeClient.AdmissionregistrationV1().ValidatingWebhookConfigurations().Delete(context.TODO(), "loft", metav1.DeleteOptions{})
-	if err != nil && !kerrors.IsNotFound(err) {
-		return err
-	}
-
 	apiRegistrationClient, err := clientset.NewForConfig(restConfig)
 	if err != nil {
 		return err
@@ -430,23 +384,6 @@ func UninstallLoft(kubeClient kubernetes.Interface, restConfig *rest.Config, kub
 	err = kubeClient.CoreV1().Secrets(namespace).Delete(context.Background(), "loft-user-secret-admin", metav1.DeleteOptions{})
 	if err != nil && !kerrors.IsNotFound(err) {
 		return err
-	}
-
-	// uninstall agent
-	releaseName = "loft-agent"
-	args = []string{
-		"uninstall",
-		releaseName,
-		"--kube-context",
-		kubeContext,
-		"--namespace",
-		namespace,
-	}
-	log.WriteString("\n")
-	log.Infof("Executing command: helm %s", strings.Join(args, " "))
-	output, err = exec.Command("helm", args...).CombinedOutput()
-	if err != nil {
-		log.Errorf("error during helm command: %s (%v)", string(output), err)
 	}
 
 	// we also cleanup the validating webhook configuration and apiservice
@@ -475,10 +412,9 @@ func UninstallLoft(kubeClient kubernetes.Interface, restConfig *rest.Config, kub
 		return err
 	}
 
-	log.StopWait()
-	log.WriteString("\n")
+	log.WriteString(logrus.InfoLevel, "\n")
 	log.Done("Successfully uninstalled Loft")
-	log.WriteString("\n")
+	log.WriteString(logrus.InfoLevel, "\n")
 
 	return nil
 }
@@ -548,12 +484,11 @@ func EnsureIngressController(kubeClient kubernetes.Interface, kubeContext string
 			"controller.config.hsts=false",
 			"--wait",
 		}
-		log.WriteString("\n")
+		log.WriteString(logrus.InfoLevel, "\n")
 		log.Infof("Executing command: helm %s\n", strings.Join(args, " "))
-		log.StartWait("Waiting for ingress controller deployment, this can take several minutes...")
+		log.Info("Waiting for ingress controller deployment, this can take several minutes...")
 		helmCmd := exec.Command("helm", args...)
 		output, err := helmCmd.CombinedOutput()
-		log.StopWait()
 		if err != nil {
 			return fmt.Errorf("error during helm command: %s (%w)", string(output), err)
 		}
@@ -618,9 +553,9 @@ func UpgradeLoft(chartName, chartRepo, kubeContext, namespace string, extraArgs 
 	}
 	args = append(args, extraArgs...)
 
-	log.WriteString("\n")
+	log.WriteString(logrus.InfoLevel, "\n")
 	log.Infof("Executing command: helm %s\n", strings.Join(args, " "))
-	log.StartWait("Waiting for helm command, this can take up to several minutes...")
+	log.Info("Waiting for helm command, this can take up to several minutes...")
 	helmCmd := exec.Command("helm", args...)
 	if chartRepo != "" {
 		helmWorkDir, err := getHelmWorkdir(chartName)
@@ -631,7 +566,6 @@ func UpgradeLoft(chartName, chartRepo, kubeContext, namespace string, extraArgs 
 		helmCmd.Dir = helmWorkDir
 	}
 	output, err := helmCmd.CombinedOutput()
-	log.StopWait()
 	if err != nil {
 		return fmt.Errorf("error during helm command: %s (%w)", string(output), err)
 	}

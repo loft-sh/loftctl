@@ -7,8 +7,9 @@ import (
 	"github.com/loft-sh/loftctl/v3/pkg/client"
 	"github.com/loft-sh/loftctl/v3/pkg/client/helper"
 	"github.com/loft-sh/loftctl/v3/pkg/clihelper"
-	"github.com/loft-sh/loftctl/v3/pkg/log"
 	"github.com/loft-sh/loftctl/v3/pkg/upgrade"
+	"github.com/loft-sh/log"
+	"github.com/loft-sh/log/table"
 	"github.com/spf13/cobra"
 	"k8s.io/apimachinery/pkg/util/duration"
 )
@@ -86,7 +87,7 @@ func (cmd *VirtualClustersCmd) Run() error {
 
 	for _, virtualCluster := range virtualClusterInstances {
 		values = append(values, []string{
-			clihelper.GetDisplayName(virtualCluster.VirtualClusterInstance.Name, virtualCluster.VirtualClusterInstance.Spec.DisplayName),
+			clihelper.GetTableDisplayName(virtualCluster.VirtualClusterInstance.Name, virtualCluster.VirtualClusterInstance.Spec.DisplayName),
 			virtualCluster.Project,
 			virtualCluster.VirtualClusterInstance.Spec.ClusterRef.Cluster,
 			virtualCluster.VirtualClusterInstance.Spec.ClusterRef.Namespace,
@@ -120,6 +121,6 @@ func (cmd *VirtualClustersCmd) Run() error {
 		}
 	}
 
-	log.PrintTable(cmd.log, header, values)
+	table.PrintTable(cmd.log, header, values)
 	return nil
 }

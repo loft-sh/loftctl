@@ -12,10 +12,11 @@ import (
 	"github.com/loft-sh/loftctl/v3/pkg/client"
 	"github.com/loft-sh/loftctl/v3/pkg/client/helper"
 	"github.com/loft-sh/loftctl/v3/pkg/client/naming"
+	"github.com/loft-sh/loftctl/v3/pkg/config"
 	pdefaults "github.com/loft-sh/loftctl/v3/pkg/defaults"
-	"github.com/loft-sh/loftctl/v3/pkg/log"
 	"github.com/loft-sh/loftctl/v3/pkg/upgrade"
 	"github.com/loft-sh/loftctl/v3/pkg/util"
+	"github.com/loft-sh/log"
 	"github.com/spf13/cobra"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -128,9 +129,8 @@ func (cmd *VClusterCmd) sleepVCluster(baseClient client.Client, vClusterName str
 	}
 
 	// wait for sleeping
-	cmd.Log.StartWait("Wait until virtual cluster is sleeping")
-	defer cmd.Log.StopWait()
-	err = wait.Poll(time.Second, time.Minute, func() (bool, error) {
+	cmd.Log.Info("Wait until virtual cluster is sleeping...")
+	err = wait.Poll(time.Second, config.Timeout(), func() (bool, error) {
 		virtualClusterInstance, err := managementClient.Loft().ManagementV1().VirtualClusterInstances(naming.ProjectNamespace(cmd.Project)).Get(context.TODO(), vClusterName, metav1.GetOptions{})
 		if err != nil {
 			return false, err

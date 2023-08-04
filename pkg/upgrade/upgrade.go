@@ -8,10 +8,9 @@ import (
 	"sync"
 
 	"github.com/pkg/errors"
-	klog "k8s.io/klog/v2"
 
 	"github.com/blang/semver"
-	"github.com/loft-sh/loftctl/v3/pkg/log"
+	"github.com/loft-sh/log"
 	"github.com/rhysd/go-github-selfupdate/selfupdate"
 )
 
@@ -97,16 +96,17 @@ func GetVersion() string {
 }
 
 // SetVersion sets the application version
-func SetVersion(verText string) {
+func SetVersion(verText string) error {
 	if len(verText) > 0 {
 		_version, err := eraseVersionPrefix(verText)
 		if err != nil {
-			klog.Errorf("Error parsing version: %v", err)
-			return
+			return fmt.Errorf("error parsing version: %w", err)
 		}
 
 		version = _version
 	}
+
+	return nil
 }
 
 var (
@@ -175,9 +175,8 @@ func Upgrade(flagVersion string, log log.Logger) error {
 			return err
 		}
 
-		log.StartWait(fmt.Sprintf("Downloading version %s...", flagVersion))
+		log.Infof("Downloading version %s...", flagVersion)
 		err = selfupdate.DefaultUpdater().UpdateTo(release, cmdPath)
-		log.StopWait()
 		if err != nil {
 			return err
 		}
@@ -197,9 +196,8 @@ func Upgrade(flagVersion string, log log.Logger) error {
 
 	v := semver.MustParse(version)
 
-	log.StartWait("Downloading newest version...")
+	log.Info("Downloading newest version...")
 	latest, err := selfupdate.UpdateSelf(v, githubSlug)
-	log.StopWait()
 	if err != nil {
 		return err
 	}

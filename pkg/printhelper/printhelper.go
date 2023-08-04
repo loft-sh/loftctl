@@ -1,18 +1,19 @@
 package printhelper
 
 import (
-	"github.com/loft-sh/loftctl/v3/pkg/log"
+	"github.com/loft-sh/log"
 	"github.com/mgutz/ansi"
+	"github.com/sirupsen/logrus"
 )
 
 const passwordChangedHint = "(has been changed)"
 
 func PrintDNSConfiguration(host string, log log.Logger) {
-	log.WriteString(`
+	log.WriteString(logrus.InfoLevel, `
 
 ###################################     DNS CONFIGURATION REQUIRED     ##################################
 
-Create a DNS A-record for ` + host + ` with the EXTERNAL-IP of your nginx-ingress controller.
+Create a DNS A-record for `+host+` with the EXTERNAL-IP of your nginx-ingress controller.
 To find this EXTERNAL-IP, run the following command and look at the output:
 
 > kubectl get services -n ingress-nginx
@@ -38,15 +39,15 @@ func PrintSuccessMessageLocalInstall(password, localPort string, log log.Logger)
 		password = passwordChangedHint
 	}
 
-	log.WriteString(`
+	log.WriteString(logrus.InfoLevel, `
 
 ##########################   LOGIN   ############################
 
-Username: ` + ansi.Color("admin", "green+b") + `
-Password: ` + ansi.Color(password, "green+b") + `  # Change via UI or via: ` + ansi.Color("loft reset password", "green+b") + `
+Username: `+ansi.Color("admin", "green+b")+`
+Password: `+ansi.Color(password, "green+b")+`  # Change via UI or via: `+ansi.Color("loft reset password", "green+b")+`
 
-Login via UI:  ` + ansi.Color(url, "green+b") + `
-Login via CLI: ` + ansi.Color(`loft login --insecure `+url, "green+b") + `
+Login via UI:  `+ansi.Color(url, "green+b")+`
+Login via CLI: `+ansi.Color(`loft login --insecure `+url, "green+b")+`
 
 !!! You must accept the untrusted certificate in your browser !!!
 
@@ -66,16 +67,16 @@ func PrintSuccessMessageRemoteInstall(host, password string, log log.Logger) {
 		password = passwordChangedHint
 	}
 
-	log.WriteString(`
+	log.WriteString(logrus.InfoLevel, `
 
 
 ##########################   LOGIN   ############################
 
-Username: ` + ansi.Color("admin", "green+b") + `
-Password: ` + ansi.Color(password, "green+b") + `  # Change via UI or via: ` + ansi.Color("loft reset password", "green+b") + `
+Username: `+ansi.Color("admin", "green+b")+`
+Password: `+ansi.Color(password, "green+b")+`  # Change via UI or via: `+ansi.Color("loft reset password", "green+b")+`
 
-Login via UI:  ` + ansi.Color(url, "green+b") + `
-Login via CLI: ` + ansi.Color(`loft login --insecure `+url, "green+b") + `
+Login via UI:  `+ansi.Color(url, "green+b")+`
+Login via CLI: `+ansi.Color(`loft login --insecure `+url, "green+b")+`
 
 !!! You must accept the untrusted certificate in your browser !!!
 
@@ -83,7 +84,7 @@ Follow this guide to add a valid certificate: https://loft.sh/docs/administratio
 
 #################################################################
 
-Loft was successfully installed and can now be reached at: ` + url + `
+Loft was successfully installed and can now be reached at: `+url+`
 
 Thanks for using Loft!
 `)

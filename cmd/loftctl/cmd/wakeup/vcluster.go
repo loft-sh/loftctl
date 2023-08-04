@@ -9,10 +9,10 @@ import (
 	"github.com/loft-sh/loftctl/v3/pkg/client/helper"
 	"github.com/loft-sh/loftctl/v3/pkg/client/naming"
 	pdefaults "github.com/loft-sh/loftctl/v3/pkg/defaults"
-	"github.com/loft-sh/loftctl/v3/pkg/log"
 	"github.com/loft-sh/loftctl/v3/pkg/upgrade"
 	"github.com/loft-sh/loftctl/v3/pkg/util"
 	"github.com/loft-sh/loftctl/v3/pkg/vcluster"
+	"github.com/loft-sh/log"
 	"github.com/spf13/cobra"
 )
 

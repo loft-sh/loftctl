@@ -12,8 +12,9 @@ import (
 
 	managementv1 "github.com/loft-sh/api/v3/pkg/apis/management/v1"
 	"github.com/loft-sh/apiserver/pkg/builders"
+	"github.com/loft-sh/loftctl/v3/pkg/config"
 	"github.com/loft-sh/loftctl/v3/pkg/kube"
-	"github.com/loft-sh/loftctl/v3/pkg/log"
+	"github.com/loft-sh/log"
 	"github.com/pkg/errors"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -44,7 +45,7 @@ func StreamTask(ctx context.Context, managementClient kube.Interface, task *mana
 	}
 
 	// wait for the task to be ready
-	err = wait.PollImmediate(time.Second, time.Minute*4, func() (done bool, err error) {
+	err = wait.PollUntilContextTimeout(ctx, time.Second, config.Timeout(), true, func(ctx context.Context) (done bool, err error) {
 		task, err := managementClient.Loft().ManagementV1().Tasks().Get(ctx, createdTask.Name, metav1.GetOptions{})
 		if err != nil {
 			return false, err

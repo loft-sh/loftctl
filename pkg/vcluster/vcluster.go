@@ -10,9 +10,10 @@ import (
 	managementv1 "github.com/loft-sh/api/v3/pkg/apis/management/v1"
 	storagev1 "github.com/loft-sh/api/v3/pkg/apis/storage/v1"
 	"github.com/loft-sh/loftctl/v3/pkg/client"
+	"github.com/loft-sh/loftctl/v3/pkg/config"
 	"github.com/loft-sh/loftctl/v3/pkg/kube"
-	"github.com/loft-sh/loftctl/v3/pkg/log"
 	"github.com/loft-sh/loftctl/v3/pkg/util"
+	"github.com/loft-sh/log"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
 	client2 "sigs.k8s.io/controller-runtime/pkg/client"
@@ -31,7 +32,7 @@ func WaitForVCluster(ctx context.Context, baseClient client.Client, clusterName,
 
 	warnCounter := 0
 
-	return wait.PollImmediate(time.Second, time.Minute*6, func() (bool, error) {
+	return wait.PollUntilContextTimeout(ctx, time.Second, config.Timeout(), true, func(ctx context.Context) (bool, error) {
 		_, err = vClusterClient.CoreV1().ServiceAccounts("default").Get(ctx, "default", metav1.GetOptions{})
 		if err != nil && time.Now().After(nextMessage) {
 			if warnCounter > 1 {
@@ -58,12 +59,11 @@ func WaitForVirtualClusterInstance(ctx context.Context, managementClient kube.In
 	}
 
 	if virtualClusterInstance.Status.Phase == storagev1.InstanceSleeping {
-		log.StartWait("Wait until vcluster wakes up")
-		defer log.StopWait()
+		log.Info("Wait until vcluster wakes up")
 		defer log.Donef("Successfully woken up vcluster %s", name)
 		err := wakeup(ctx, managementClient, virtualClusterInstance)
 		if err != nil {
-			return nil, fmt.Errorf("Error waking up vcluster %s: %s", name, util.GetCause(err))
+			return nil, fmt.Errorf("error waking up vcluster %s: %s", name, util.GetCause(err))
 		}
 	}
 
@@ -72,7 +72,7 @@ func WaitForVirtualClusterInstance(ctx context.Context, managementClient kube.In
 	}
 
 	warnCounter := 0
-	return virtualClusterInstance, wait.PollImmediate(time.Second, time.Minute*6, func() (bool, error) {
+	return virtualClusterInstance, wait.PollUntilContextTimeout(ctx, time.Second, config.Timeout(), true, func(ctx context.Context) (bool, error) {
 		virtualClusterInstance, err = managementClient.Loft().ManagementV1().VirtualClusterInstances(namespace).Get(ctx, name, metav1.GetOptions{})
 		if err != nil {
 			return false, err
