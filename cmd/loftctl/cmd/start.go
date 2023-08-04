@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/sirupsen/logrus"
+	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/kubectl/pkg/util/term"
 
 	"github.com/loft-sh/loftctl/v3/pkg/clihelper"
@@ -291,31 +292,6 @@ func (cmd *StartCmd) handleAlreadyExistingInstallation(ctx context.Context) erro
 		// Skip question if --host flag is provided
 		if cmd.Host != "" {
 			enableIngress = true
-		} else {
-			// Ask if we should enable the ingress for Loft
-			const (
-				NoOption  = "No"
-				YesOption = "Yes, I want to enable the ingress to be able to access Loft via a domain."
-			)
-
-			defaultOption := YesOption
-			if isLocal {
-				defaultOption = NoOption
-			}
-
-			answer, err := cmd.Log.Question(&survey.QuestionOptions{
-				Question:     "Do you want to enable access to Loft via ingress?",
-				DefaultValue: defaultOption,
-				Options: []string{
-					NoOption,
-					YesOption,
-				},
-			})
-			if err != nil {
-				return err
-			}
-
-			enableIngress = answer == YesOption
 		}
 
 		if enableIngress {
@@ -488,6 +464,16 @@ func (cmd *StartCmd) success(ctx context.Context) error {
 	// check if Loft was installed locally
 	isLocal := clihelper.IsLoftInstalledLocally(cmd.KubeClient, cmd.Namespace)
 	if isLocal {
+		// check if loft domain secret is there
+		loftRouterDomain, err := cmd.pingLoftRouter(ctx, loftPod)
+		if err != nil {
+			cmd.Log.Errorf("Error retrieving loft router domain: %v", err)
+			cmd.Log.Info("Fallback to use port-forwarding")
+		} else if loftRouterDomain != "" {
+			return cmd.successRemote(loftRouterDomain)
+		}
+
+		// start port-forwarding
 		err = cmd.startPortForwarding(ctx, loftPod)
 		if err != nil {
 			return err
@@ -590,6 +576,50 @@ func (cmd *StartCmd) waitForLoft() (*corev1.Pod, error) {
 	}
 
 	return loftPod, nil
+}
+
+func (cmd *StartCmd) pingLoftRouter(ctx context.Context, loftPod *corev1.Pod) (string, error) {
+	loftRouterSecret, err := cmd.KubeClient.CoreV1().Secrets(loftPod.Namespace).Get(ctx, clihelper.LoftRouterDomainSecret, metav1.GetOptions{})
+	if err != nil {
+		if kerrors.IsNotFound(err) {
+			return "", nil
+		}
+
+		return "", fmt.Errorf("find loft router domain secret: %w", err)
+	} else if loftRouterSecret.Data == nil || len(loftRouterSecret.Data["domain"]) == 0 {
+		return "", nil
+	}
+
+	// get the domain from secret
+	loftRouterDomain := string(loftRouterSecret.Data["domain"])
+
+	// wait until loft is reachable at the given url
+	httpClient := &http.Client{
+		Transport: &http.Transport{
+			TLSClientConfig: &tls.Config{
+				InsecureSkipVerify: true,
+			},
+		},
+	}
+	cmd.Log.Infof("Waiting until loft is reachable at https://%s", loftRouterDomain)
+	err = wait.PollUntilContextTimeout(context.TODO(), time.Second*3, time.Minute*5, true, func(ctx context.Context) (bool, error) {
+		req, err := http.NewRequestWithContext(ctx, http.MethodGet, "https://"+loftRouterDomain+"/version", nil)
+		if err != nil {
+			return false, nil
+		}
+
+		resp, err := httpClient.Do(req)
+		if err != nil {
+			return false, nil
+		}
+
+		return resp.StatusCode == http.StatusOK, nil
+	})
+	if err != nil {
+		return "", err
+	}
+
+	return loftRouterDomain, nil
 }
 
 func (cmd *StartCmd) startPortForwarding(ctx context.Context, loftPod *corev1.Pod) error {

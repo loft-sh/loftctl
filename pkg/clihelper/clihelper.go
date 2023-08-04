@@ -42,6 +42,8 @@ import (
 
 const defaultReleaseName = "loft"
 
+const LoftRouterDomainSecret = "loft-router-domain"
+
 func GetDisplayName(name string, displayName string) string {
 	if displayName != "" {
 		return displayName
@@ -97,7 +99,7 @@ func WaitForReadyLoftPod(kubeClient kubernetes.Interface, namespace string, log 
 	now := time.Now()
 	warningPrinted := false
 	pod := &corev1.Pod{}
-	err := wait.Poll(time.Second*2, config.Timeout(), func() (bool, error) {
+	err := wait.PollUntilContextTimeout(context.TODO(), time.Second*2, config.Timeout(), true, func(ctx context.Context) (bool, error) {
 		pods, err := kubeClient.CoreV1().Pods(namespace).List(context.TODO(), metav1.ListOptions{
 			LabelSelector: "app=loft",
 		})
@@ -382,6 +384,11 @@ func UninstallLoft(kubeClient kubernetes.Interface, restConfig *rest.Config, kub
 	}
 
 	err = kubeClient.CoreV1().Secrets(namespace).Delete(context.Background(), "loft-user-secret-admin", metav1.DeleteOptions{})
+	if err != nil && !kerrors.IsNotFound(err) {
+		return err
+	}
+
+	err = kubeClient.CoreV1().Secrets(namespace).Delete(context.Background(), LoftRouterDomainSecret, metav1.DeleteOptions{})
 	if err != nil && !kerrors.IsNotFound(err) {
 		return err
 	}
