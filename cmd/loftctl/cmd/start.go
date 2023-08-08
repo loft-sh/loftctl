@@ -470,7 +470,8 @@ func (cmd *StartCmd) success(ctx context.Context) error {
 			cmd.Log.Errorf("Error retrieving loft router domain: %v", err)
 			cmd.Log.Info("Fallback to use port-forwarding")
 		} else if loftRouterDomain != "" {
-			return cmd.successRemote(loftRouterDomain)
+			printhelper.PrintSuccessMessageLoftRouterInstall(loftRouterDomain, cmd.Password, cmd.Log)
+			return nil
 		}
 
 		// start port-forwarding
