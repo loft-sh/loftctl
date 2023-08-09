@@ -149,6 +149,12 @@ func createWorkspace(ctx context.Context, baseClient client.Client, log log.Logg
 		},
 	}
 
+	// check if runner is defined
+	runnerName := os.Getenv("LOFT_RUNNER")
+	if runnerName != "" {
+		workspace.Spec.RunnerRef.Runner = runnerName
+	}
+
 	// create instance
 	workspace, err = managementClient.Loft().ManagementV1().DevPodWorkspaceInstances(naming.ProjectNamespace(projectName)).Create(ctx, workspace, metav1.CreateOptions{})
 	if err != nil {
