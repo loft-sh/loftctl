@@ -89,3 +89,29 @@ Loft was successfully installed and can now be reached at: `+url+`
 Thanks for using Loft!
 `)
 }
+
+func PrintSuccessMessageLoftRouterInstall(host, password string, log log.Logger) {
+	url := "https://" + host
+
+	if password == "" {
+		password = passwordChangedHint
+	}
+
+	log.WriteString(logrus.InfoLevel, `
+
+
+##########################   LOGIN   ############################
+
+Username: `+ansi.Color("admin", "green+b")+`
+Password: `+ansi.Color(password, "green+b")+`  # Change via UI or via: `+ansi.Color("loft reset password", "green+b")+`
+
+Login via UI:  `+ansi.Color(url, "green+b")+`
+Login via CLI: `+ansi.Color(`loft login `+url, "green+b")+`
+
+#################################################################
+
+Loft was successfully installed and can now be reached at: `+url+`
+
+Thanks for using Loft!
+`)
+}

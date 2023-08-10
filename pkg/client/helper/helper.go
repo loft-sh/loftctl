@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"os"
 	"sort"
 	"strings"
 
@@ -21,6 +22,7 @@ import (
 	"github.com/mgutz/ansi"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/kubectl/pkg/util/term"
 )
 
 var errNoClusterAccess = errors.New("the user has no access to any cluster")
@@ -393,25 +395,37 @@ func SelectProjectOrCluster(baseClient client.Client, clusterName, projectName s
 			return "", "", err
 		}
 
-		return "", cluster, nil
-	} else if len(projectNames) == 1 {
-		return "", projectList.Items[0].Name, nil
+		return cluster, "", nil
 	}
 
-	answer, err := log.Question(&survey.QuestionOptions{
-		Question:     "Please choose a project to use",
-		DefaultValue: projectNames[0],
-		Options:      projectNames,
-	})
-	if err != nil {
-		return "", "", err
-	}
-	for _, project := range projectList.Items {
-		if answer == clihelper.GetDisplayName(project.Name, project.Spec.DisplayName) {
-			return "", project.Name, nil
+	var selectedProject *managementv1.Project
+	if len(projectNames) == 1 {
+		selectedProject = &projectList.Items[0]
+	} else {
+		answer, err := log.Question(&survey.QuestionOptions{
+			Question:     "Please choose a project to use",
+			DefaultValue: projectNames[0],
+			Options:      projectNames,
+		})
+		if err != nil {
+			return "", "", err
+		}
+		for idx, project := range projectList.Items {
+			if answer == clihelper.GetDisplayName(project.Name, project.Spec.DisplayName) {
+				selectedProject = &projectList.Items[idx]
+			}
+		}
+		if selectedProject == nil {
+			return "", "", fmt.Errorf("answer not found")
 		}
 	}
-	return "", "", fmt.Errorf("answer not found")
+
+	if clusterName == "" {
+		clusterName, err = SelectProjectCluster(baseClient, selectedProject, log)
+		return clusterName, selectedProject.Name, err
+	}
+
+	return clusterName, selectedProject.Name, nil
 }
 
 // SelectCluster lets the user select a cluster
@@ -446,6 +460,64 @@ func SelectCluster(baseClient client.Client, log log.Logger) (string, error) {
 		return "", err
 	}
 	for _, cluster := range clusterList.Items {
+		if answer == clihelper.GetDisplayName(cluster.Name, cluster.Spec.DisplayName) {
+			return cluster.Name, nil
+		}
+	}
+	return "", fmt.Errorf("answer not found")
+}
+
+// SelectProjectCluster lets the user select a cluster from the project's allowed clusters
+func SelectProjectCluster(baseClient client.Client, project *managementv1.Project, log log.Logger) (string, error) {
+	if !term.IsTerminal(os.Stdin) {
+		// Allow loft to schedule as before
+		return "", nil
+	}
+
+	managementClient, err := baseClient.Management()
+	if err != nil {
+		return "", err
+	}
+
+	clusterList, err := managementClient.Loft().ManagementV1().Projects().ListClusters(context.TODO(), project.Name, metav1.GetOptions{})
+	if err != nil {
+		return "", err
+	}
+
+	anyClusterOption := "Any Cluster [Loft Selects Cluster]"
+
+	clusterNames := []string{}
+	for _, allowedCluster := range project.Spec.AllowedClusters {
+		if allowedCluster.Name == "*" {
+			clusterNames = append(clusterNames, anyClusterOption)
+			break
+		}
+	}
+
+	for _, cluster := range clusterList.Clusters {
+		clusterNames = append(clusterNames, clihelper.GetDisplayName(cluster.Name, cluster.Spec.DisplayName))
+	}
+
+	if len(clusterNames) == 0 {
+		return "", errNoClusterAccess
+	} else if len(clusterNames) == 1 {
+		return clusterList.Clusters[0].Name, nil
+	}
+
+	answer, err := log.Question(&survey.QuestionOptions{
+		Question:     "Please choose a cluster to use",
+		DefaultValue: clusterNames[0],
+		Options:      clusterNames,
+	})
+	if err != nil {
+		return "", err
+	}
+
+	if answer == anyClusterOption {
+		return "", nil
+	}
+
+	for _, cluster := range clusterList.Clusters {
 		if answer == clihelper.GetDisplayName(cluster.Name, cluster.Spec.DisplayName) {
 			return cluster.Name, nil
 		}
