@@ -3,6 +3,8 @@ package devpod
 import (
 	"context"
 	"fmt"
+	managementv1 "github.com/loft-sh/api/v3/pkg/apis/management/v1"
+	"github.com/loft-sh/loftctl/v3/pkg/kube"
 	"os"
 	"path/filepath"
 
@@ -91,21 +93,10 @@ func (cmd *ImportCmd) Import(ctx context.Context, args []string) error {
 		return fmt.Errorf("create management client: %w", err)
 	}
 
-	// get workspac
-	workspaceList, err := managementClient.Loft().ManagementV1().DevPodWorkspaceInstances(naming.ProjectNamespace(projectName)).List(ctx, metav1.ListOptions{
-		LabelSelector: storagev1.DevPodWorkspaceUIDLabel + "=" + workspaceUID,
-	})
+	workspace, err := cmd.fetchWorkspace(ctx, managementClient, workspaceUID, projectName)
 	if err != nil {
 		return err
-	} else if len(workspaceList.Items) == 0 {
-		return nil
 	}
-
-	if len(workspaceList.Items) < 1 {
-		return fmt.Errorf("could not find corresponding workspace")
-	}
-
-	workspace := &workspaceList.Items[0]
 
 	providerObj := provider.WorkspaceProviderConfig{
 		Name: providerID,
@@ -151,4 +142,24 @@ func (cmd *ImportCmd) Import(ctx context.Context, args []string) error {
 	}
 
 	return nil
+}
+
+func (cmd *ImportCmd) fetchWorkspace(ctx context.Context,
+	managementClient kube.Interface, workspaceUID string, projectName string) (*managementv1.DevPodWorkspaceInstance, error) {
+
+	workspaceList, err := managementClient.
+		Loft().
+		ManagementV1().
+		DevPodWorkspaceInstances(naming.ProjectNamespace(projectName)).
+		List(ctx, metav1.ListOptions{LabelSelector: storagev1.DevPodWorkspaceUIDLabel + "=" + workspaceUID})
+
+	if err != nil {
+		return nil, err
+	}
+
+	if len(workspaceList.Items) == 0 {
+		return nil, fmt.Errorf("could not find corresponding workspace")
+	}
+
+	return &workspaceList.Items[0], nil
 }
