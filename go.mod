@@ -1,6 +1,6 @@
 module github.com/loft-sh/loftctl/v3
 
-go 1.20
+go 1.21
 
 require (
 	github.com/blang/semver v3.5.1+incompatible
@@ -9,8 +9,8 @@ require (
 	github.com/evanphx/json-patch v5.6.0+incompatible
 	github.com/ghodss/yaml v1.0.0
 	github.com/gorilla/websocket v1.4.2
-	github.com/loft-sh/agentapi/v3 v3.3.0-alpha.8
-	github.com/loft-sh/api/v3 v3.3.0-alpha.8
+	github.com/loft-sh/agentapi/v3 v3.3.0-alpha.10
+	github.com/loft-sh/api/v3 v3.3.0-alpha.10
 	github.com/loft-sh/apiserver v0.0.0-20230628051307-f26967fbb40f
 	github.com/loft-sh/devpod v0.3.0
 	github.com/loft-sh/log v0.0.0-20230719145733-9d1aeda592a2

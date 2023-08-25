@@ -410,10 +410,12 @@ func (c *client) Login(host string, insecure bool, log log.Logger) error {
 		key = <-keyChannel
 	}
 
-	err = server.Shutdown(context.Background())
-	if err != nil {
-		return err
-	}
+	go func() {
+		err = server.Shutdown(context.Background())
+		if err != nil {
+			log.Debugf("Error shutting down server: %v", err)
+		}
+	}()
 
 	close(keyChannel)
 	return c.LoginWithAccessKey(host, key.Key, insecure)
@@ -492,6 +494,8 @@ func VerifyVersion(baseClient Client) error {
 	v, err := baseClient.Version()
 	if err != nil {
 		return err
+	} else if v.Version == "v0.0.0" {
+		return nil
 	}
 
 	backendMajor, err := strconv.Atoi(v.Major)

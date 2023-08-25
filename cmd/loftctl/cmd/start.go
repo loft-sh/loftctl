@@ -60,6 +60,7 @@ type StartCmd struct {
 
 	NoWait           bool
 	NoPortForwarding bool
+	NoTunnel         bool
 
 	// Will be filled later
 	KubeClient kubernetes.Interface
@@ -115,6 +116,7 @@ before running this command:
 	startCmd.Flags().BoolVar(&cmd.Reset, "reset", false, "If true, an existing loft instance will be deleted before installing loft")
 	startCmd.Flags().BoolVar(&cmd.NoWait, "no-wait", false, "If true, loft will not wait after installing it")
 	startCmd.Flags().BoolVar(&cmd.NoPortForwarding, "no-port-forwarding", false, "If true, loft will not do port forwarding after installing it")
+	startCmd.Flags().BoolVar(&cmd.NoTunnel, "no-tunnel", false, "If true, loft will not create a loft.host tunnel for this installation")
 	startCmd.Flags().StringVar(&cmd.ChartPath, "chart-path", "", "The local chart path to deploy Loft")
 	startCmd.Flags().StringVar(&cmd.ChartRepo, "chart-repo", "https://charts.loft.sh/", "The chart repo to deploy Loft")
 	startCmd.Flags().StringVar(&cmd.ChartName, "chart-name", "loft", "The chart name to deploy Loft")
@@ -379,7 +381,9 @@ func (cmd *StartCmd) upgradeLoft(email string) error {
 	if email != "" {
 		extraArgs = append(extraArgs, "--set", "admin.email="+email)
 	}
-
+	if cmd.NoTunnel {
+		extraArgs = append(extraArgs, "--set-string", "env.DISABLE_LOFT_ROUTER=true")
+	}
 	if cmd.Password != "" {
 		extraArgs = append(extraArgs, "--set", "admin.password="+cmd.Password)
 	}
@@ -465,12 +469,15 @@ func (cmd *StartCmd) success(ctx context.Context) error {
 	isLocal := clihelper.IsLoftInstalledLocally(cmd.KubeClient, cmd.Namespace)
 	if isLocal {
 		// check if loft domain secret is there
-		loftRouterDomain, err := cmd.pingLoftRouter(ctx, loftPod)
-		if err != nil {
-			cmd.Log.Errorf("Error retrieving loft router domain: %v", err)
-			cmd.Log.Info("Fallback to use port-forwarding")
-		} else if loftRouterDomain != "" {
-			return cmd.successRemote(loftRouterDomain)
+		if !cmd.NoTunnel {
+			loftRouterDomain, err := cmd.pingLoftRouter(ctx, loftPod)
+			if err != nil {
+				cmd.Log.Errorf("Error retrieving loft router domain: %v", err)
+				cmd.Log.Info("Fallback to use port-forwarding")
+			} else if loftRouterDomain != "" {
+				printhelper.PrintSuccessMessageLoftRouterInstall(loftRouterDomain, cmd.Password, cmd.Log)
+				return nil
+			}
 		}
 
 		// start port-forwarding
