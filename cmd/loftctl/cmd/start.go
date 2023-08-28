@@ -42,6 +42,8 @@ var emailRegex = regexp.MustCompile(`^[^@]+@[^\.]+\..+$`)
 type StartCmd struct {
 	*flags.GlobalFlags
 
+	Product string
+
 	LocalPort   string
 	Host        string
 	Reset       bool
@@ -103,6 +105,7 @@ before running this command:
 		},
 	}
 
+	startCmd.Flags().StringVar(&cmd.Product, "product", "", "The Loft product to install")
 	startCmd.Flags().StringVar(&cmd.Context, "context", "", "The kube context to use for installation")
 	startCmd.Flags().StringVar(&cmd.Namespace, "namespace", "loft", "The namespace to install loft into")
 	startCmd.Flags().StringVar(&cmd.LocalPort, "local-port", "9898", "The local port to bind to if using port-forwarding")
@@ -392,6 +395,12 @@ func (cmd *StartCmd) upgradeLoft(email string) error {
 	}
 	if cmd.Version != "" {
 		extraArgs = append(extraArgs, "--version", cmd.Version)
+	}
+	if cmd.Product != "" {
+		extraArgs = append(extraArgs, "--set", "env.PRODUCT="+cmd.Product)
+		if cmd.Product == "devpod-pro" {
+			extraArgs = append(extraArgs, "--set", "persistence.enabled=true")
+		}
 	}
 
 	// Do not use --reuse-values if --reset flag is provided because this should be a new install and it will cause issues with `helm template`
