@@ -26,10 +26,12 @@ type Config struct {
 	// +optional
 	AccessKey string `json:"accesskey,omitempty"`
 
+	// DEPRECATED: do not use anymore
 	// the direct cluster endpoint token
 	// +optional
 	DirectClusterEndpointToken string `json:"directClusterEndpointToken,omitempty"`
 
+	// DEPRECATED: do not use anymore
 	// last time the direct cluster endpoint token was requested
 	// +optional
 	DirectClusterEndpointTokenRequested *metav1.Time `json:"directClusterEndpointTokenRequested,omitempty"`
