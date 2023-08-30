@@ -6,6 +6,7 @@ import (
 	"os"
 
 	managementv1 "github.com/loft-sh/api/v3/pkg/apis/management/v1"
+	"github.com/loft-sh/api/v3/pkg/product"
 	"github.com/loft-sh/loftctl/v3/cmd/loftctl/flags"
 	"github.com/loft-sh/loftctl/v3/pkg/client"
 	"github.com/loft-sh/loftctl/v3/pkg/client/helper"
@@ -43,30 +44,27 @@ func NewSpaceCmd(globalFlags *flags.GlobalFlags, defaults *pdefaults.Defaults) *
 		log:         log.GetInstance(),
 	}
 
-	description := `
-#######################################################
-################### loft use space ####################
-#######################################################
+	description := product.ReplaceWithHeader("use space", `
 Creates a new kube context for the given space.
 
 Example:
 loft use space
 loft use space myspace
 loft use space myspace --project myproject
-#######################################################
-	`
+########################################################
+	`)
 	if upgrade.IsPlugin == "true" {
 		description = `
-#######################################################
-################# devspace use space ##################
-#######################################################
+########################################################
+################# devspace use space ###################
+########################################################
 Creates a new kube context for the given space.
 
 Example:
 devspace use space
 devspace use space myspace
 devspace use space myspace --project myproject
-#######################################################
+########################################################
 	`
 	}
 	useLine, validator := util.NamedPositionalArgsValidator(false, "SPACE_NAME")
@@ -81,7 +79,7 @@ devspace use space myspace --project myproject
 				upgrade.PrintNewerVersionWarning()
 			}
 
-			return cmd.Run(args)
+			return cmd.Run(cobraCmd.Context(), args)
 		},
 	}
 
@@ -95,7 +93,7 @@ devspace use space myspace --project myproject
 }
 
 // Run executes the command
-func (cmd *SpaceCmd) Run(args []string) error {
+func (cmd *SpaceCmd) Run(ctx context.Context, args []string) error {
 	baseClient, err := client.NewClientFromPath(cmd.Config)
 	if err != nil {
 		return err
@@ -117,26 +115,26 @@ func (cmd *SpaceCmd) Run(args []string) error {
 	}
 
 	if cmd.Project == "" {
-		return cmd.legacyUseSpace(baseClient, spaceName)
+		return cmd.legacyUseSpace(ctx, baseClient, spaceName)
 	}
 
-	return cmd.useSpace(baseClient, spaceName)
+	return cmd.useSpace(ctx, baseClient, spaceName)
 }
 
-func (cmd *SpaceCmd) useSpace(baseClient client.Client, spaceName string) error {
+func (cmd *SpaceCmd) useSpace(ctx context.Context, baseClient client.Client, spaceName string) error {
 	managementClient, err := baseClient.Management()
 	if err != nil {
 		return err
 	}
 
 	// wait until space is ready
-	spaceInstance, err := space.WaitForSpaceInstance(context.TODO(), managementClient, naming.ProjectNamespace(cmd.Project), spaceName, !cmd.SkipWait, cmd.log)
+	spaceInstance, err := space.WaitForSpaceInstance(ctx, managementClient, naming.ProjectNamespace(cmd.Project), spaceName, !cmd.SkipWait, cmd.log)
 	if err != nil {
 		return err
 	}
 
 	// create kube context options
-	contextOptions, err := CreateSpaceInstanceOptions(baseClient, cmd.Config, cmd.Project, spaceInstance, cmd.DisableDirectClusterEndpoint, true, cmd.log)
+	contextOptions, err := CreateSpaceInstanceOptions(ctx, baseClient, cmd.Config, cmd.Project, spaceInstance, cmd.DisableDirectClusterEndpoint, true, cmd.log)
 	if err != nil {
 		return err
 	}
@@ -160,14 +158,14 @@ func (cmd *SpaceCmd) useSpace(baseClient client.Client, spaceName string) error 
 	return nil
 }
 
-func (cmd *SpaceCmd) legacyUseSpace(baseClient client.Client, spaceName string) error {
+func (cmd *SpaceCmd) legacyUseSpace(ctx context.Context, baseClient client.Client, spaceName string) error {
 	managementClient, err := baseClient.Management()
 	if err != nil {
 		return err
 	}
 
 	// check if the cluster exists
-	cluster, err := managementClient.Loft().ManagementV1().Clusters().Get(context.TODO(), cmd.Cluster, metav1.GetOptions{})
+	cluster, err := managementClient.Loft().ManagementV1().Clusters().Get(ctx, cmd.Cluster, metav1.GetOptions{})
 	if err != nil {
 		if kerrors.IsForbidden(err) {
 			return fmt.Errorf("cluster '%s' does not exist, or you don't have permission to use it", cmd.Cluster)
@@ -201,8 +199,8 @@ func (cmd *SpaceCmd) legacyUseSpace(baseClient client.Client, spaceName string) 
 	return nil
 }
 
-func CreateSpaceInstanceOptions(baseClient client.Client, config string, projectName string, spaceInstance *managementv1.SpaceInstance, disableClusterGateway, setActive bool, log log.Logger) (kubeconfig.ContextOptions, error) {
-	cluster, err := findProjectCluster(baseClient, projectName, spaceInstance.Spec.ClusterRef.Cluster)
+func CreateSpaceInstanceOptions(ctx context.Context, baseClient client.Client, config string, projectName string, spaceInstance *managementv1.SpaceInstance, disableClusterGateway, setActive bool, log log.Logger) (kubeconfig.ContextOptions, error) {
+	cluster, err := findProjectCluster(ctx, baseClient, projectName, spaceInstance.Spec.ClusterRef.Cluster)
 	if err != nil {
 		return kubeconfig.ContextOptions{}, errors.Wrap(err, "find space instance cluster")
 	}

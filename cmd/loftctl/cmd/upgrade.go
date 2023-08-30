@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"github.com/loft-sh/api/v3/pkg/product"
 	"github.com/loft-sh/loftctl/v3/pkg/upgrade"
 	"github.com/loft-sh/log"
 	"github.com/pkg/errors"
@@ -22,18 +23,15 @@ func NewUpgradeCmd() *cobra.Command {
 
 	upgradeCmd := &cobra.Command{
 		Use:   "upgrade",
-		Short: "Upgrade the loft CLI to the newest version",
-		Long: `
-#######################################################
-#################### loft upgrade #####################
-#######################################################
+		Short: product.Replace("Upgrade the loft CLI to the newest version"),
+		Long: product.ReplaceWithHeader("upgrade", `
 Upgrades the loft CLI to the newest version
-#######################################################`,
+########################################################`),
 		Args: cobra.NoArgs,
 		RunE: cmd.Run,
 	}
 
-	upgradeCmd.Flags().StringVar(&cmd.Version, "version", "", "The version to update loft to. Defaults to the latest stable version available")
+	upgradeCmd.Flags().StringVar(&cmd.Version, "version", "", product.Replace("The version to update loft to. Defaults to the latest stable version available"))
 	return upgradeCmd
 }
 

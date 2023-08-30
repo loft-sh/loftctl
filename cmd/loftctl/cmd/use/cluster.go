@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	managementv1 "github.com/loft-sh/api/v3/pkg/apis/management/v1"
+	"github.com/loft-sh/api/v3/pkg/product"
 	"github.com/loft-sh/loftctl/v3/cmd/loftctl/flags"
 	"github.com/loft-sh/loftctl/v3/pkg/client"
 	"github.com/loft-sh/loftctl/v3/pkg/client/helper"
@@ -50,28 +51,25 @@ func NewClusterCmd(globalFlags *flags.GlobalFlags) *cobra.Command {
 		log:         log.GetInstance(),
 	}
 
-	description := `
-#######################################################
-################## loft use cluster ###################
-#######################################################
+	description := product.ReplaceWithHeader("use cluster", `
 Creates a new kube context for the given cluster, if
 it does not yet exist.
 
 Example:
 loft use cluster mycluster
-#######################################################
-	`
+########################################################
+	`)
 	if upgrade.IsPlugin == "true" {
 		description = `
-#######################################################
-################ devspace use cluster #################
-#######################################################
+########################################################
+################ devspace use cluster ##################
+########################################################
 Creates a new kube context for the given cluster, if
 it does not yet exist.
 
 Example:
 devspace use cluster mycluster
-#######################################################
+########################################################
 	`
 	}
 	c := &cobra.Command{
@@ -85,7 +83,7 @@ devspace use cluster mycluster
 				upgrade.PrintNewerVersionWarning()
 			}
 
-			return cmd.Run(args)
+			return cmd.Run(cobraCmd.Context(), args)
 		},
 	}
 
@@ -95,7 +93,7 @@ devspace use cluster mycluster
 }
 
 // Run executes the command
-func (cmd *ClusterCmd) Run(args []string) error {
+func (cmd *ClusterCmd) Run(ctx context.Context, args []string) error {
 	baseClient, err := client.NewClientFromPath(cmd.Config)
 	if err != nil {
 		return err
@@ -118,7 +116,7 @@ func (cmd *ClusterCmd) Run(args []string) error {
 	}
 
 	// check if the cluster exists
-	cluster, err := managementClient.Loft().ManagementV1().Clusters().Get(context.TODO(), clusterName, metav1.GetOptions{})
+	cluster, err := managementClient.Loft().ManagementV1().Clusters().Get(ctx, clusterName, metav1.GetOptions{})
 	if err != nil {
 		if kerrors.IsForbidden(err) {
 			return fmt.Errorf("cluster '%s' does not exist, or you don't have permission to use it", clusterName)
@@ -152,13 +150,13 @@ func (cmd *ClusterCmd) Run(args []string) error {
 	return nil
 }
 
-func findProjectCluster(baseClient client.Client, projectName, clusterName string) (*managementv1.Cluster, error) {
+func findProjectCluster(ctx context.Context, baseClient client.Client, projectName, clusterName string) (*managementv1.Cluster, error) {
 	managementClient, err := baseClient.Management()
 	if err != nil {
 		return nil, err
 	}
 
-	projectClusters, err := managementClient.Loft().ManagementV1().Projects().ListClusters(context.TODO(), projectName, metav1.GetOptions{})
+	projectClusters, err := managementClient.Loft().ManagementV1().Projects().ListClusters(ctx, projectName, metav1.GetOptions{})
 	if err != nil {
 		return nil, errors.Wrap(err, "list project clusters")
 	}

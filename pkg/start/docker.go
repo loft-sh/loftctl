@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/denisbrodbeck/machineid"
+	"github.com/loft-sh/api/v3/pkg/product"
 	"github.com/loft-sh/loftctl/v3/pkg/clihelper"
 	"github.com/loft-sh/log"
 	"github.com/loft-sh/log/hash"
@@ -22,6 +23,11 @@ import (
 	"github.com/mitchellh/go-homedir"
 	"github.com/sirupsen/logrus"
 	"k8s.io/apimachinery/pkg/util/wait"
+)
+
+var (
+	ErrMissingContainer = errors.New(product.Replace("couldn't find Loft container after starting it"))
+	ErrLoftNotReachable = errors.New(product.Replace("cannot connect to Loft as it has no exposed port and --no-tunnel is enabled"))
 )
 
 type ContainerDetails struct {
@@ -54,7 +60,7 @@ type ContainerDetailsState struct {
 }
 
 func (l *LoftStarter) startDocker(ctx context.Context, name string) error {
-	l.Log.Infof("Starting loft in Docker...")
+	l.Log.Infof(product.Replace("Starting loft in Docker..."))
 
 	// prepare installation
 	err := l.prepareDocker()
@@ -70,7 +76,7 @@ func (l *LoftStarter) startDocker(ctx context.Context, name string) error {
 
 	// check if container is there
 	if containerID != "" && l.Reset || l.Upgrade {
-		l.Log.Info("Existing Loft instance found.")
+		l.Log.Info(product.Replace("Existing Loft instance found."))
 		err = l.uninstallDocker(ctx, containerID)
 		if err != nil {
 			return err
@@ -86,13 +92,13 @@ func (l *LoftStarter) startDocker(ctx context.Context, name string) error {
 
 	// check if is installed
 	if containerID != "" {
-		l.Log.Info("Existing Loft instance found. Run with --upgrade to apply new configuration")
+		l.Log.Info(product.Replace("Existing Loft instance found. Run with --upgrade to apply new configuration"))
 		return l.successDocker(ctx, containerID)
 	}
 
 	// Install Loft
-	l.Log.Info("Welcome to Loft!")
-	l.Log.Info("This installer will help you configure and deploy Loft.")
+	l.Log.Info(product.Replace("Welcome to Loft!"))
+	l.Log.Info(product.Replace("This installer will help you configure and deploy Loft."))
 
 	// Get email
 	email, err := l.getEmail()
@@ -105,7 +111,7 @@ func (l *LoftStarter) startDocker(ctx context.Context, name string) error {
 	if err != nil {
 		return err
 	} else if containerID == "" {
-		return fmt.Errorf("couldn't find Loft container after starting it")
+		return ErrMissingContainer
 	}
 
 	return l.successDocker(ctx, containerID)
@@ -123,12 +129,12 @@ func (l *LoftStarter) successDocker(ctx context.Context, containerID string) err
 	}
 
 	// wait for domain to become reachable
-	l.Log.Infof("Wait for Loft to become available at %s...", host)
+	l.Log.Infof(product.Replace("Wait for Loft to become available at %s..."), host)
 	waitErr := wait.PollUntilContextTimeout(ctx, time.Second, time.Minute*10, true, func(ctx context.Context) (bool, error) {
-		return clihelper.IsLoftReachable(host)
+		return clihelper.IsLoftReachable(ctx, host)
 	})
 	if waitErr != nil {
-		return fmt.Errorf("error waiting for loft: %w", err)
+		return fmt.Errorf(product.Replace("error waiting for loft: %w"), err)
 	}
 
 	// print success message
@@ -138,7 +144,7 @@ func (l *LoftStarter) successDocker(ctx context.Context, containerID string) err
 
 func PrintSuccessMessageDockerInstall(host, password string, log log.Logger) {
 	url := "https://" + host
-	log.WriteString(logrus.InfoLevel, `
+	log.WriteString(logrus.InfoLevel, product.Replace(`
 
 
 ##########################   LOGIN   ############################
@@ -154,11 +160,11 @@ Login via CLI: `+ansi.Color(`loft login `+url, "green+b")+`
 Loft was successfully installed and can now be reached at: `+url+`
 
 Thanks for using Loft!
-`)
+`))
 }
 
 func (l *LoftStarter) waitForLoftDocker(ctx context.Context, containerID string) (string, error) {
-	l.Log.Info("Wait for Loft to become available...")
+	l.Log.Info(product.Replace("Wait for Loft to become available..."))
 
 	// check for local port
 	containerDetails, err := l.inspectContainer(ctx, containerID)
@@ -170,7 +176,7 @@ func (l *LoftStarter) waitForLoftDocker(ctx context.Context, containerID string)
 
 	// check if no tunnel
 	if l.NoTunnel {
-		return "", fmt.Errorf("cannot connect to Loft as it has no exposed port and --no-tunnel is enabled")
+		return "", ErrLoftNotReachable
 	}
 
 	// wait for router
@@ -215,7 +221,7 @@ func (l *LoftStarter) prepareDocker() error {
 }
 
 func (l *LoftStarter) uninstallDocker(ctx context.Context, id string) error {
-	l.Log.Infof("Uninstalling loft...")
+	l.Log.Infof(product.Replace("Uninstalling loft..."))
 
 	// stop container
 	out, err := l.buildDockerCmd(ctx, "stop", id).Output()

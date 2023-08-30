@@ -3,6 +3,7 @@ package list
 import (
 	"time"
 
+	"github.com/loft-sh/api/v3/pkg/product"
 	"github.com/loft-sh/loftctl/v3/cmd/loftctl/flags"
 	"github.com/loft-sh/loftctl/v3/pkg/client"
 	"github.com/loft-sh/loftctl/v3/pkg/client/helper"
@@ -28,31 +29,28 @@ func NewVirtualClustersCmd(globalFlags *flags.GlobalFlags) *cobra.Command {
 		GlobalFlags: globalFlags,
 		log:         log.GetInstance(),
 	}
-	description := `
-#######################################################
-################# loft list vclusters #################
-#######################################################
+	description := product.ReplaceWithHeader("list vclusters", `
 List the loft virtual clusters you have access to
 
 Example:
 loft list vclusters
-#######################################################
-	`
+########################################################
+	`)
 	if upgrade.IsPlugin == "true" {
 		description = `
-#######################################################
-############### devspace list vclusters ###############
-#######################################################
+########################################################
+############### devspace list vclusters ################
+########################################################
 List the loft virtual clusters you have access to
 
 Example:
 devspace list vclusters
-#######################################################
+########################################################
 	`
 	}
 	listCmd := &cobra.Command{
 		Use:   "vclusters",
-		Short: "Lists the loft virtual clusters you have access to",
+		Short: product.Replace("Lists the loft virtual clusters you have access to"),
 		Long:  description,
 		Args:  cobra.NoArgs,
 		RunE: func(cobraCmd *cobra.Command, args []string) error {

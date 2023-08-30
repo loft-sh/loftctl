@@ -1,6 +1,7 @@
 package generate
 
 import (
+	"github.com/loft-sh/api/v3/pkg/product"
 	"github.com/loft-sh/loftctl/v3/cmd/loftctl/flags"
 	"github.com/loft-sh/loftctl/v3/pkg/upgrade"
 	"github.com/spf13/cobra"
@@ -8,11 +9,7 @@ import (
 
 // NewGenerateCmd creates a new cobra command
 func NewGenerateCmd(globalFlags *flags.GlobalFlags) *cobra.Command {
-	description := `
-#######################################################
-#################### loft generate ####################
-#######################################################
-	`
+	description := product.ReplaceWithHeader("generate", "")
 	if upgrade.IsPlugin == "true" {
 		description = `
 #######################################################

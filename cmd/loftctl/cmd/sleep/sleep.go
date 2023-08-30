@@ -1,6 +1,7 @@
 package sleep
 
 import (
+	"github.com/loft-sh/api/v3/pkg/product"
 	"github.com/loft-sh/loftctl/v3/cmd/loftctl/flags"
 	pdefaults "github.com/loft-sh/loftctl/v3/pkg/defaults"
 	"github.com/loft-sh/loftctl/v3/pkg/upgrade"
@@ -9,11 +10,7 @@ import (
 
 // NewSleepCmd creates a new cobra command
 func NewSleepCmd(globalFlags *flags.GlobalFlags, defaults *pdefaults.Defaults) *cobra.Command {
-	description := `
-#######################################################
-##################### loft sleep ######################
-#######################################################
-	`
+	description := product.ReplaceWithHeader("sleep", "")
 	if upgrade.IsPlugin == "true" {
 		description = `
 #######################################################

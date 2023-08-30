@@ -1,6 +1,7 @@
 package connect
 
 import (
+	"github.com/loft-sh/api/v3/pkg/product"
 	"github.com/loft-sh/loftctl/v3/cmd/loftctl/flags"
 	"github.com/loft-sh/loftctl/v3/pkg/upgrade"
 	"github.com/spf13/cobra"
@@ -8,11 +9,7 @@ import (
 
 // NewConnectCmd creates a new command
 func NewConnectCmd(globalFlags *flags.GlobalFlags) *cobra.Command {
-	description := `
-#######################################################
-#################### loft connect #####################
-#######################################################
-	`
+	description := product.ReplaceWithHeader("connect", "")
 	if upgrade.IsPlugin == "true" {
 		description = `
 #######################################################
@@ -22,7 +19,7 @@ func NewConnectCmd(globalFlags *flags.GlobalFlags) *cobra.Command {
 	}
 	connectCmd := &cobra.Command{
 		Use:   "connect",
-		Short: "Connects a cluster to Loft",
+		Short: product.Replace("Connects a cluster to Loft"),
 		Long:  description,
 		Args:  cobra.NoArgs,
 	}

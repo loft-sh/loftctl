@@ -3,6 +3,7 @@ package cmd
 import (
 	"context"
 
+	"github.com/loft-sh/api/v3/pkg/product"
 	"github.com/loft-sh/loftctl/v3/cmd/loftctl/flags"
 	"github.com/loft-sh/loftctl/v3/pkg/start"
 	"github.com/loft-sh/loftctl/v3/pkg/upgrade"
@@ -26,11 +27,8 @@ func NewStartCmd(globalFlags *flags.GlobalFlags) *cobra.Command {
 
 	startCmd := &cobra.Command{
 		Use:   "start",
-		Short: "Start a loft instance and connect via port-forwarding",
-		Long: `
-#######################################################
-###################### loft start #####################
-#######################################################
+		Short: product.Replace("Start a loft instance and connect via port-forwarding"),
+		Long: product.ReplaceWithHeader("start", `
 Starts a loft instance in your Kubernetes cluster and
 then establishes a port-forwarding connection.
 
@@ -41,8 +39,8 @@ before running this command:
 2. Helm v3 must be installed
 3. kubectl must be installed
 
-#######################################################
-	`,
+########################################################
+	`),
 		Args: cobra.NoArgs,
 		RunE: func(cobraCmd *cobra.Command, args []string) error {
 			// Check for newer version
@@ -52,26 +50,26 @@ before running this command:
 		},
 	}
 
-	startCmd.Flags().BoolVar(&cmd.Docker, "docker", false, "If enabled will try to deploy Loft to the local docker installation.")
-	startCmd.Flags().StringArrayVar(&cmd.DockerArgs, "docker-arg", []string{}, "Extra docker args for running Loft.")
+	startCmd.Flags().BoolVar(&cmd.Docker, "docker", false, product.Replace("If enabled will try to deploy Loft to the local docker installation."))
+	startCmd.Flags().StringArrayVar(&cmd.DockerArgs, "docker-arg", []string{}, product.Replace("Extra docker args for running Loft."))
 	startCmd.Flags().StringVar(&cmd.Product, "product", "", "The Loft product to install")
 	startCmd.Flags().StringVar(&cmd.Context, "context", "", "The kube context to use for installation")
-	startCmd.Flags().StringVar(&cmd.Namespace, "namespace", "loft", "The namespace to install loft into")
+	startCmd.Flags().StringVar(&cmd.Namespace, "namespace", "loft", product.Replace("The namespace to install loft into"))
 	startCmd.Flags().StringVar(&cmd.LocalPort, "local-port", "", "The local port to bind to if using port-forwarding")
 	startCmd.Flags().StringVar(&cmd.Host, "host", "", "Provide a hostname to enable ingress and configure its hostname")
 	startCmd.Flags().StringVar(&cmd.Password, "password", "", "The password to use for the admin account. (If empty this will be the namespace UID)")
-	startCmd.Flags().StringVar(&cmd.Version, "version", "", "The loft version to install")
-	startCmd.Flags().StringVar(&cmd.Values, "values", "", "Path to a file for extra loft helm chart values")
-	startCmd.Flags().BoolVar(&cmd.ReuseValues, "reuse-values", true, "Reuse previous Loft helm values on upgrade")
-	startCmd.Flags().BoolVar(&cmd.Upgrade, "upgrade", false, "If true, Loft will try to upgrade the release")
+	startCmd.Flags().StringVar(&cmd.Version, "version", "", product.Replace("The loft version to install"))
+	startCmd.Flags().StringVar(&cmd.Values, "values", "", product.Replace("Path to a file for extra loft helm chart values"))
+	startCmd.Flags().BoolVar(&cmd.ReuseValues, "reuse-values", true, product.Replace("Reuse previous Loft helm values on upgrade"))
+	startCmd.Flags().BoolVar(&cmd.Upgrade, "upgrade", false, product.Replace("If true, Loft will try to upgrade the release"))
 	startCmd.Flags().StringVar(&cmd.Email, "email", "", "The email to use for the installation")
-	startCmd.Flags().BoolVar(&cmd.Reset, "reset", false, "If true, an existing loft instance will be deleted before installing loft")
-	startCmd.Flags().BoolVar(&cmd.NoWait, "no-wait", false, "If true, loft will not wait after installing it")
-	startCmd.Flags().BoolVar(&cmd.NoPortForwarding, "no-port-forwarding", false, "If true, loft will not do port forwarding after installing it")
-	startCmd.Flags().BoolVar(&cmd.NoTunnel, "no-tunnel", false, "If true, loft will not create a loft.host tunnel for this installation")
-	startCmd.Flags().StringVar(&cmd.ChartPath, "chart-path", "", "The local chart path to deploy Loft")
-	startCmd.Flags().StringVar(&cmd.ChartRepo, "chart-repo", "https://charts.loft.sh/", "The chart repo to deploy Loft")
-	startCmd.Flags().StringVar(&cmd.ChartName, "chart-name", "loft", "The chart name to deploy Loft")
+	startCmd.Flags().BoolVar(&cmd.Reset, "reset", false, product.Replace("If true, an existing loft instance will be deleted before installing loft"))
+	startCmd.Flags().BoolVar(&cmd.NoWait, "no-wait", false, product.Replace("If true, loft will not wait after installing it"))
+	startCmd.Flags().BoolVar(&cmd.NoPortForwarding, "no-port-forwarding", false, product.Replace("If true, loft will not do port forwarding after installing it"))
+	startCmd.Flags().BoolVar(&cmd.NoTunnel, "no-tunnel", false, product.Replace("If true, loft will not create a loft.host tunnel for this installation"))
+	startCmd.Flags().StringVar(&cmd.ChartPath, "chart-path", "", product.Replace("The local chart path to deploy Loft"))
+	startCmd.Flags().StringVar(&cmd.ChartRepo, "chart-repo", "https://charts.loft.sh/", product.Replace("The chart repo to deploy Loft"))
+	startCmd.Flags().StringVar(&cmd.ChartName, "chart-name", "loft", product.Replace("The chart name to deploy Loft"))
 	return startCmd
 }
 

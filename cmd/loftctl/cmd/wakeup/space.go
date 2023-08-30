@@ -6,6 +6,7 @@ import (
 	"time"
 
 	managementv1 "github.com/loft-sh/api/v3/pkg/apis/management/v1"
+	"github.com/loft-sh/api/v3/pkg/product"
 	"github.com/loft-sh/loftctl/v3/pkg/config"
 	"github.com/loft-sh/loftctl/v3/pkg/space"
 	"github.com/loft-sh/loftctl/v3/pkg/util"
@@ -39,17 +40,14 @@ func NewSpaceCmd(globalFlags *flags.GlobalFlags, defaults *pdefaults.Defaults) *
 		Log:         log.GetInstance(),
 	}
 
-	description := `
-#######################################################
-################### loft wakeup space #################
-#######################################################
+	description := product.ReplaceWithHeader("wakeup space", `
 wakeup resumes a sleeping space
 
 Example:
 loft wakeup space myspace
 loft wakeup space myspace --project myproject
 #######################################################
-	`
+	`)
 	if upgrade.IsPlugin == "true" {
 		description = `
 #######################################################
@@ -70,7 +68,7 @@ devspace wakeup space myspace --project myproject
 		Long:  description,
 		Args:  util.SpaceNameOnlyValidator,
 		RunE: func(cobraCmd *cobra.Command, args []string) error {
-			return cmd.Run(args)
+			return cmd.Run(cobraCmd.Context(), args)
 		},
 	}
 
@@ -81,7 +79,7 @@ devspace wakeup space myspace --project myproject
 }
 
 // Run executes the functionality
-func (cmd *SpaceCmd) Run(args []string) error {
+func (cmd *SpaceCmd) Run(ctx context.Context, args []string) error {
 	baseClient, err := client.NewClientFromPath(cmd.Config)
 	if err != nil {
 		return err
@@ -98,19 +96,19 @@ func (cmd *SpaceCmd) Run(args []string) error {
 	}
 
 	if cmd.Project == "" {
-		return cmd.legacySpaceWakeUp(baseClient, spaceName)
+		return cmd.legacySpaceWakeUp(ctx, baseClient, spaceName)
 	}
 
-	return cmd.spaceWakeUp(baseClient, spaceName)
+	return cmd.spaceWakeUp(ctx, baseClient, spaceName)
 }
 
-func (cmd *SpaceCmd) spaceWakeUp(baseClient client.Client, spaceName string) error {
+func (cmd *SpaceCmd) spaceWakeUp(ctx context.Context, baseClient client.Client, spaceName string) error {
 	managementClient, err := baseClient.Management()
 	if err != nil {
 		return err
 	}
 
-	_, err = space.WaitForSpaceInstance(context.TODO(), managementClient, naming.ProjectNamespace(cmd.Project), spaceName, true, cmd.Log)
+	_, err = space.WaitForSpaceInstance(ctx, managementClient, naming.ProjectNamespace(cmd.Project), spaceName, true, cmd.Log)
 	if err != nil {
 		return err
 	}
@@ -118,7 +116,7 @@ func (cmd *SpaceCmd) spaceWakeUp(baseClient client.Client, spaceName string) err
 	return nil
 }
 
-func (cmd *SpaceCmd) legacySpaceWakeUp(baseClient client.Client, spaceName string) error {
+func (cmd *SpaceCmd) legacySpaceWakeUp(ctx context.Context, baseClient client.Client, spaceName string) error {
 	clusterClient, err := baseClient.Cluster(cmd.Cluster)
 	if err != nil {
 		return err
@@ -130,14 +128,14 @@ func (cmd *SpaceCmd) legacySpaceWakeUp(baseClient client.Client, spaceName strin
 	}
 
 	// get current user / team
-	self, err := managementClient.Loft().ManagementV1().Selves().Create(context.TODO(), &managementv1.Self{}, metav1.CreateOptions{})
+	self, err := managementClient.Loft().ManagementV1().Selves().Create(ctx, &managementv1.Self{}, metav1.CreateOptions{})
 	if err != nil {
 		return errors.Wrap(err, "get self")
 	} else if self.Status.User == nil && self.Status.Team == nil {
 		return fmt.Errorf("no user or team name returned")
 	}
 
-	configs, err := clusterClient.Agent().ClusterV1().SleepModeConfigs(spaceName).List(context.TODO(), metav1.ListOptions{})
+	configs, err := clusterClient.Agent().ClusterV1().SleepModeConfigs(spaceName).List(ctx, metav1.ListOptions{})
 	if err != nil {
 		return err
 	}
@@ -147,15 +145,15 @@ func (cmd *SpaceCmd) legacySpaceWakeUp(baseClient client.Client, spaceName strin
 	sleepModeConfig.Spec.ForceSleepDuration = nil
 	sleepModeConfig.Status.LastActivity = time.Now().Unix()
 
-	_, err = clusterClient.Agent().ClusterV1().SleepModeConfigs(spaceName).Create(context.TODO(), sleepModeConfig, metav1.CreateOptions{})
+	_, err = clusterClient.Agent().ClusterV1().SleepModeConfigs(spaceName).Create(ctx, sleepModeConfig, metav1.CreateOptions{})
 	if err != nil {
 		return err
 	}
 
 	// wait for sleeping
 	cmd.Log.Info("Wait until space wakes up...")
-	err = wait.Poll(time.Second, config.Timeout(), func() (bool, error) {
-		configs, err := clusterClient.Agent().ClusterV1().SleepModeConfigs(spaceName).List(context.TODO(), metav1.ListOptions{})
+	err = wait.PollUntilContextTimeout(ctx, time.Second, config.Timeout(), false, func(ctx context.Context) (done bool, err error) {
+		configs, err := clusterClient.Agent().ClusterV1().SleepModeConfigs(spaceName).List(ctx, metav1.ListOptions{})
 		if err != nil {
 			return false, err
 		}

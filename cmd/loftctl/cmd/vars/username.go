@@ -1,15 +1,18 @@
 package vars
 
 import (
-	"context"
-	"fmt"
 	"os"
 
+	"github.com/loft-sh/api/v3/pkg/product"
 	"github.com/loft-sh/loftctl/v3/cmd/loftctl/flags"
 	"github.com/loft-sh/loftctl/v3/pkg/client"
 	"github.com/loft-sh/loftctl/v3/pkg/client/helper"
 	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
+)
+
+var (
+	ErrUserSetNoLogin = errors.New(product.Replace("not logged in loft, but predefined var LOFT_USERNAME is used"))
 )
 
 type usernameCmd struct {
@@ -23,7 +26,7 @@ func newUsernameCmd(globalFlags *flags.GlobalFlags) *cobra.Command {
 
 	return &cobra.Command{
 		Use:   "username",
-		Short: "Prints the current loft username",
+		Short: product.Replace("Prints the current loft username"),
 		Args:  cobra.NoArgs,
 		RunE:  cmd.Run,
 	}
@@ -31,10 +34,9 @@ func newUsernameCmd(globalFlags *flags.GlobalFlags) *cobra.Command {
 
 // Run executes the command logic
 func (cmd *usernameCmd) Run(cobraCmd *cobra.Command, args []string) error {
-	retError := fmt.Errorf("Not logged in loft, but predefined var LOFT_USERNAME is used.")
 	baseClient, err := client.NewClientFromPath(cmd.Config)
 	if err != nil {
-		return retError
+		return ErrUserSetNoLogin
 	}
 
 	client, err := baseClient.Management()
@@ -42,7 +44,9 @@ func (cmd *usernameCmd) Run(cobraCmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	userName, teamName, err := helper.GetCurrentUser(context.TODO(), client)
+	ctx := cobraCmd.Context()
+
+	userName, teamName, err := helper.GetCurrentUser(ctx, client)
 	if err != nil {
 		return err
 	} else if teamName != nil {

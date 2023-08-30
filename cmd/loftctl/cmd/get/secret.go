@@ -7,6 +7,7 @@ import (
 	"os"
 	"strings"
 
+	"github.com/loft-sh/api/v3/pkg/product"
 	"github.com/loft-sh/loftctl/v3/cmd/loftctl/cmd/set"
 	"github.com/loft-sh/loftctl/v3/cmd/loftctl/flags"
 	"github.com/loft-sh/loftctl/v3/pkg/client"
@@ -44,28 +45,25 @@ func NewSecretCmd(globalFlags *flags.GlobalFlags, defaults *pdefaults.Defaults) 
 		GlobalFlags: globalFlags,
 		log:         log.GetInstance(),
 	}
-	description := `
-#######################################################
-################### loft get secret ###################
-#######################################################
+	description := product.ReplaceWithHeader("get secret", `
 Returns the key value of a project / shared secret.
 
 Example:
 loft get secret test-secret.key
 loft get secret test-secret.key --project myproject
-#######################################################
-	`
+########################################################
+	`)
 	if upgrade.IsPlugin == "true" {
 		description = `
-#######################################################
-################# devspace get secret #################
-#######################################################
+########################################################
+################# devspace get secret ##################
+########################################################
 Returns the key value of a project / shared secret.
 
 Example:
 devspace get secret test-secret.key
 devspace get secret test-secret.key --project myproject
-#######################################################
+########################################################
 	`
 	}
 	useLine, validator := util.NamedPositionalArgsValidator(true, "SECRET_NAME")
@@ -75,20 +73,20 @@ devspace get secret test-secret.key --project myproject
 		Long:  description,
 		Args:  validator,
 		RunE: func(cobraCmd *cobra.Command, args []string) error {
-			return cmd.Run(args)
+			return cmd.Run(cobraCmd.Context(), args)
 		},
 	}
 
 	p, _ := defaults.Get(pdefaults.KeyProject, "")
 	c.Flags().StringVarP(&cmd.Project, "project", "p", p, "The project to read the project secret from.")
-	c.Flags().StringVarP(&cmd.Namespace, "namespace", "n", "", "The namespace in the loft cluster to read the secret from. If omitted will use the namespace where loft is installed in")
+	c.Flags().StringVarP(&cmd.Namespace, "namespace", "n", "", product.Replace("The namespace in the loft cluster to read the secret from. If omitted will use the namespace where loft is installed in"))
 	c.Flags().BoolVarP(&cmd.All, "all", "a", false, "Display all secret keys")
 	c.Flags().StringVarP(&cmd.Output, "output", "o", "", "Output format. One of: (json, yaml, value). If the --all flag is passed 'yaml' will be the default format")
 	return c
 }
 
 // RunUsers executes the functionality
-func (cmd *SecretCmd) Run(args []string) error {
+func (cmd *SecretCmd) Run(ctx context.Context, args []string) error {
 	baseClient, err := client.NewClientFromPath(cmd.Config)
 	if err != nil {
 		return err
@@ -152,7 +150,7 @@ func (cmd *SecretCmd) Run(args []string) error {
 
 		switch secretType {
 		case set.ProjectSecret:
-			secrets, err := managementClient.Loft().ManagementV1().ProjectSecrets(namespace).List(context.TODO(), metav1.ListOptions{})
+			secrets, err := managementClient.Loft().ManagementV1().ProjectSecrets(namespace).List(ctx, metav1.ListOptions{})
 			if err != nil {
 				return errors.Wrap(err, "list project secrets")
 			}
@@ -161,7 +159,7 @@ func (cmd *SecretCmd) Run(args []string) error {
 				secretNameList = append(secretNameList, s.Name)
 			}
 		case set.SharedSecret:
-			secrets, err := managementClient.Loft().ManagementV1().SharedSecrets(namespace).List(context.TODO(), metav1.ListOptions{})
+			secrets, err := managementClient.Loft().ManagementV1().SharedSecrets(namespace).List(ctx, metav1.ListOptions{})
 			if err != nil {
 				return errors.Wrap(err, "list shared secrets")
 			}
@@ -193,7 +191,7 @@ func (cmd *SecretCmd) Run(args []string) error {
 
 	switch secretType {
 	case set.ProjectSecret:
-		pSecret, err := managementClient.Loft().ManagementV1().ProjectSecrets(namespace).Get(context.TODO(), secretName, metav1.GetOptions{})
+		pSecret, err := managementClient.Loft().ManagementV1().ProjectSecrets(namespace).Get(ctx, secretName, metav1.GetOptions{})
 		if err != nil {
 			return errors.Wrap(err, "get secrets")
 		} else if len(pSecret.Spec.Data) == 0 {
@@ -202,7 +200,7 @@ func (cmd *SecretCmd) Run(args []string) error {
 
 		secretData = pSecret.Spec.Data
 	case set.SharedSecret:
-		sSecret, err := managementClient.Loft().ManagementV1().SharedSecrets(namespace).Get(context.TODO(), secretName, metav1.GetOptions{})
+		sSecret, err := managementClient.Loft().ManagementV1().SharedSecrets(namespace).Get(ctx, secretName, metav1.GetOptions{})
 		if err != nil {
 			return errors.Wrap(err, "get secrets")
 		} else if len(sSecret.Spec.Data) == 0 {

@@ -1,6 +1,7 @@
 package delete
 
 import (
+	"github.com/loft-sh/api/v3/pkg/product"
 	"github.com/loft-sh/loftctl/v3/cmd/loftctl/flags"
 	"github.com/loft-sh/loftctl/v3/pkg/defaults"
 	"github.com/loft-sh/loftctl/v3/pkg/upgrade"
@@ -9,11 +10,7 @@ import (
 
 // NewDeleteCmd creates a new cobra command
 func NewDeleteCmd(globalFlags *flags.GlobalFlags, defaults *defaults.Defaults) *cobra.Command {
-	description := `
-#######################################################
-##################### loft delete #####################
-#######################################################
-	`
+	description := product.ReplaceWithHeader("delete", "")
 	if upgrade.IsPlugin == "true" {
 		description = `
 #######################################################
@@ -23,7 +20,7 @@ func NewDeleteCmd(globalFlags *flags.GlobalFlags, defaults *defaults.Defaults) *
 	}
 	c := &cobra.Command{
 		Use:   "delete",
-		Short: "Deletes loft resources",
+		Short: product.Replace("Deletes loft resources"),
 		Long:  description,
 		Args:  cobra.NoArgs,
 	}

@@ -7,6 +7,7 @@ import (
 	"os/exec"
 	"regexp"
 
+	"github.com/loft-sh/api/v3/pkg/product"
 	"github.com/loft-sh/loftctl/v3/cmd/loftctl/flags"
 	"github.com/loft-sh/loftctl/v3/pkg/client"
 	"github.com/loft-sh/loftctl/v3/pkg/clihelper"
@@ -19,6 +20,10 @@ import (
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/kubectl/pkg/util/term"
+)
+
+var (
+	ErrMissingEmail = errors.New(product.Replace("please enter an email via 'loft start --email my-email@domain.com'"))
 )
 
 var emailRegex = regexp.MustCompile(`^[^@]+@[^\.]+\..+$`)
@@ -88,21 +93,21 @@ func (l *LoftStarter) Start(ctx context.Context) error {
 
 	// Uninstall already existing Loft instance
 	if l.Reset {
-		err = clihelper.UninstallLoft(l.KubeClient, l.RestConfig, l.Context, l.Namespace, l.Log)
+		err = clihelper.UninstallLoft(ctx, l.KubeClient, l.RestConfig, l.Context, l.Namespace, l.Log)
 		if err != nil {
 			return err
 		}
 	}
 
 	// Is already installed?
-	isInstalled, err := clihelper.IsLoftAlreadyInstalled(l.KubeClient, l.Namespace)
+	isInstalled, err := clihelper.IsLoftAlreadyInstalled(ctx, l.KubeClient, l.Namespace)
 	if err != nil {
 		return err
 	}
 
 	// Use default password if none is set
 	if l.Password == "" {
-		defaultPassword, err := clihelper.GetLoftDefaultPassword(l.KubeClient, l.Namespace)
+		defaultPassword, err := clihelper.GetLoftDefaultPassword(ctx, l.KubeClient, l.Namespace)
 		if err != nil {
 			return err
 		}
@@ -116,8 +121,8 @@ func (l *LoftStarter) Start(ctx context.Context) error {
 	}
 
 	// Install Loft
-	l.Log.Info("Welcome to Loft!")
-	l.Log.Info("This installer will help you configure and deploy Loft.")
+	l.Log.Info(product.Replace("Welcome to Loft!"))
+	l.Log.Info(product.Replace("This installer will help you configure and deploy Loft."))
 
 	// Get email
 	email, err := l.getEmail()
@@ -126,7 +131,7 @@ func (l *LoftStarter) Start(ctx context.Context) error {
 	}
 
 	// make sure we are ready for installing
-	err = l.prepareInstall()
+	err = l.prepareInstall(ctx)
 	if err != nil {
 		return err
 	}
@@ -145,7 +150,7 @@ func (l *LoftStarter) getEmail() (string, error) {
 	email := l.Email
 	if email == "" {
 		if !term.IsTerminal(os.Stdin) {
-			return "", fmt.Errorf("please enter an email via 'loft start --email my-email@domain.com'")
+			return "", ErrMissingEmail
 		}
 
 		email, err = l.Log.Question(&survey.QuestionOptions{
@@ -165,9 +170,9 @@ func (l *LoftStarter) getEmail() (string, error) {
 	return email, nil
 }
 
-func (l *LoftStarter) prepareInstall() error {
+func (l *LoftStarter) prepareInstall(ctx context.Context) error {
 	// delete admin user & secret
-	return clihelper.UninstallLoft(l.KubeClient, l.RestConfig, l.Context, l.Namespace, log.Discard)
+	return clihelper.UninstallLoft(ctx, l.KubeClient, l.RestConfig, l.Context, l.Namespace, log.Discard)
 }
 
 func (l *LoftStarter) prepare() error {
@@ -192,7 +197,7 @@ func (l *LoftStarter) prepare() error {
 		contextToLoad = l.Context
 	} else if loftConfig.LastInstallContext != "" && loftConfig.LastInstallContext != contextToLoad {
 		contextToLoad, err = l.Log.Question(&survey.QuestionOptions{
-			Question:     "Seems like you try to use 'loft start' with a different kubernetes context than before. Please choose which kubernetes context you want to use",
+			Question:     product.Replace("Seems like you try to use 'loft start' with a different kubernetes context than before. Please choose which kubernetes context you want to use"),
 			DefaultValue: contextToLoad,
 			Options:      []string{contextToLoad, loftConfig.LastInstallContext},
 		})
@@ -252,10 +257,10 @@ func (l *LoftStarter) handleAlreadyExistingInstallation(ctx context.Context) err
 
 	// Only ask if ingress should be enabled if --upgrade flag is not provided
 	if !l.Upgrade && term.IsTerminal(os.Stdin) {
-		l.Log.Info("Existing Loft instance found.")
+		l.Log.Info(product.Replace("Existing Loft instance found."))
 
 		// Check if Loft is installed in a local cluster
-		isLocal := clihelper.IsLoftInstalledLocally(l.KubeClient, l.Namespace)
+		isLocal := clihelper.IsLoftInstalledLocally(ctx, l.KubeClient, l.Namespace)
 
 		// Skip question if --host flag is provided
 		if l.Host != "" {
@@ -267,7 +272,7 @@ func (l *LoftStarter) handleAlreadyExistingInstallation(ctx context.Context) err
 				// Confirm with user if this is a local cluster
 				const (
 					YesOption = "Yes"
-					NoOption  = "No, my cluster is running not locally (GKE, EKS, Bare Metal etc."
+					NoOption  = "No, my cluster is running not locally (GKE, EKS, Bare Metal, etc.)"
 				)
 
 				answer, err := l.Log.Question(&survey.QuestionOptions{
@@ -287,13 +292,13 @@ func (l *LoftStarter) handleAlreadyExistingInstallation(ctx context.Context) err
 
 			if isLocal {
 				// Confirm with user if ingress should be installed in local cluster
-				const (
-					YesOption = "Yes, enable the ingress for Loft anyway"
+				var (
+					YesOption = product.Replace("Yes, enable the ingress for Loft anyway")
 					NoOption  = "No"
 				)
 
 				answer, err := l.Log.Question(&survey.QuestionOptions{
-					Question:     "Enabling ingress is usually only useful for remote clusters. Do you still want to deploy the ingress for Loft to your local cluster?",
+					Question:     product.Replace("Enabling ingress is usually only useful for remote clusters. Do you still want to deploy the ingress for Loft to your local cluster?"),
 					DefaultValue: NoOption,
 					Options: []string{
 						NoOption,
@@ -319,11 +324,11 @@ func (l *LoftStarter) handleAlreadyExistingInstallation(ctx context.Context) err
 
 				l.Host = host
 			} else {
-				l.Log.Info("Will enable Loft ingress with hostname: " + l.Host)
+				l.Log.Info(product.Replace("Will enable Loft ingress with hostname: ") + l.Host)
 			}
 
 			if term.IsTerminal(os.Stdin) {
-				err := clihelper.EnsureIngressController(l.KubeClient, l.Context, l.Log)
+				err := clihelper.EnsureIngressController(ctx, l.KubeClient, l.Context, l.Log)
 				if err != nil {
 					return errors.Wrap(err, "install ingress controller")
 				}

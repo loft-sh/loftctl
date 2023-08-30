@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/loft-sh/api/v3/pkg/product"
 	"github.com/loft-sh/loftctl/v3/pkg/clihelper"
 	"github.com/loft-sh/loftctl/v3/pkg/config"
 	corev1 "k8s.io/api/core/v1"
@@ -27,7 +28,7 @@ func (l *LoftStarter) startPortForwarding(ctx context.Context, loftPod *corev1.P
 			},
 		},
 	}
-	l.Log.Infof("Waiting until loft is reachable at https://localhost:%s", l.LocalPort)
+	l.Log.Infof(product.Replace("Waiting until loft is reachable at https://localhost:%s"), l.LocalPort)
 	err = wait.PollUntilContextTimeout(ctx, time.Second, config.Timeout(), true, func(ctx context.Context) (bool, error) {
 		req, err := http.NewRequestWithContext(ctx, http.MethodGet, "https://localhost:"+l.LocalPort+"/version", nil)
 		if err != nil {
@@ -54,10 +55,10 @@ func (l *LoftStarter) restartPortForwarding(ctx context.Context, stopChan chan s
 		l.Log.Info("Restart port forwarding")
 
 		// wait for loft pod to start
-		l.Log.Info("Waiting until loft pod has been started...")
-		loftPod, err := clihelper.WaitForReadyLoftPod(l.KubeClient, l.Namespace, l.Log)
+		l.Log.Info(product.Replace("Waiting until loft pod has been started..."))
+		loftPod, err := clihelper.WaitForReadyLoftPod(ctx, l.KubeClient, l.Namespace, l.Log)
 		if err != nil {
-			l.Log.Fatalf("Error waiting for ready loft pod: %v", err)
+			l.Log.Fatalf(product.Replace("Error waiting for ready loft pod: %v"), err)
 		}
 
 		// restart port forwarding

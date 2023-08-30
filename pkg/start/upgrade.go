@@ -7,6 +7,7 @@ import (
 	"os/exec"
 	"path/filepath"
 
+	"github.com/loft-sh/api/v3/pkg/product"
 	"github.com/loft-sh/loftctl/v3/pkg/clihelper"
 	"github.com/mgutz/ansi"
 	"github.com/pkg/errors"
@@ -59,11 +60,11 @@ func (l *LoftStarter) upgradeLoft(email string) error {
 	err := clihelper.UpgradeLoft(chartName, chartRepo, l.Context, l.Namespace, extraArgs, l.Log)
 	if err != nil {
 		if !l.Reset {
-			return errors.New(err.Error() + fmt.Sprintf("\n\nIf want to purge and reinstall Loft, run: %s\n", ansi.Color("loft start --reset", "green+b")))
+			return errors.New(err.Error() + product.Replace(fmt.Sprintf("\n\nIf want to purge and reinstall Loft, run: %s\n", ansi.Color("loft start --reset", "green+b"))))
 		}
 
 		// Try to purge Loft and retry install
-		l.Log.Info("Trying to delete objects blocking Loft installation")
+		l.Log.Info(product.Replace("Trying to delete objects blocking Loft installation"))
 
 		manifests, err := clihelper.GetLoftManifests(chartName, chartRepo, l.Context, l.Namespace, extraArgs, l.Log)
 		if err != nil {
@@ -85,7 +86,7 @@ func (l *LoftStarter) upgradeLoft(email string) error {
 		// Retry Loft installation
 		err = clihelper.UpgradeLoft(chartName, chartRepo, l.Context, l.Namespace, extraArgs, l.Log)
 		if err != nil {
-			return errors.New(err.Error() + fmt.Sprintf("\n\nLoft installation failed. Reach out to get help:\n- via Slack: %s (fastest option)\n- via Online Chat: %s\n- via Email: %s\n", ansi.Color("https://slack.loft.sh/", "green+b"), ansi.Color("https://loft.sh/", "green+b"), ansi.Color("support@loft.sh", "green+b")))
+			return errors.New(err.Error() + product.Replace(fmt.Sprintf("\n\nLoft installation failed. Reach out to get help:\n- via Slack: %s (fastest option)\n- via Online Chat: %s\n- via Email: %s\n", ansi.Color("https://slack.loft.sh/", "green+b"), ansi.Color("https://loft.sh/", "green+b"), ansi.Color("support@loft.sh", "green+b"))))
 		}
 	}
 

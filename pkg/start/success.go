@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/loft-sh/api/v3/pkg/product"
 	"github.com/loft-sh/loftctl/v3/pkg/clihelper"
 	"github.com/loft-sh/loftctl/v3/pkg/config"
 	"github.com/loft-sh/loftctl/v3/pkg/printhelper"
@@ -23,7 +24,7 @@ func (l *LoftStarter) success(ctx context.Context) error {
 	}
 
 	// wait until Loft is ready
-	loftPod, err := l.waitForLoft()
+	loftPod, err := l.waitForLoft(ctx)
 	if err != nil {
 		return err
 	}
@@ -33,7 +34,7 @@ func (l *LoftStarter) success(ctx context.Context) error {
 	}
 
 	// check if Loft was installed locally
-	isLocal := clihelper.IsLoftInstalledLocally(l.KubeClient, l.Namespace)
+	isLocal := clihelper.IsLoftInstalledLocally(ctx, l.KubeClient, l.Namespace)
 	if isLocal {
 		// check if loft domain secret is there
 		if !l.NoTunnel {
@@ -58,13 +59,13 @@ func (l *LoftStarter) success(ctx context.Context) error {
 
 	// get login link
 	l.Log.Info("Checking Loft status...")
-	host, err := clihelper.GetLoftIngressHost(l.KubeClient, l.Namespace)
+	host, err := clihelper.GetLoftIngressHost(ctx, l.KubeClient, l.Namespace)
 	if err != nil {
 		return err
 	}
 
 	// check if loft is reachable
-	reachable, err := clihelper.IsLoftReachable(host)
+	reachable, err := clihelper.IsLoftReachable(ctx, host)
 	if !reachable || err != nil {
 		const (
 			YesOption = "Yes"
@@ -93,7 +94,7 @@ func (l *LoftStarter) success(ctx context.Context) error {
 		}
 	}
 
-	return l.successRemote(host)
+	return l.successRemote(ctx, host)
 }
 
 func (l *LoftStarter) pingLoftRouter(ctx context.Context, loftPod *corev1.Pod) (string, error) {
@@ -119,7 +120,7 @@ func (l *LoftStarter) pingLoftRouter(ctx context.Context, loftPod *corev1.Pod) (
 			},
 		},
 	}
-	l.Log.Infof("Waiting until loft is reachable at https://%s", loftRouterDomain)
+	l.Log.Infof(product.Replace("Waiting until loft is reachable at https://%s"), loftRouterDomain)
 	err = wait.PollUntilContextTimeout(ctx, time.Second*3, time.Minute*5, true, func(ctx context.Context) (bool, error) {
 		req, err := http.NewRequestWithContext(ctx, http.MethodGet, "https://"+loftRouterDomain+"/version", nil)
 		if err != nil {
@@ -148,8 +149,8 @@ func (l *LoftStarter) successLocal() error {
 	return nil
 }
 
-func (l *LoftStarter) successRemote(host string) error {
-	ready, err := clihelper.IsLoftReachable(host)
+func (l *LoftStarter) successRemote(ctx context.Context, host string) error {
+	ready, err := clihelper.IsLoftReachable(ctx, host)
 	if err != nil {
 		return err
 	} else if ready {
@@ -161,29 +162,29 @@ func (l *LoftStarter) successRemote(host string) error {
 	printhelper.PrintDNSConfiguration(host, l.Log)
 
 	l.Log.Info("Waiting for you to configure DNS, so loft can be reached on https://" + host)
-	err = wait.PollImmediate(time.Second*5, config.Timeout(), func() (bool, error) {
-		return clihelper.IsLoftReachable(host)
+	err = wait.PollUntilContextTimeout(ctx, 5*time.Second, config.Timeout(), true, func(ctx context.Context) (done bool, err error) {
+		return clihelper.IsLoftReachable(ctx, host)
 	})
 	if err != nil {
 		return err
 	}
 
-	l.Log.Done("Loft is reachable at https://" + host)
+	l.Log.Done(product.Replace("Loft is reachable at https://") + host)
 	printhelper.PrintSuccessMessageRemoteInstall(host, l.Password, l.Log)
 	return nil
 }
 
-func (l *LoftStarter) waitForLoft() (*corev1.Pod, error) {
+func (l *LoftStarter) waitForLoft(ctx context.Context) (*corev1.Pod, error) {
 	// wait for loft pod to start
-	l.Log.Info("Waiting for Loft pod to be running...")
-	loftPod, err := clihelper.WaitForReadyLoftPod(l.KubeClient, l.Namespace, l.Log)
-	l.Log.Donef("Loft pod successfully started")
+	l.Log.Info(product.Replace("Waiting for Loft pod to be running..."))
+	loftPod, err := clihelper.WaitForReadyLoftPod(ctx, l.KubeClient, l.Namespace, l.Log)
+	l.Log.Donef(product.Replace("Loft pod successfully started"))
 	if err != nil {
 		return nil, err
 	}
 
 	// ensure user admin secret is there
-	isNewPassword, err := clihelper.EnsureAdminPassword(l.KubeClient, l.RestConfig, l.Password, l.Log)
+	isNewPassword, err := clihelper.EnsureAdminPassword(ctx, l.KubeClient, l.RestConfig, l.Password, l.Log)
 	if err != nil {
 		return nil, err
 	}

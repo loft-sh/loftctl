@@ -8,6 +8,7 @@ import (
 
 	clusterv1 "github.com/loft-sh/agentapi/v3/pkg/apis/loft/cluster/v1"
 	storagev1 "github.com/loft-sh/api/v3/pkg/apis/storage/v1"
+	"github.com/loft-sh/api/v3/pkg/product"
 	"github.com/loft-sh/loftctl/v3/cmd/loftctl/flags"
 	"github.com/loft-sh/loftctl/v3/pkg/client"
 	"github.com/loft-sh/loftctl/v3/pkg/client/helper"
@@ -39,28 +40,25 @@ func NewVClusterCmd(globalFlags *flags.GlobalFlags, defaults *pdefaults.Defaults
 		Log:         log.GetInstance(),
 	}
 
-	description := `
-#######################################################
-################## loft sleep vcluster ################
-#######################################################
+	description := product.ReplaceWithHeader("sleep vcluster", `
 Sleep puts a vcluster to sleep
 
 Example:
 loft sleep vcluster myvcluster
 loft sleep vcluster myvcluster --project myproject
-#######################################################
-	`
+########################################################
+	`)
 	if upgrade.IsPlugin == "true" {
 		description = `
-#######################################################
-############### devspace sleep vcluster ###############
-#######################################################
+########################################################
+############### devspace sleep vcluster ################
+########################################################
 Sleep puts a vcluster to sleep
 
 Example:
 devspace sleep vcluster myvcluster
 devspace sleep vcluster myvcluster --project myproject
-#######################################################
+########################################################
 	`
 	}
 
@@ -70,18 +68,18 @@ devspace sleep vcluster myvcluster --project myproject
 		Long:  description,
 		Args:  util.VClusterNameOnlyValidator,
 		RunE: func(cobraCmd *cobra.Command, args []string) error {
-			return cmd.Run(args)
+			return cmd.Run(cobraCmd.Context(), args)
 		},
 	}
 
 	p, _ := defaults.Get(pdefaults.KeyProject, "")
 	c.Flags().StringVarP(&cmd.Project, "project", "p", p, "The project to use")
-	c.Flags().Int64Var(&cmd.ForceDuration, "prevent-wakeup", -1, "The amount of seconds this vcluster should sleep until it can be woken up again (use 0 for infinite sleeping). During this time the space can only be woken up by `loft wakeup vcluster`, manually deleting the annotation on the namespace or through the loft UI")
+	c.Flags().Int64Var(&cmd.ForceDuration, "prevent-wakeup", -1, product.Replace("The amount of seconds this vcluster should sleep until it can be woken up again (use 0 for infinite sleeping). During this time the space can only be woken up by `loft wakeup vcluster`, manually deleting the annotation on the namespace or through the loft UI"))
 	return c
 }
 
 // Run executes the functionality
-func (cmd *VClusterCmd) Run(args []string) error {
+func (cmd *VClusterCmd) Run(ctx context.Context, args []string) error {
 	baseClient, err := client.NewClientFromPath(cmd.Config)
 	if err != nil {
 		return err
@@ -101,16 +99,16 @@ func (cmd *VClusterCmd) Run(args []string) error {
 		return fmt.Errorf("couldn't find a vcluster you have access to")
 	}
 
-	return cmd.sleepVCluster(baseClient, vClusterName)
+	return cmd.sleepVCluster(ctx, baseClient, vClusterName)
 }
 
-func (cmd *VClusterCmd) sleepVCluster(baseClient client.Client, vClusterName string) error {
+func (cmd *VClusterCmd) sleepVCluster(ctx context.Context, baseClient client.Client, vClusterName string) error {
 	managementClient, err := baseClient.Management()
 	if err != nil {
 		return err
 	}
 
-	virtualClusterInstance, err := managementClient.Loft().ManagementV1().VirtualClusterInstances(naming.ProjectNamespace(cmd.Project)).Get(context.TODO(), vClusterName, metav1.GetOptions{})
+	virtualClusterInstance, err := managementClient.Loft().ManagementV1().VirtualClusterInstances(naming.ProjectNamespace(cmd.Project)).Get(ctx, vClusterName, metav1.GetOptions{})
 	if err != nil {
 		return err
 	}
@@ -123,15 +121,15 @@ func (cmd *VClusterCmd) sleepVCluster(baseClient client.Client, vClusterName str
 		virtualClusterInstance.Annotations[clusterv1.SleepModeForceDurationAnnotation] = strconv.FormatInt(cmd.ForceDuration, 10)
 	}
 
-	_, err = managementClient.Loft().ManagementV1().VirtualClusterInstances(naming.ProjectNamespace(cmd.Project)).Update(context.TODO(), virtualClusterInstance, metav1.UpdateOptions{})
+	_, err = managementClient.Loft().ManagementV1().VirtualClusterInstances(naming.ProjectNamespace(cmd.Project)).Update(ctx, virtualClusterInstance, metav1.UpdateOptions{})
 	if err != nil {
 		return err
 	}
 
 	// wait for sleeping
 	cmd.Log.Info("Wait until virtual cluster is sleeping...")
-	err = wait.Poll(time.Second, config.Timeout(), func() (bool, error) {
-		virtualClusterInstance, err := managementClient.Loft().ManagementV1().VirtualClusterInstances(naming.ProjectNamespace(cmd.Project)).Get(context.TODO(), vClusterName, metav1.GetOptions{})
+	err = wait.PollUntilContextTimeout(ctx, time.Second, config.Timeout(), false, func(ctx context.Context) (done bool, err error) {
+		virtualClusterInstance, err := managementClient.Loft().ManagementV1().VirtualClusterInstances(naming.ProjectNamespace(cmd.Project)).Get(ctx, vClusterName, metav1.GetOptions{})
 		if err != nil {
 			return false, err
 		}

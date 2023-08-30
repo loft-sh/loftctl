@@ -20,6 +20,7 @@ import (
 
 	clusterv1 "github.com/loft-sh/agentapi/v3/pkg/apis/loft/cluster/v1"
 	storagev1 "github.com/loft-sh/api/v3/pkg/apis/storage/v1"
+	"github.com/loft-sh/api/v3/pkg/product"
 	"github.com/sirupsen/logrus"
 
 	jsonpatch "github.com/evanphx/json-patch"
@@ -72,10 +73,10 @@ func DisplayName(entityInfo *clusterv1.EntityInfo) string {
 	return entityInfo.Name
 }
 
-func GetLoftIngressHost(kubeClient kubernetes.Interface, namespace string) (string, error) {
-	ingress, err := kubeClient.NetworkingV1().Ingresses(namespace).Get(context.TODO(), "loft-ingress", metav1.GetOptions{})
+func GetLoftIngressHost(ctx context.Context, kubeClient kubernetes.Interface, namespace string) (string, error) {
+	ingress, err := kubeClient.NetworkingV1().Ingresses(namespace).Get(ctx, "loft-ingress", metav1.GetOptions{})
 	if err != nil {
-		ingress, err := kubeClient.NetworkingV1beta1().Ingresses(namespace).Get(context.TODO(), "loft-ingress", metav1.GetOptions{})
+		ingress, err := kubeClient.NetworkingV1beta1().Ingresses(namespace).Get(ctx, "loft-ingress", metav1.GetOptions{})
 		if err != nil {
 			return "", err
 		} else {
@@ -94,13 +95,13 @@ func GetLoftIngressHost(kubeClient kubernetes.Interface, namespace string) (stri
 	return "", fmt.Errorf("couldn't find any host in loft ingress '%s/loft-ingress', please make sure you have not changed any deployed resources", namespace)
 }
 
-func WaitForReadyLoftPod(kubeClient kubernetes.Interface, namespace string, log log.Logger) (*corev1.Pod, error) {
+func WaitForReadyLoftPod(ctx context.Context, kubeClient kubernetes.Interface, namespace string, log log.Logger) (*corev1.Pod, error) {
 	// wait until we have a running loft pod
 	now := time.Now()
 	warningPrinted := false
 	pod := &corev1.Pod{}
-	err := wait.PollUntilContextTimeout(context.TODO(), time.Second*2, config.Timeout(), true, func(ctx context.Context) (bool, error) {
-		pods, err := kubeClient.CoreV1().Pods(namespace).List(context.TODO(), metav1.ListOptions{
+	err := wait.PollUntilContextTimeout(ctx, time.Second*2, config.Timeout(), true, func(ctx context.Context) (bool, error) {
+		pods, err := kubeClient.CoreV1().Pods(namespace).List(ctx, metav1.ListOptions{
 			LabelSelector: "app=loft",
 		})
 		if err != nil {
@@ -210,11 +211,11 @@ func StartPortForwarding(ctx context.Context, config *rest.Config, client kubern
 	return stopChan, nil
 }
 
-func GetLoftDefaultPassword(kubeClient kubernetes.Interface, namespace string) (string, error) {
-	loftNamespace, err := kubeClient.CoreV1().Namespaces().Get(context.TODO(), namespace, metav1.GetOptions{})
+func GetLoftDefaultPassword(ctx context.Context, kubeClient kubernetes.Interface, namespace string) (string, error) {
+	loftNamespace, err := kubeClient.CoreV1().Namespaces().Get(ctx, namespace, metav1.GetOptions{})
 	if err != nil {
 		if kerrors.IsNotFound(err) {
-			loftNamespace, err := kubeClient.CoreV1().Namespaces().Create(context.TODO(), &corev1.Namespace{
+			loftNamespace, err := kubeClient.CoreV1().Namespaces().Create(ctx, &corev1.Namespace{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: namespace,
 				},
@@ -236,7 +237,7 @@ type version struct {
 	Version string `json:"version"`
 }
 
-func IsLoftReachable(host string) (bool, error) {
+func IsLoftReachable(ctx context.Context, host string) (bool, error) {
 	// wait until loft is reachable at the given url
 	client := &http.Client{
 		Transport: &http.Transport{
@@ -246,7 +247,11 @@ func IsLoftReachable(host string) (bool, error) {
 		},
 	}
 	url := "https://" + host + "/version"
-	resp, err := client.Get(url)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+	if err != nil {
+		return false, fmt.Errorf("error creating request with context: %w", err)
+	}
+	resp, err := client.Do(req)
 	if err == nil && resp.StatusCode == http.StatusOK {
 		out, err := io.ReadAll(resp.Body)
 		if err != nil {
@@ -330,8 +335,8 @@ func EnterHostNameQuestion(log log.Logger) (string, error) {
 	})
 }
 
-func IsLoftAlreadyInstalled(kubeClient kubernetes.Interface, namespace string) (bool, error) {
-	_, err := kubeClient.AppsV1().Deployments(namespace).Get(context.TODO(), "loft", metav1.GetOptions{})
+func IsLoftAlreadyInstalled(ctx context.Context, kubeClient kubernetes.Interface, namespace string) (bool, error) {
+	_, err := kubeClient.AppsV1().Deployments(namespace).Get(ctx, "loft", metav1.GetOptions{})
 	if err != nil {
 		if kerrors.IsNotFound(err) {
 			return false, nil
@@ -343,10 +348,10 @@ func IsLoftAlreadyInstalled(kubeClient kubernetes.Interface, namespace string) (
 	return true, nil
 }
 
-func UninstallLoft(kubeClient kubernetes.Interface, restConfig *rest.Config, kubeContext, namespace string, log log.Logger) error {
-	log.Infof("Uninstalling loft...")
+func UninstallLoft(ctx context.Context, kubeClient kubernetes.Interface, restConfig *rest.Config, kubeContext, namespace string, log log.Logger) error {
+	log.Infof(product.Replace("Uninstalling loft..."))
 	releaseName := defaultReleaseName
-	deploy, err := kubeClient.AppsV1().Deployments(namespace).Get(context.TODO(), "loft", metav1.GetOptions{})
+	deploy, err := kubeClient.AppsV1().Deployments(namespace).Get(ctx, "loft", metav1.GetOptions{})
 	if err != nil && !kerrors.IsNotFound(err) {
 		return err
 	} else if deploy != nil && deploy.Labels != nil && deploy.Labels["release"] != "" {
@@ -373,12 +378,12 @@ func UninstallLoft(kubeClient kubernetes.Interface, restConfig *rest.Config, kub
 		return err
 	}
 
-	err = apiRegistrationClient.ApiregistrationV1().APIServices().Delete(context.TODO(), "v1.management.loft.sh", metav1.DeleteOptions{})
+	err = apiRegistrationClient.ApiregistrationV1().APIServices().Delete(ctx, "v1.management.loft.sh", metav1.DeleteOptions{})
 	if err != nil && !kerrors.IsNotFound(err) {
 		return err
 	}
 
-	err = deleteUser(restConfig, "admin")
+	err = deleteUser(ctx, restConfig, "admin")
 	if err != nil {
 		return err
 	}
@@ -394,60 +399,60 @@ func UninstallLoft(kubeClient kubernetes.Interface, restConfig *rest.Config, kub
 	}
 
 	// we also cleanup the validating webhook configuration and apiservice
-	err = kubeClient.AdmissionregistrationV1().ValidatingWebhookConfigurations().Delete(context.TODO(), "loft-agent", metav1.DeleteOptions{})
+	err = kubeClient.AdmissionregistrationV1().ValidatingWebhookConfigurations().Delete(ctx, "loft-agent", metav1.DeleteOptions{})
 	if err != nil && !kerrors.IsNotFound(err) {
 		return err
 	}
 
-	err = apiRegistrationClient.ApiregistrationV1().APIServices().Delete(context.TODO(), "v1alpha1.tenancy.kiosk.sh", metav1.DeleteOptions{})
+	err = apiRegistrationClient.ApiregistrationV1().APIServices().Delete(ctx, "v1alpha1.tenancy.kiosk.sh", metav1.DeleteOptions{})
 	if err != nil && !kerrors.IsNotFound(err) {
 		return err
 	}
 
-	err = apiRegistrationClient.ApiregistrationV1().APIServices().Delete(context.TODO(), "v1.cluster.loft.sh", metav1.DeleteOptions{})
+	err = apiRegistrationClient.ApiregistrationV1().APIServices().Delete(ctx, "v1.cluster.loft.sh", metav1.DeleteOptions{})
 	if err != nil && !kerrors.IsNotFound(err) {
 		return err
 	}
 
-	err = kubeClient.CoreV1().ConfigMaps(namespace).Delete(context.TODO(), "loft-agent-controller", metav1.DeleteOptions{})
+	err = kubeClient.CoreV1().ConfigMaps(namespace).Delete(ctx, "loft-agent-controller", metav1.DeleteOptions{})
 	if err != nil && !kerrors.IsNotFound(err) {
 		return err
 	}
 
-	err = kubeClient.CoreV1().ConfigMaps(namespace).Delete(context.TODO(), "loft-applied-defaults", metav1.DeleteOptions{})
+	err = kubeClient.CoreV1().ConfigMaps(namespace).Delete(ctx, "loft-applied-defaults", metav1.DeleteOptions{})
 	if err != nil && !kerrors.IsNotFound(err) {
 		return err
 	}
 
 	log.WriteString(logrus.InfoLevel, "\n")
-	log.Done("Successfully uninstalled Loft")
+	log.Done(product.Replace("Successfully uninstalled Loft"))
 	log.WriteString(logrus.InfoLevel, "\n")
 
 	return nil
 }
 
-func deleteUser(restConfig *rest.Config, name string) error {
+func deleteUser(ctx context.Context, restConfig *rest.Config, name string) error {
 	loftClient, err := loftclientset.NewForConfig(restConfig)
 	if err != nil {
 		return err
 	}
 
-	user, err := loftClient.StorageV1().Users().Get(context.TODO(), name, metav1.GetOptions{})
+	user, err := loftClient.StorageV1().Users().Get(ctx, name, metav1.GetOptions{})
 	if err != nil {
 		return nil
 	} else if len(user.Finalizers) > 0 {
 		user.Finalizers = nil
-		_, err = loftClient.StorageV1().Users().Update(context.TODO(), user, metav1.UpdateOptions{})
+		_, err = loftClient.StorageV1().Users().Update(ctx, user, metav1.UpdateOptions{})
 		if err != nil {
 			if kerrors.IsConflict(err) {
-				return deleteUser(restConfig, name)
+				return deleteUser(ctx, restConfig, name)
 			}
 
 			return err
 		}
 	}
 
-	err = loftClient.StorageV1().Users().Delete(context.TODO(), name, metav1.DeleteOptions{})
+	err = loftClient.StorageV1().Users().Delete(ctx, name, metav1.DeleteOptions{})
 	if err != nil && !kerrors.IsNotFound(err) {
 		return err
 	}
@@ -455,7 +460,7 @@ func deleteUser(restConfig *rest.Config, name string) error {
 	return nil
 }
 
-func EnsureIngressController(kubeClient kubernetes.Interface, kubeContext string, log log.Logger) error {
+func EnsureIngressController(ctx context.Context, kubeClient kubernetes.Interface, kubeContext string, log log.Logger) error {
 	// first create an ingress controller
 	const (
 		YesOption = "Yes"
@@ -500,7 +505,7 @@ func EnsureIngressController(kubeClient kubernetes.Interface, kubeContext string
 			return fmt.Errorf("error during helm command: %s (%w)", string(output), err)
 		}
 
-		list, err := kubeClient.CoreV1().Secrets("ingress-nginx").List(context.TODO(), metav1.ListOptions{
+		list, err := kubeClient.CoreV1().Secrets("ingress-nginx").List(ctx, metav1.ListOptions{
 			LabelSelector: "name=ingress-nginx,owner=helm,status=deployed",
 		})
 		if err != nil {
@@ -528,7 +533,7 @@ func EnsureIngressController(kubeClient kubernetes.Interface, kubeContext string
 			if err != nil {
 				return err
 			}
-			_, err = kubeClient.CoreV1().Secrets(secret.Namespace).Patch(context.TODO(), secret.Name, types.MergePatchType, data, metav1.PatchOptions{})
+			_, err = kubeClient.CoreV1().Secrets(secret.Namespace).Patch(ctx, secret.Name, types.MergePatchType, data, metav1.PatchOptions{})
 			if err != nil {
 				return err
 			}
@@ -577,7 +582,7 @@ func UpgradeLoft(chartName, chartRepo, kubeContext, namespace string, extraArgs 
 		return fmt.Errorf("error during helm command: %s (%w)", string(output), err)
 	}
 
-	log.Done("Loft has been deployed to your cluster!")
+	log.Done(product.Replace("Loft has been deployed to your cluster!"))
 	return nil
 }
 
@@ -638,17 +643,17 @@ func getHelmWorkdir(chartName string) (string, error) {
 
 // Makes sure that admin user and password secret exists
 // Returns (true, nil) if everything is correct but password is different from parameter `password`
-func EnsureAdminPassword(kubeClient kubernetes.Interface, restConfig *rest.Config, password string, log log.Logger) (bool, error) {
+func EnsureAdminPassword(ctx context.Context, kubeClient kubernetes.Interface, restConfig *rest.Config, password string, log log.Logger) (bool, error) {
 	loftClient, err := loftclientset.NewForConfig(restConfig)
 	if err != nil {
 		return false, err
 	}
 
-	admin, err := loftClient.StorageV1().Users().Get(context.TODO(), "admin", metav1.GetOptions{})
+	admin, err := loftClient.StorageV1().Users().Get(ctx, "admin", metav1.GetOptions{})
 	if err != nil && !kerrors.IsNotFound(err) {
 		return false, err
 	} else if admin == nil {
-		admin, err = loftClient.StorageV1().Users().Create(context.TODO(), &storagev1.User{
+		admin, err = loftClient.StorageV1().Users().Create(ctx, &storagev1.User{
 			ObjectMeta: metav1.ObjectMeta{
 				Name: "admin",
 			},
@@ -678,7 +683,7 @@ func EnsureAdminPassword(kubeClient kubernetes.Interface, restConfig *rest.Confi
 
 	passwordHash := fmt.Sprintf("%x", sha256.Sum256([]byte(password)))
 
-	secret, err := kubeClient.CoreV1().Secrets(admin.Spec.PasswordRef.SecretNamespace).Get(context.TODO(), admin.Spec.PasswordRef.SecretName, metav1.GetOptions{})
+	secret, err := kubeClient.CoreV1().Secrets(admin.Spec.PasswordRef.SecretNamespace).Get(ctx, admin.Spec.PasswordRef.SecretName, metav1.GetOptions{})
 	if err != nil && !kerrors.IsNotFound(err) {
 		return false, err
 	} else if err == nil {
@@ -688,7 +693,7 @@ func EnsureAdminPassword(kubeClient kubernetes.Interface, restConfig *rest.Confi
 		}
 
 		secret.Data[key] = []byte(passwordHash)
-		_, err = kubeClient.CoreV1().Secrets(secret.Namespace).Update(context.TODO(), secret, metav1.UpdateOptions{})
+		_, err = kubeClient.CoreV1().Secrets(secret.Namespace).Update(ctx, secret, metav1.UpdateOptions{})
 		if err != nil {
 			return false, errors.Wrap(err, "update admin password secret")
 		}
@@ -705,7 +710,7 @@ func EnsureAdminPassword(kubeClient kubernetes.Interface, restConfig *rest.Confi
 			key: []byte(passwordHash),
 		},
 	}
-	_, err = kubeClient.CoreV1().Secrets(secret.Namespace).Create(context.TODO(), secret, metav1.CreateOptions{})
+	_, err = kubeClient.CoreV1().Secrets(secret.Namespace).Create(ctx, secret, metav1.CreateOptions{})
 	if err != nil {
 		return false, errors.Wrap(err, "create admin password secret")
 	}
@@ -714,10 +719,10 @@ func EnsureAdminPassword(kubeClient kubernetes.Interface, restConfig *rest.Confi
 	return false, nil
 }
 
-func IsLoftInstalledLocally(kubeClient kubernetes.Interface, namespace string) bool {
-	_, err := kubeClient.NetworkingV1().Ingresses(namespace).Get(context.TODO(), "loft-ingress", metav1.GetOptions{})
+func IsLoftInstalledLocally(ctx context.Context, kubeClient kubernetes.Interface, namespace string) bool {
+	_, err := kubeClient.NetworkingV1().Ingresses(namespace).Get(ctx, "loft-ingress", metav1.GetOptions{})
 	if err != nil && !kerrors.IsNotFound(err) {
-		_, err = kubeClient.NetworkingV1beta1().Ingresses(namespace).Get(context.TODO(), "loft-ingress", metav1.GetOptions{})
+		_, err = kubeClient.NetworkingV1beta1().Ingresses(namespace).Get(ctx, "loft-ingress", metav1.GetOptions{})
 		return kerrors.IsNotFound(err)
 	}
 
