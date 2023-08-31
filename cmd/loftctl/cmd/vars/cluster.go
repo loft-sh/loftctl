@@ -1,13 +1,17 @@
 package vars
 
 import (
-	"fmt"
+	"errors"
 	"os"
 	"strings"
 
 	"github.com/loft-sh/loftctl/v3/cmd/loftctl/flags"
 	"github.com/spf13/cobra"
 	"k8s.io/client-go/tools/clientcmd"
+)
+
+var (
+	ErrNotLoftContext = errors.New("current context is not a loft context, but predefined var LOFT_CLUSTER is used")
 )
 
 type clusterCmd struct {
@@ -29,7 +33,6 @@ func newClusterCmd(globalFlags *flags.GlobalFlags) *cobra.Command {
 
 // Run executes the command logic
 func (*clusterCmd) Run(cobraCmd *cobra.Command, args []string) error {
-	retError := fmt.Errorf("Current context is not a loft context, but predefined var LOFT_CLUSTER is used.")
 	kubeConfig, err := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(clientcmd.NewDefaultClientConfigLoadingRules(), &clientcmd.ConfigOverrides{}).RawConfig()
 	if err != nil {
 		return err
@@ -42,15 +45,15 @@ func (*clusterCmd) Run(cobraCmd *cobra.Command, args []string) error {
 
 	cluster, ok := kubeConfig.Clusters[kubeContext]
 	if !ok {
-		return retError
+		return ErrNotLoftContext
 	}
 
 	server := strings.TrimSuffix(cluster.Server, "/")
 	splitted := strings.Split(server, "/")
 	if len(splitted) < 3 {
-		return retError
+		return ErrNotLoftContext
 	} else if splitted[len(splitted)-2] != "cluster" || splitted[len(splitted)-3] != "kubernetes" {
-		return retError
+		return ErrNotLoftContext
 	}
 
 	_, err = os.Stdout.Write([]byte(splitted[len(splitted)-1]))

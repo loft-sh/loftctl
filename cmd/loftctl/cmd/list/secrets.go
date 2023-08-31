@@ -6,6 +6,7 @@ import (
 	"time"
 
 	managementv1 "github.com/loft-sh/api/v3/pkg/apis/management/v1"
+	"github.com/loft-sh/api/v3/pkg/product"
 	"github.com/loft-sh/loftctl/v3/cmd/loftctl/flags"
 	"github.com/loft-sh/loftctl/v3/pkg/client"
 	"github.com/loft-sh/loftctl/v3/pkg/client/helper"
@@ -35,31 +36,28 @@ func NewSharedSecretsCmd(globalFlags *flags.GlobalFlags) *cobra.Command {
 		GlobalFlags: globalFlags,
 		log:         log.GetInstance(),
 	}
-	description := `
-#######################################################
-################## loft list secrets ##################
-#######################################################
+	description := product.ReplaceWithHeader("list secrets", `
 List the shared secrets you have access to
 
 Example:
 loft list secrets
-#######################################################
-	`
+########################################################
+	`)
 	if upgrade.IsPlugin == "true" {
 		description = `
-#######################################################
-################ devspace list secrets ################
-#######################################################
+########################################################
+################ devspace list secrets #################
+########################################################
 List the shared secrets you have access to
 
 Example:
 devspace list secrets
-#######################################################
+########################################################
 	`
 	}
 	c := &cobra.Command{
 		Use:   "secrets",
-		Short: "List all the shared secrets you have access to",
+		Short: "Lists all the shared secrets you have access to",
 		Long:  description,
 		Args:  cobra.NoArgs,
 		RunE: func(cobraCmd *cobra.Command, args []string) error {
@@ -68,7 +66,7 @@ devspace list secrets
 	}
 
 	c.Flags().StringArrayVarP(&cmd.Project, "project", "p", []string{}, "The project(s) to read project secrets from. If omitted will list global secrets")
-	c.Flags().StringVarP(&cmd.Namespace, "namespace", "n", "", "The namespace in the loft cluster to read global secrets from. If omitted will query all accessible global secrets")
+	c.Flags().StringVarP(&cmd.Namespace, "namespace", "n", "", product.Replace("The namespace in the loft cluster to read global secrets from. If omitted will query all accessible global secrets"))
 	c.Flags().BoolVarP(&cmd.All, "all", "a", false, "Display global and project secrets. May be used with the --project flag to display global secrets and a subset of project secrets")
 	c.Flags().BoolVar(&cmd.AllProjects, "all-projects", false, "Display project secrets for all projects.")
 	return c

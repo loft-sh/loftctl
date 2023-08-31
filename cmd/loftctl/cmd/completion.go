@@ -5,6 +5,7 @@ import (
 	"os"
 	"text/template"
 
+	"github.com/loft-sh/api/v3/pkg/product"
 	"github.com/loft-sh/loftctl/v3/cmd/loftctl/flags"
 	"github.com/loft-sh/log"
 	"github.com/spf13/cobra"
@@ -22,10 +23,7 @@ func NewCompletionCmd(command *cobra.Command, globalFlags *flags.GlobalFlags) *c
 		GlobalFlags: globalFlags,
 		log:         log.GetInstance(),
 	}
-	description := `
-#######################################################
-################### loft completion ###################
-#######################################################
+	description := product.ReplaceWithHeader("completion", `
 
 To load completions:
 Bash:
@@ -46,7 +44,7 @@ Fish:
 $ {{.Use}} completion fish | source
 # To load completions for each session, execute once:
 $ {{.Use}} completion fish > ~/.config/fish/completions/{{.Use}}.fish
-	`
+	`)
 	tmpl, err := template.New("completion").Parse(description)
 	if err != nil {
 		panic(err)

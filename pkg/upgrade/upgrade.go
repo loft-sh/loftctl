@@ -10,6 +10,7 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/blang/semver"
+	"github.com/loft-sh/api/v3/pkg/product"
 	"github.com/loft-sh/log"
 	"github.com/rhysd/go-github-selfupdate/selfupdate"
 )
@@ -73,7 +74,7 @@ func PrintNewerVersionWarning() {
 					if IsPlugin == "true" {
 						log.GetInstance().Warnf("There is a newer version of the Loft DevSpace plugin: v%s. Run `devspace update plugin loft` to upgrade to the newest version.\n", latestVersionStr)
 					} else {
-						log.GetInstance().Warnf("There is a newer version of Loft: v%s. Run `loft upgrade` to upgrade to the newest version.\n", latestVersionStr)
+						log.GetInstance().Warnf(product.Replace("There is a newer version of Loft: v%s. Run `loft upgrade` to upgrade to the newest version.\n"), latestVersionStr)
 					}
 				} else if currentVersion.Major == uint64(2) && latestVersion.Major == uint64(3) {
 					// Different major version, link to upgrade guide
@@ -83,7 +84,7 @@ func PrintNewerVersionWarning() {
 				if IsPlugin == "true" {
 					log.GetInstance().Warnf("There is a newer version of the Loft DevSpace plugin: v%s. Run `devspace update plugin loft` to upgrade to the newest version.\n", latestVersionStr)
 				} else {
-					log.GetInstance().Warnf("There is a newer version of Loft: v%s. Run `loft upgrade` to upgrade to the newest version.\n", latestVersionStr)
+					log.GetInstance().Warnf(product.Replace("There is a newer version of Loft: v%s. Run `loft upgrade` to upgrade to the newest version.\n"), latestVersionStr)
 				}
 			}
 		}

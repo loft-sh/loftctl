@@ -9,6 +9,7 @@ import (
 	"github.com/ghodss/yaml"
 	storagev1 "github.com/loft-sh/api/v3/pkg/apis/storage/v1"
 	loftclient "github.com/loft-sh/api/v3/pkg/client/clientset_generated/clientset"
+	"github.com/loft-sh/api/v3/pkg/product"
 	"github.com/loft-sh/loftctl/v3/cmd/loftctl/flags"
 	"github.com/loft-sh/loftctl/v3/pkg/client/naming"
 	"github.com/loft-sh/loftctl/v3/pkg/clihelper"
@@ -53,20 +54,17 @@ func NewBackupCmd(globalFlags *flags.GlobalFlags) *cobra.Command {
 		Log:         log.GetInstance(),
 	}
 
-	description := `
-#######################################################
-##################### loft backup #####################
-#######################################################
+	description := product.ReplaceWithHeader("backup", `
 Backup creates a backup for the Loft management plane
 
 Example:
 loft backup
-#######################################################
-	`
+########################################################
+	`)
 
 	c := &cobra.Command{
 		Use:   "backup",
-		Short: "Create a loft management plane backup",
+		Short: product.Replace("Create a loft management plane backup"),
 		Long:  description,
 		Args:  cobra.NoArgs,
 		RunE: func(cobraCmd *cobra.Command, args []string) error {
@@ -75,7 +73,7 @@ loft backup
 	}
 
 	c.Flags().StringSliceVar(&cmd.Skip, "skip", []string{}, "What resources the backup should skip. Valid options are: users, teams, accesskeys, sharedsecrets, clusters and clusteraccounttemplates")
-	c.Flags().StringVar(&cmd.Namespace, "namespace", "loft", "The namespace to loft was installed into")
+	c.Flags().StringVar(&cmd.Namespace, "namespace", "loft", product.Replace("The namespace to loft was installed into"))
 	c.Flags().StringVar(&cmd.Filename, "filename", "backup.yaml", "The filename to write the backup to")
 	return c
 }
@@ -96,12 +94,12 @@ func (cmd *BackupCmd) Run(cobraCmd *cobra.Command, args []string) error {
 		return fmt.Errorf("there is an error loading your current kube config (%w), please make sure you have access to a kubernetes cluster and the command `kubectl get namespaces` is working", err)
 	}
 
-	isInstalled, err := clihelper.IsLoftAlreadyInstalled(kubeClient, cmd.Namespace)
+	isInstalled, err := clihelper.IsLoftAlreadyInstalled(cobraCmd.Context(), kubeClient, cmd.Namespace)
 	if err != nil {
 		return err
 	} else if !isInstalled {
 		answer, err := cmd.Log.Question(&survey.QuestionOptions{
-			Question:     "Seems like Loft was not installed into namespace %s, do you want to continue?",
+			Question:     product.Replace("Seems like Loft was not installed into namespace %s, do you want to continue?"),
 			DefaultValue: "Yes",
 			Options:      []string{"Yes", "No"},
 		})
@@ -110,10 +108,12 @@ func (cmd *BackupCmd) Run(cobraCmd *cobra.Command, args []string) error {
 		}
 	}
 
+	ctx := cobraCmd.Context()
+
 	objects := []runtime.Object{}
 	if !contains(cmd.Skip, "clusterroletemplates") {
 		cmd.Log.Info("Backing up clusterroletemplates...")
-		objs, err := backupClusterRoles(kubeConfig)
+		objs, err := backupClusterRoles(ctx, kubeConfig)
 		if err != nil {
 			cmd.Log.Warn(errors.Wrap(err, "backup clusterroletemplates"))
 		} else {
@@ -122,7 +122,7 @@ func (cmd *BackupCmd) Run(cobraCmd *cobra.Command, args []string) error {
 	}
 	if !contains(cmd.Skip, "clusteraccesses") {
 		cmd.Log.Info("Backing up clusteraccesses...")
-		users, err := backupClusterAccess(kubeConfig)
+		users, err := backupClusterAccess(ctx, kubeConfig)
 		if err != nil {
 			cmd.Log.Warn(errors.Wrap(err, "backup clusteraccesses"))
 		} else {
@@ -131,7 +131,7 @@ func (cmd *BackupCmd) Run(cobraCmd *cobra.Command, args []string) error {
 	}
 	if !contains(cmd.Skip, "spaceconstraints") {
 		cmd.Log.Info("Backing up spaceconstraints...")
-		objs, err := backupSpaceConstraints(kubeConfig)
+		objs, err := backupSpaceConstraints(ctx, kubeConfig)
 		if err != nil {
 			cmd.Log.Warn(errors.Wrap(err, "backup spaceconstraints"))
 		} else {
@@ -140,7 +140,7 @@ func (cmd *BackupCmd) Run(cobraCmd *cobra.Command, args []string) error {
 	}
 	if !contains(cmd.Skip, "users") {
 		cmd.Log.Info("Backing up users...")
-		objs, err := backupUsers(kubeClient, kubeConfig)
+		objs, err := backupUsers(ctx, kubeClient, kubeConfig)
 		if err != nil {
 			cmd.Log.Warn(errors.Wrap(err, "backup users"))
 		} else {
@@ -149,7 +149,7 @@ func (cmd *BackupCmd) Run(cobraCmd *cobra.Command, args []string) error {
 	}
 	if !contains(cmd.Skip, "teams") {
 		cmd.Log.Info("Backing up teams...")
-		objs, err := backupTeams(kubeConfig)
+		objs, err := backupTeams(ctx, kubeConfig)
 		if err != nil {
 			cmd.Log.Warn(errors.Wrap(err, "backup teams"))
 		} else {
@@ -158,7 +158,7 @@ func (cmd *BackupCmd) Run(cobraCmd *cobra.Command, args []string) error {
 	}
 	if !contains(cmd.Skip, "sharedsecrets") {
 		cmd.Log.Info("Backing up shared secrets...")
-		objs, err := backupSharedSecrets(kubeConfig)
+		objs, err := backupSharedSecrets(ctx, kubeConfig)
 		if err != nil {
 			cmd.Log.Warn(errors.Wrap(err, "backup shared secrets"))
 		} else {
@@ -167,7 +167,7 @@ func (cmd *BackupCmd) Run(cobraCmd *cobra.Command, args []string) error {
 	}
 	if !contains(cmd.Skip, "accesskeys") {
 		cmd.Log.Info("Backing up access keys...")
-		objs, err := backupAccessKeys(kubeConfig)
+		objs, err := backupAccessKeys(ctx, kubeConfig)
 		if err != nil {
 			cmd.Log.Warn(errors.Wrap(err, "backup access keys"))
 		} else {
@@ -176,7 +176,7 @@ func (cmd *BackupCmd) Run(cobraCmd *cobra.Command, args []string) error {
 	}
 	if !contains(cmd.Skip, "apps") {
 		cmd.Log.Info("Backing up apps...")
-		objs, err := backupApps(kubeConfig)
+		objs, err := backupApps(ctx, kubeConfig)
 		if err != nil {
 			cmd.Log.Warn(errors.Wrap(err, "backup apps"))
 		} else {
@@ -185,7 +185,7 @@ func (cmd *BackupCmd) Run(cobraCmd *cobra.Command, args []string) error {
 	}
 	if !contains(cmd.Skip, "spacetemplates") {
 		cmd.Log.Info("Backing up space templates...")
-		objs, err := backupSpaceTemplates(kubeConfig)
+		objs, err := backupSpaceTemplates(ctx, kubeConfig)
 		if err != nil {
 			cmd.Log.Warn(errors.Wrap(err, "backup space templates"))
 		} else {
@@ -194,7 +194,7 @@ func (cmd *BackupCmd) Run(cobraCmd *cobra.Command, args []string) error {
 	}
 	if !contains(cmd.Skip, "virtualclustertemplates") {
 		cmd.Log.Info("Backing up virtual cluster templates...")
-		objs, err := backupVirtualClusterTemplate(kubeConfig)
+		objs, err := backupVirtualClusterTemplate(ctx, kubeConfig)
 		if err != nil {
 			cmd.Log.Warn(errors.Wrap(err, "backup virtual cluster templates"))
 		} else {
@@ -203,7 +203,7 @@ func (cmd *BackupCmd) Run(cobraCmd *cobra.Command, args []string) error {
 	}
 	if !contains(cmd.Skip, "clusters") {
 		cmd.Log.Info("Backing up clusters...")
-		objs, err := backupClusters(kubeClient, kubeConfig)
+		objs, err := backupClusters(ctx, kubeClient, kubeConfig)
 		if err != nil {
 			cmd.Log.Warn(errors.Wrap(err, "backup clusters"))
 		} else {
@@ -213,7 +213,7 @@ func (cmd *BackupCmd) Run(cobraCmd *cobra.Command, args []string) error {
 	projects := []string{}
 	if !contains(cmd.Skip, "projects") {
 		cmd.Log.Info("Backing up projects...")
-		objs, projectNames, err := backupProjects(kubeConfig)
+		objs, projectNames, err := backupProjects(ctx, kubeConfig)
 		if err != nil {
 			cmd.Log.Warn(errors.Wrap(err, "backup projects"))
 		} else {
@@ -225,7 +225,7 @@ func (cmd *BackupCmd) Run(cobraCmd *cobra.Command, args []string) error {
 	if len(projects) > 0 {
 		if !contains(cmd.Skip, "virtualclusterinstances") {
 			cmd.Log.Info("Backing up virtualcluster instances...")
-			objs, err := backupVirtualClusterInstances(kubeConfig, projects)
+			objs, err := backupVirtualClusterInstances(ctx, kubeConfig, projects)
 			if err != nil {
 				cmd.Log.Warn(errors.Wrap(err, "backup virtualcluster instances"))
 			} else {
@@ -234,7 +234,7 @@ func (cmd *BackupCmd) Run(cobraCmd *cobra.Command, args []string) error {
 		}
 		if !contains(cmd.Skip, "spaceinstances") {
 			cmd.Log.Info("Backing up space instances...")
-			objs, err := backupSpaceInstances(kubeConfig, projects)
+			objs, err := backupSpaceInstances(ctx, kubeConfig, projects)
 			if err != nil {
 				cmd.Log.Warn(errors.Wrap(err, "backup space instances"))
 			} else {
@@ -243,7 +243,7 @@ func (cmd *BackupCmd) Run(cobraCmd *cobra.Command, args []string) error {
 		}
 		if !contains(cmd.Skip, "projectsecrets") {
 			cmd.Log.Info("Backing up project secrets...")
-			objs, err := backupProjectSecrets(kubeClient, projects)
+			objs, err := backupProjectSecrets(ctx, kubeClient, projects)
 			if err != nil {
 				cmd.Log.Warn(errors.Wrap(err, "backup project secrets"))
 			} else {
@@ -273,13 +273,13 @@ func (cmd *BackupCmd) Run(cobraCmd *cobra.Command, args []string) error {
 	return nil
 }
 
-func backupProjects(rest *rest.Config) ([]runtime.Object, []string, error) {
+func backupProjects(ctx context.Context, rest *rest.Config) ([]runtime.Object, []string, error) {
 	loftClient, err := loftclient.NewForConfig(rest)
 	if err != nil {
 		return nil, nil, err
 	}
 
-	projectList, err := loftClient.StorageV1().Projects().List(context.TODO(), metav1.ListOptions{})
+	projectList, err := loftClient.StorageV1().Projects().List(ctx, metav1.ListOptions{})
 	if err != nil {
 		return nil, nil, err
 	}
@@ -302,7 +302,7 @@ func backupProjects(rest *rest.Config) ([]runtime.Object, []string, error) {
 	return retList, projectNames, nil
 }
 
-func backupVirtualClusterInstances(rest *rest.Config, projects []string) ([]runtime.Object, error) {
+func backupVirtualClusterInstances(ctx context.Context, rest *rest.Config, projects []string) ([]runtime.Object, error) {
 	loftClient, err := loftclient.NewForConfig(rest)
 	if err != nil {
 		return nil, err
@@ -310,7 +310,7 @@ func backupVirtualClusterInstances(rest *rest.Config, projects []string) ([]runt
 
 	retList := []runtime.Object{}
 	for _, projectName := range projects {
-		virtualClusterInstanceList, err := loftClient.StorageV1().VirtualClusterInstances(naming.ProjectNamespace(projectName)).List(context.TODO(), metav1.ListOptions{})
+		virtualClusterInstanceList, err := loftClient.StorageV1().VirtualClusterInstances(naming.ProjectNamespace(projectName)).List(ctx, metav1.ListOptions{})
 		if err != nil {
 			return nil, err
 		}
@@ -330,7 +330,7 @@ func backupVirtualClusterInstances(rest *rest.Config, projects []string) ([]runt
 	return retList, nil
 }
 
-func backupSpaceInstances(rest *rest.Config, projects []string) ([]runtime.Object, error) {
+func backupSpaceInstances(ctx context.Context, rest *rest.Config, projects []string) ([]runtime.Object, error) {
 	loftClient, err := loftclient.NewForConfig(rest)
 	if err != nil {
 		return nil, err
@@ -338,7 +338,7 @@ func backupSpaceInstances(rest *rest.Config, projects []string) ([]runtime.Objec
 
 	retList := []runtime.Object{}
 	for _, projectName := range projects {
-		spaceInstanceList, err := loftClient.StorageV1().SpaceInstances(naming.ProjectNamespace(projectName)).List(context.TODO(), metav1.ListOptions{})
+		spaceInstanceList, err := loftClient.StorageV1().SpaceInstances(naming.ProjectNamespace(projectName)).List(ctx, metav1.ListOptions{})
 		if err != nil {
 			return nil, err
 		}
@@ -358,10 +358,10 @@ func backupSpaceInstances(rest *rest.Config, projects []string) ([]runtime.Objec
 	return retList, nil
 }
 
-func backupProjectSecrets(kubeClient kubernetes.Interface, projects []string) ([]runtime.Object, error) {
+func backupProjectSecrets(ctx context.Context, kubeClient kubernetes.Interface, projects []string) ([]runtime.Object, error) {
 	retList := []runtime.Object{}
 	for _, projectName := range projects {
-		secretList, err := kubeClient.CoreV1().Secrets(naming.ProjectNamespace(projectName)).List(context.TODO(), metav1.ListOptions{})
+		secretList, err := kubeClient.CoreV1().Secrets(naming.ProjectNamespace(projectName)).List(ctx, metav1.ListOptions{})
 		if err != nil {
 			return nil, err
 		}
@@ -385,13 +385,13 @@ func backupProjectSecrets(kubeClient kubernetes.Interface, projects []string) ([
 	return retList, nil
 }
 
-func backupClusters(kubeClient kubernetes.Interface, rest *rest.Config) ([]runtime.Object, error) {
+func backupClusters(ctx context.Context, kubeClient kubernetes.Interface, rest *rest.Config) ([]runtime.Object, error) {
 	loftClient, err := loftclient.NewForConfig(rest)
 	if err != nil {
 		return nil, err
 	}
 
-	clusterList, err := loftClient.StorageV1().Clusters().List(context.TODO(), metav1.ListOptions{})
+	clusterList, err := loftClient.StorageV1().Clusters().List(ctx, metav1.ListOptions{})
 	if err != nil {
 		return nil, err
 	}
@@ -409,7 +409,7 @@ func backupClusters(kubeClient kubernetes.Interface, rest *rest.Config) ([]runti
 
 		// find user secrets
 		if u.Spec.Config.SecretName != "" {
-			secret, err := getSecret(kubeClient, u.Spec.Config.SecretNamespace, u.Spec.Config.SecretName)
+			secret, err := getSecret(ctx, kubeClient, u.Spec.Config.SecretNamespace, u.Spec.Config.SecretName)
 			if err != nil {
 				return nil, errors.Wrap(err, "get cluster secret")
 			} else if secret != nil {
@@ -421,13 +421,13 @@ func backupClusters(kubeClient kubernetes.Interface, rest *rest.Config) ([]runti
 	return retList, nil
 }
 
-func backupClusterRoles(rest *rest.Config) ([]runtime.Object, error) {
+func backupClusterRoles(ctx context.Context, rest *rest.Config) ([]runtime.Object, error) {
 	loftClient, err := loftclient.NewForConfig(rest)
 	if err != nil {
 		return nil, err
 	}
 
-	objs, err := loftClient.StorageV1().ClusterRoleTemplates().List(context.TODO(), metav1.ListOptions{})
+	objs, err := loftClient.StorageV1().ClusterRoleTemplates().List(ctx, metav1.ListOptions{})
 	if err != nil {
 		return nil, err
 	}
@@ -447,13 +447,13 @@ func backupClusterRoles(rest *rest.Config) ([]runtime.Object, error) {
 	return retList, nil
 }
 
-func backupSpaceConstraints(rest *rest.Config) ([]runtime.Object, error) {
+func backupSpaceConstraints(ctx context.Context, rest *rest.Config) ([]runtime.Object, error) {
 	loftClient, err := loftclient.NewForConfig(rest)
 	if err != nil {
 		return nil, err
 	}
 
-	objs, err := loftClient.StorageV1().SpaceConstraints().List(context.TODO(), metav1.ListOptions{})
+	objs, err := loftClient.StorageV1().SpaceConstraints().List(ctx, metav1.ListOptions{})
 	if err != nil {
 		return nil, err
 	}
@@ -473,13 +473,13 @@ func backupSpaceConstraints(rest *rest.Config) ([]runtime.Object, error) {
 	return retList, nil
 }
 
-func backupClusterAccess(rest *rest.Config) ([]runtime.Object, error) {
+func backupClusterAccess(ctx context.Context, rest *rest.Config) ([]runtime.Object, error) {
 	loftClient, err := loftclient.NewForConfig(rest)
 	if err != nil {
 		return nil, err
 	}
 
-	objs, err := loftClient.StorageV1().ClusterAccesses().List(context.TODO(), metav1.ListOptions{})
+	objs, err := loftClient.StorageV1().ClusterAccesses().List(ctx, metav1.ListOptions{})
 	if err != nil {
 		return nil, err
 	}
@@ -499,13 +499,13 @@ func backupClusterAccess(rest *rest.Config) ([]runtime.Object, error) {
 	return retList, nil
 }
 
-func backupVirtualClusterTemplate(rest *rest.Config) ([]runtime.Object, error) {
+func backupVirtualClusterTemplate(ctx context.Context, rest *rest.Config) ([]runtime.Object, error) {
 	loftClient, err := loftclient.NewForConfig(rest)
 	if err != nil {
 		return nil, err
 	}
 
-	apps, err := loftClient.StorageV1().VirtualClusterTemplates().List(context.TODO(), metav1.ListOptions{})
+	apps, err := loftClient.StorageV1().VirtualClusterTemplates().List(ctx, metav1.ListOptions{})
 	if err != nil {
 		return nil, err
 	}
@@ -525,13 +525,13 @@ func backupVirtualClusterTemplate(rest *rest.Config) ([]runtime.Object, error) {
 	return retList, nil
 }
 
-func backupSpaceTemplates(rest *rest.Config) ([]runtime.Object, error) {
+func backupSpaceTemplates(ctx context.Context, rest *rest.Config) ([]runtime.Object, error) {
 	loftClient, err := loftclient.NewForConfig(rest)
 	if err != nil {
 		return nil, err
 	}
 
-	apps, err := loftClient.StorageV1().SpaceTemplates().List(context.TODO(), metav1.ListOptions{})
+	apps, err := loftClient.StorageV1().SpaceTemplates().List(ctx, metav1.ListOptions{})
 	if err != nil {
 		return nil, err
 	}
@@ -551,13 +551,13 @@ func backupSpaceTemplates(rest *rest.Config) ([]runtime.Object, error) {
 	return retList, nil
 }
 
-func backupApps(rest *rest.Config) ([]runtime.Object, error) {
+func backupApps(ctx context.Context, rest *rest.Config) ([]runtime.Object, error) {
 	loftClient, err := loftclient.NewForConfig(rest)
 	if err != nil {
 		return nil, err
 	}
 
-	apps, err := loftClient.StorageV1().Apps().List(context.TODO(), metav1.ListOptions{})
+	apps, err := loftClient.StorageV1().Apps().List(ctx, metav1.ListOptions{})
 	if err != nil {
 		return nil, err
 	}
@@ -577,13 +577,13 @@ func backupApps(rest *rest.Config) ([]runtime.Object, error) {
 	return retList, nil
 }
 
-func backupAccessKeys(rest *rest.Config) ([]runtime.Object, error) {
+func backupAccessKeys(ctx context.Context, rest *rest.Config) ([]runtime.Object, error) {
 	loftClient, err := loftclient.NewForConfig(rest)
 	if err != nil {
 		return nil, err
 	}
 
-	accessKeyList, err := loftClient.StorageV1().AccessKeys().List(context.TODO(), metav1.ListOptions{})
+	accessKeyList, err := loftClient.StorageV1().AccessKeys().List(ctx, metav1.ListOptions{})
 	if err != nil {
 		return nil, err
 	}
@@ -603,13 +603,13 @@ func backupAccessKeys(rest *rest.Config) ([]runtime.Object, error) {
 	return retList, nil
 }
 
-func backupSharedSecrets(rest *rest.Config) ([]runtime.Object, error) {
+func backupSharedSecrets(ctx context.Context, rest *rest.Config) ([]runtime.Object, error) {
 	loftClient, err := loftclient.NewForConfig(rest)
 	if err != nil {
 		return nil, err
 	}
 
-	sharedSecretList, err := loftClient.StorageV1().SharedSecrets("").List(context.TODO(), metav1.ListOptions{})
+	sharedSecretList, err := loftClient.StorageV1().SharedSecrets("").List(ctx, metav1.ListOptions{})
 	if err != nil {
 		return nil, err
 	}
@@ -629,13 +629,13 @@ func backupSharedSecrets(rest *rest.Config) ([]runtime.Object, error) {
 	return retList, nil
 }
 
-func backupTeams(rest *rest.Config) ([]runtime.Object, error) {
+func backupTeams(ctx context.Context, rest *rest.Config) ([]runtime.Object, error) {
 	loftClient, err := loftclient.NewForConfig(rest)
 	if err != nil {
 		return nil, err
 	}
 
-	teamList, err := loftClient.StorageV1().Teams().List(context.TODO(), metav1.ListOptions{})
+	teamList, err := loftClient.StorageV1().Teams().List(ctx, metav1.ListOptions{})
 	if err != nil {
 		return nil, err
 	}
@@ -655,13 +655,13 @@ func backupTeams(rest *rest.Config) ([]runtime.Object, error) {
 	return retList, nil
 }
 
-func backupUsers(kubeClient kubernetes.Interface, rest *rest.Config) ([]runtime.Object, error) {
+func backupUsers(ctx context.Context, kubeClient kubernetes.Interface, rest *rest.Config) ([]runtime.Object, error) {
 	loftClient, err := loftclient.NewForConfig(rest)
 	if err != nil {
 		return nil, err
 	}
 
-	userList, err := loftClient.StorageV1().Users().List(context.TODO(), metav1.ListOptions{})
+	userList, err := loftClient.StorageV1().Users().List(ctx, metav1.ListOptions{})
 	if err != nil {
 		return nil, err
 	}
@@ -679,7 +679,7 @@ func backupUsers(kubeClient kubernetes.Interface, rest *rest.Config) ([]runtime.
 
 		// find user secrets
 		if u.Spec.PasswordRef != nil {
-			secret, err := getSecret(kubeClient, u.Spec.PasswordRef.SecretNamespace, u.Spec.PasswordRef.SecretName)
+			secret, err := getSecret(ctx, kubeClient, u.Spec.PasswordRef.SecretNamespace, u.Spec.PasswordRef.SecretName)
 			if err != nil {
 				return nil, errors.Wrap(err, "get user secret")
 			} else if secret != nil {
@@ -687,7 +687,7 @@ func backupUsers(kubeClient kubernetes.Interface, rest *rest.Config) ([]runtime.
 			}
 		}
 		if u.Spec.CodesRef != nil {
-			secret, err := getSecret(kubeClient, u.Spec.CodesRef.SecretNamespace, u.Spec.CodesRef.SecretName)
+			secret, err := getSecret(ctx, kubeClient, u.Spec.CodesRef.SecretNamespace, u.Spec.CodesRef.SecretName)
 			if err != nil {
 				return nil, errors.Wrap(err, "get user secret")
 			} else if secret != nil {
@@ -699,12 +699,12 @@ func backupUsers(kubeClient kubernetes.Interface, rest *rest.Config) ([]runtime.
 	return retList, nil
 }
 
-func getSecret(kubeClient kubernetes.Interface, namespace, name string) (*corev1.Secret, error) {
+func getSecret(ctx context.Context, kubeClient kubernetes.Interface, namespace, name string) (*corev1.Secret, error) {
 	if namespace == "" || name == "" {
 		return nil, nil
 	}
 
-	secret, err := kubeClient.CoreV1().Secrets(namespace).Get(context.TODO(), name, metav1.GetOptions{})
+	secret, err := kubeClient.CoreV1().Secrets(namespace).Get(ctx, name, metav1.GetOptions{})
 	if err != nil && !kerrors.IsNotFound(err) {
 		return nil, err
 	} else if secret != nil {

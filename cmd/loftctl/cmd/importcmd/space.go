@@ -9,6 +9,7 @@ import (
 	"github.com/mgutz/ansi"
 
 	managementv1 "github.com/loft-sh/api/v3/pkg/apis/management/v1"
+	"github.com/loft-sh/api/v3/pkg/product"
 
 	"github.com/loft-sh/loftctl/v3/cmd/loftctl/flags"
 	"github.com/loft-sh/loftctl/v3/pkg/upgrade"
@@ -33,17 +34,14 @@ func NewSpaceCmd(globalFlags *flags.GlobalFlags) *cobra.Command {
 		log:         log.GetInstance(),
 	}
 
-	description := `
-#######################################################
-################## loft import space ##################
-#######################################################
+	description := product.ReplaceWithHeader("import space", `
 Imports a space into a Loft project.
 
 Example:
 loft import space my-space --cluster connected-cluster \
   --project my-project --importname my-space
 #######################################################
-	`
+	`)
 	if upgrade.IsPlugin == "true" {
 		description = `
 #######################################################
@@ -59,14 +57,14 @@ devspace import space my-space --cluster connected-cluster \
 	}
 	c := &cobra.Command{
 		Use:   "space" + util.SpaceNameOnlyUseLine,
-		Short: "Imports a space into a Loft project",
+		Short: product.Replace("Imports a space into a Loft project"),
 		Long:  description,
 		Args:  util.SpaceNameOnlyValidator,
 		RunE: func(cobraCmd *cobra.Command, args []string) error {
 			// Check for newer version
 			upgrade.PrintNewerVersionWarning()
 
-			return cmd.Run(args)
+			return cmd.Run(cobraCmd.Context(), args)
 		},
 	}
 
@@ -80,7 +78,7 @@ devspace import space my-space --cluster connected-cluster \
 	return c
 }
 
-func (cmd *SpaceCmd) Run(args []string) error {
+func (cmd *SpaceCmd) Run(ctx context.Context, args []string) error {
 	// Get spaceName from command argument
 	var spaceName string = args[0]
 
@@ -99,7 +97,7 @@ func (cmd *SpaceCmd) Run(args []string) error {
 		return err
 	}
 
-	if _, err = managementClient.Loft().ManagementV1().Projects().ImportSpace(context.TODO(), cmd.Project, &managementv1.ProjectImportSpace{
+	if _, err = managementClient.Loft().ManagementV1().Projects().ImportSpace(ctx, cmd.Project, &managementv1.ProjectImportSpace{
 		SourceSpace: managementv1.ProjectImportSpaceSource{
 			Name:       spaceName,
 			Cluster:    cmd.ClusterName,

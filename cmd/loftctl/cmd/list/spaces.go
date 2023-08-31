@@ -5,6 +5,7 @@ import (
 	"time"
 
 	storagev1 "github.com/loft-sh/api/v3/pkg/apis/storage/v1"
+	"github.com/loft-sh/api/v3/pkg/product"
 	"github.com/loft-sh/loftctl/v3/cmd/loftctl/flags"
 	"github.com/loft-sh/loftctl/v3/pkg/client"
 	"github.com/loft-sh/loftctl/v3/pkg/client/helper"
@@ -31,31 +32,28 @@ func NewSpacesCmd(globalFlags *flags.GlobalFlags) *cobra.Command {
 		GlobalFlags: globalFlags,
 		log:         log.GetInstance(),
 	}
-	description := `
-#######################################################
-################## loft list spaces ###################
-#######################################################
+	description := product.ReplaceWithHeader("list spaces", `
 List the loft spaces you have access to
 
 Example:
 loft list spaces
-#######################################################
-	`
+########################################################
+	`)
 	if upgrade.IsPlugin == "true" {
 		description = `
-#######################################################
-################ devspace list spaces #################
-#######################################################
+########################################################
+################ devspace list spaces ##################
+########################################################
 List the loft spaces you have access to
 
 Example:
 devspace list spaces
-#######################################################
+########################################################
 	`
 	}
 	listCmd := &cobra.Command{
 		Use:   "spaces",
-		Short: "Lists the loft spaces you have access to",
+		Short: product.Replace("Lists the loft spaces you have access to"),
 		Long:  description,
 		Args:  cobra.NoArgs,
 		RunE: func(cobraCmd *cobra.Command, args []string) error {

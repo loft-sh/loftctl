@@ -4,6 +4,7 @@ import (
 	"context"
 	"time"
 
+	"github.com/loft-sh/api/v3/pkg/product"
 	"github.com/loft-sh/loftctl/v3/cmd/loftctl/flags"
 	"github.com/loft-sh/loftctl/v3/pkg/config"
 	"github.com/loft-sh/loftctl/v3/pkg/kubeconfig"
@@ -36,18 +37,15 @@ func NewAdminKubeConfigCmd(globalFlags *flags.GlobalFlags) *cobra.Command {
 		GlobalFlags: globalFlags,
 		log:         log.GetInstance(),
 	}
-	description := `
-#######################################################
-########## loft generate admin-kube-config ############
-#######################################################
+	description := product.ReplaceWithHeader("generate admin-kube-config", `
 Creates a new kube config that can be used to connect
 a cluster to loft.
 
 Example:
 loft generate admin-kube-config
 loft generate admin-kube-config --namespace mynamespace
-#######################################################
-	`
+########################################################
+	`)
 	if upgrade.IsPlugin == "true" {
 		description = `
 #######################################################
@@ -74,7 +72,7 @@ devspace generate admin-kube-config --namespace mynamespace
 				return err
 			}
 
-			return cmd.Run(c, cobraCmd, args)
+			return cmd.Run(cobraCmd.Context(), c, cobraCmd, args)
 		},
 	}
 
@@ -84,8 +82,8 @@ devspace generate admin-kube-config --namespace mynamespace
 }
 
 // Run executes the command
-func (cmd *AdminKubeConfigCmd) Run(c *rest.Config, cobraCmd *cobra.Command, args []string) error {
-	token, err := GetAuthToken(c, cmd.Namespace, cmd.ServiceAccount)
+func (cmd *AdminKubeConfigCmd) Run(ctx context.Context, c *rest.Config, cobraCmd *cobra.Command, args []string) error {
+	token, err := GetAuthToken(ctx, c, cmd.Namespace, cmd.ServiceAccount)
 	if err != nil {
 		return perrors.Wrap(err, "get auth token")
 	}
@@ -94,14 +92,14 @@ func (cmd *AdminKubeConfigCmd) Run(c *rest.Config, cobraCmd *cobra.Command, args
 	return kubeconfig.PrintTokenKubeConfig(c, string(token))
 }
 
-func GetAuthToken(c *rest.Config, namespace, serviceAccount string) ([]byte, error) {
+func GetAuthToken(ctx context.Context, c *rest.Config, namespace, serviceAccount string) ([]byte, error) {
 	client, err := kubernetes.NewForConfig(c)
 	if err != nil {
 		return []byte{}, perrors.Wrap(err, "create kube client")
 	}
 
 	// make sure namespace exists
-	_, err = client.CoreV1().Namespaces().Create(context.TODO(), &corev1.Namespace{
+	_, err = client.CoreV1().Namespaces().Create(ctx, &corev1.Namespace{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: namespace,
 		},
@@ -113,7 +111,7 @@ func GetAuthToken(c *rest.Config, namespace, serviceAccount string) ([]byte, err
 	}
 
 	// create service account
-	_, err = client.CoreV1().ServiceAccounts(namespace).Create(context.TODO(), &corev1.ServiceAccount{
+	_, err = client.CoreV1().ServiceAccounts(namespace).Create(ctx, &corev1.ServiceAccount{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: serviceAccount,
 		},
@@ -125,7 +123,7 @@ func GetAuthToken(c *rest.Config, namespace, serviceAccount string) ([]byte, err
 	}
 
 	// create clusterrolebinding
-	_, err = client.RbacV1().ClusterRoleBindings().Create(context.TODO(), &rbacv1.ClusterRoleBinding{
+	_, err = client.RbacV1().ClusterRoleBindings().Create(ctx, &rbacv1.ClusterRoleBinding{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: serviceAccount + "-binding",
 		},
@@ -150,7 +148,7 @@ func GetAuthToken(c *rest.Config, namespace, serviceAccount string) ([]byte, err
 
 	// manually create token secret. This approach works for all kubernetes versions
 	tokenSecretName := serviceAccount + "-token"
-	_, err = client.CoreV1().Secrets(namespace).Create(context.TODO(), &corev1.Secret{
+	_, err = client.CoreV1().Secrets(namespace).Create(ctx, &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      tokenSecretName,
 			Namespace: namespace,
@@ -168,8 +166,8 @@ func GetAuthToken(c *rest.Config, namespace, serviceAccount string) ([]byte, err
 
 	// wait for secret token to be populated
 	token := []byte{}
-	err = wait.Poll(time.Millisecond*250, config.Timeout(), func() (bool, error) {
-		secret, err := client.CoreV1().Secrets(namespace).Get(context.TODO(), tokenSecretName, metav1.GetOptions{})
+	err = wait.PollUntilContextTimeout(ctx, 250*time.Millisecond, config.Timeout(), false, func(ctx context.Context) (done bool, err error) {
+		secret, err := client.CoreV1().Secrets(namespace).Get(ctx, tokenSecretName, metav1.GetOptions{})
 		if err != nil {
 			return false, perrors.Wrap(err, "get service account secret")
 		}

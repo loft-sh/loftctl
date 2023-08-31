@@ -3,6 +3,7 @@ package get
 import (
 	"context"
 
+	"github.com/loft-sh/api/v3/pkg/product"
 	"github.com/loft-sh/loftctl/v3/cmd/loftctl/flags"
 	"github.com/loft-sh/loftctl/v3/pkg/client"
 	"github.com/loft-sh/loftctl/v3/pkg/client/helper"
@@ -26,26 +27,23 @@ func NewUserCmd(globalFlags *flags.GlobalFlags) *cobra.Command {
 		GlobalFlags: globalFlags,
 		log:         log.GetInstance(),
 	}
-	description := `
-#######################################################
-#################### loft get user ####################
-#######################################################
+	description := product.ReplaceWithHeader("get user", `
 Returns the currently logged in user
 
 Example:
 loft get user
-#######################################################
-	`
+########################################################
+	`)
 	if upgrade.IsPlugin == "true" {
 		description = `
-#######################################################
-################## devspace get user ##################
-#######################################################
+########################################################
+################## devspace get user ###################
+########################################################
 Returns the currently logged in user
 
 Example:
 devspace get user
-#######################################################
+########################################################
 	`
 	}
 	c := &cobra.Command{
@@ -54,7 +52,7 @@ devspace get user
 		Long:  description,
 		Args:  cobra.NoArgs,
 		RunE: func(cobraCmd *cobra.Command, args []string) error {
-			return cmd.Run()
+			return cmd.Run(cobraCmd.Context())
 		},
 	}
 
@@ -62,7 +60,7 @@ devspace get user
 }
 
 // RunUsers executes the functionality
-func (cmd *UserCmd) Run() error {
+func (cmd *UserCmd) Run(ctx context.Context) error {
 	baseClient, err := client.NewClientFromPath(cmd.Config)
 	if err != nil {
 		return err
@@ -73,7 +71,7 @@ func (cmd *UserCmd) Run() error {
 		return err
 	}
 
-	userName, teamName, err := helper.GetCurrentUser(context.TODO(), client)
+	userName, teamName, err := helper.GetCurrentUser(ctx, client)
 	if err != nil {
 		return err
 	} else if teamName != nil {

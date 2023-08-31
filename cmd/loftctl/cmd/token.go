@@ -2,16 +2,23 @@ package cmd
 
 import (
 	"encoding/json"
+	"errors"
+	"fmt"
 	"os"
 
+	"github.com/loft-sh/api/v3/pkg/product"
 	"github.com/loft-sh/loftctl/v3/cmd/loftctl/flags"
 	"github.com/loft-sh/loftctl/v3/pkg/client"
 	"github.com/loft-sh/loftctl/v3/pkg/upgrade"
 	"github.com/loft-sh/log"
-	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/pkg/apis/clientauthentication/v1beta1"
+)
+
+var (
+	ErrNoConfigLoaded = errors.New("no config loaded")
+	ErrNotLoggedIn    = errors.New(product.Replace("not logged in, please make sure you have run 'loft login [loft-url]'"))
 )
 
 // TokenCmd holds the cmd flags
@@ -31,34 +38,31 @@ func NewTokenCmd(globalFlags *flags.GlobalFlags) *cobra.Command {
 		log:         log.GetInstance(),
 	}
 
-	description := `
-#######################################################
-###################### loft token #####################
-#######################################################
+	description := product.ReplaceWithHeader("token", `
 Prints an access token to a loft instance. This can
 be used as an ExecAuthenticator for kubernetes
 
 Example:
 loft token
-#######################################################
-	`
+########################################################
+	`)
 	if upgrade.IsPlugin == "true" {
 		description = `
-#######################################################
-#################### devspace token ###################
-#######################################################
+########################################################
+#################### devspace token ####################
+########################################################
 Prints an access token to a loft instance. This can
 be used as an ExecAuthenticator for kubernetes
 
 Example:
 devspace token
-#######################################################
+########################################################
 	`
 	}
 
 	tokenCmd := &cobra.Command{
 		Use:   "token",
-		Short: "Token prints the access token to a loft instance",
+		Short: product.Replace("Token prints the access token to a loft instance"),
 		Long:  description,
 		Args:  cobra.NoArgs,
 		RunE: func(cobraCmd *cobra.Command, args []string) error {
@@ -93,9 +97,9 @@ func getToken(cmd *TokenCmd, baseClient client.Client) error {
 	// get config
 	config := baseClient.Config()
 	if config == nil {
-		return errors.New("no config loaded")
+		return ErrNoConfigLoaded
 	} else if config.Host == "" || config.AccessKey == "" {
-		return errors.New("not logged in, please make sure you have run 'loft login [loft-url]'")
+		return ErrNotLoggedIn
 	}
 
 	// by default we print the access key as token
@@ -127,7 +131,7 @@ func printToken(token string) error {
 
 	bytes, err := json.Marshal(response)
 	if err != nil {
-		return errors.Wrap(err, "json marshal")
+		return fmt.Errorf("json marshal: %w", err)
 	}
 
 	_, err = os.Stdout.Write(bytes)
@@ -158,7 +162,7 @@ func printCertificate(certificateData, keyData string) error {
 
 	bytes, err := json.Marshal(response)
 	if err != nil {
-		return errors.Wrap(err, "json marshal")
+		return fmt.Errorf("json marshal: %w", err)
 	}
 
 	_, err = os.Stdout.Write(bytes)

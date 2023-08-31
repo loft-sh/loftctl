@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	storagev1 "github.com/loft-sh/api/v3/pkg/apis/storage/v1"
+	"github.com/loft-sh/api/v3/pkg/product"
 	"github.com/loft-sh/loftctl/v3/cmd/loftctl/flags"
 	"github.com/loft-sh/loftctl/v3/pkg/kube"
 	"github.com/loft-sh/loftctl/v3/pkg/random"
@@ -39,17 +40,14 @@ func NewPasswordCmd(globalFlags *flags.GlobalFlags) *cobra.Command {
 		GlobalFlags: globalFlags,
 		log:         log.GetInstance(),
 	}
-	description := `
-#######################################################
-################# loft reset password #################
-#######################################################
+	description := product.ReplaceWithHeader("reset password", `
 Resets the password of a user.
 
 Example:
 loft reset password
 loft reset password --user admin
 #######################################################
-	`
+	`)
 	if upgrade.IsPlugin == "true" {
 		description = `
 #######################################################

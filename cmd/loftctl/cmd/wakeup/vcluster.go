@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/loft-sh/api/v3/pkg/product"
 	"github.com/loft-sh/loftctl/v3/cmd/loftctl/flags"
 	"github.com/loft-sh/loftctl/v3/pkg/client"
 	"github.com/loft-sh/loftctl/v3/pkg/client/helper"
@@ -32,28 +33,25 @@ func NewVClusterCmd(globalFlags *flags.GlobalFlags, defaults *pdefaults.Defaults
 		Log:         log.GetInstance(),
 	}
 
-	description := `
-#######################################################
-################# loft wakeup vcluster ################
-#######################################################
+	description := product.ReplaceWithHeader("wakeup vcluster", `
 Wakes up a vcluster
 
 Example:
 loft wakeup vcluster myvcluster
 loft wakeup vcluster myvcluster --project myproject
-#######################################################
-	`
+########################################################
+	`)
 	if upgrade.IsPlugin == "true" {
 		description = `
-#######################################################
-############## devspace wakeup vcluster ###############
-#######################################################
+########################################################
+############## devspace wakeup vcluster ################
+########################################################
 Wakes up a vcluster
 
 Example:
 devspace wakeup vcluster myvcluster
 devspace wakeup vcluster myvcluster --project myproject
-#######################################################
+########################################################
 	`
 	}
 
@@ -63,7 +61,7 @@ devspace wakeup vcluster myvcluster --project myproject
 		Long:  description,
 		Args:  util.VClusterNameOnlyValidator,
 		RunE: func(cobraCmd *cobra.Command, args []string) error {
-			return cmd.Run(args)
+			return cmd.Run(cobraCmd.Context(), args)
 		},
 	}
 
@@ -73,7 +71,7 @@ devspace wakeup vcluster myvcluster --project myproject
 }
 
 // Run executes the functionality
-func (cmd *VClusterCmd) Run(args []string) error {
+func (cmd *VClusterCmd) Run(ctx context.Context, args []string) error {
 	baseClient, err := client.NewClientFromPath(cmd.Config)
 	if err != nil {
 		return err
@@ -93,16 +91,16 @@ func (cmd *VClusterCmd) Run(args []string) error {
 		return fmt.Errorf("couldn't find a vcluster you have access to")
 	}
 
-	return cmd.wakeUpVCluster(baseClient, vClusterName)
+	return cmd.wakeUpVCluster(ctx, baseClient, vClusterName)
 }
 
-func (cmd *VClusterCmd) wakeUpVCluster(baseClient client.Client, vClusterName string) error {
+func (cmd *VClusterCmd) wakeUpVCluster(ctx context.Context, baseClient client.Client, vClusterName string) error {
 	managementClient, err := baseClient.Management()
 	if err != nil {
 		return err
 	}
 
-	_, err = vcluster.WaitForVirtualClusterInstance(context.TODO(), managementClient, naming.ProjectNamespace(cmd.Project), vClusterName, true, cmd.Log)
+	_, err = vcluster.WaitForVirtualClusterInstance(ctx, managementClient, naming.ProjectNamespace(cmd.Project), vClusterName, true, cmd.Log)
 	if err != nil {
 		return err
 	}

@@ -4,6 +4,7 @@ import (
 	"context"
 	"time"
 
+	"github.com/loft-sh/api/v3/pkg/product"
 	"github.com/loft-sh/loftctl/v3/cmd/loftctl/flags"
 	"github.com/loft-sh/loftctl/v3/pkg/client"
 	"github.com/loft-sh/loftctl/v3/pkg/upgrade"
@@ -27,35 +28,32 @@ func NewClustersCmd(globalFlags *flags.GlobalFlags) *cobra.Command {
 		GlobalFlags: globalFlags,
 		log:         log.GetInstance(),
 	}
-	description := `
-#######################################################
-################## loft list clusters #################
-#######################################################
+	description := product.ReplaceWithHeader("list clusters", `
 List the loft clusters you have access to
 
 Example:
 loft list clusters
-#######################################################
-	`
+########################################################
+	`)
 	if upgrade.IsPlugin == "true" {
 		description = `
-#######################################################
-############### devspace list clusters ################
-#######################################################
+########################################################
+############### devspace list clusters #################
+########################################################
 List the loft clusters you have access to
 
 Example:
 devspace list clusters
-#######################################################
+########################################################
 	`
 	}
 	clustersCmd := &cobra.Command{
 		Use:   "clusters",
-		Short: "Lists the loft clusters you have access to",
+		Short: product.Replace("Lists the loft clusters you have access to"),
 		Long:  description,
 		Args:  cobra.NoArgs,
 		RunE: func(cobraCmd *cobra.Command, args []string) error {
-			return cmd.RunClusters()
+			return cmd.RunClusters(cobraCmd.Context())
 		},
 	}
 
@@ -63,7 +61,7 @@ devspace list clusters
 }
 
 // RunClusters executes the functionality
-func (cmd *ClustersCmd) RunClusters() error {
+func (cmd *ClustersCmd) RunClusters(ctx context.Context) error {
 	baseClient, err := client.NewClientFromPath(cmd.Config)
 	if err != nil {
 		return err
@@ -74,7 +72,7 @@ func (cmd *ClustersCmd) RunClusters() error {
 		return err
 	}
 
-	clusterList, err := managementClient.Loft().ManagementV1().Clusters().List(context.TODO(), metav1.ListOptions{})
+	clusterList, err := managementClient.Loft().ManagementV1().Clusters().List(ctx, metav1.ListOptions{})
 	if err != nil {
 		return err
 	}

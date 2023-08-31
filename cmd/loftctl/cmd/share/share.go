@@ -1,6 +1,7 @@
 package share
 
 import (
+	"github.com/loft-sh/api/v3/pkg/product"
 	"github.com/loft-sh/loftctl/v3/cmd/loftctl/flags"
 	pdefaults "github.com/loft-sh/loftctl/v3/pkg/defaults"
 	"github.com/loft-sh/loftctl/v3/pkg/upgrade"
@@ -9,11 +10,7 @@ import (
 
 // NewShareCmd creates a new cobra command
 func NewShareCmd(globalFlags *flags.GlobalFlags, defaults *pdefaults.Defaults) *cobra.Command {
-	description := `
-#######################################################
-##################### loft share ######################
-#######################################################
-	`
+	description := product.ReplaceWithHeader("share", "")
 	if upgrade.IsPlugin == "true" {
 		description = `
 #######################################################

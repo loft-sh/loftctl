@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	agentstoragev1 "github.com/loft-sh/agentapi/v3/pkg/apis/loft/storage/v1"
+	"github.com/loft-sh/api/v3/pkg/product"
 	"github.com/loft-sh/loftctl/v3/cmd/loftctl/flags"
 	"github.com/loft-sh/loftctl/v3/pkg/client"
 	"github.com/loft-sh/loftctl/v3/pkg/client/helper"
@@ -39,10 +40,7 @@ func NewSpaceCmd(globalFlags *flags.GlobalFlags, defaults *pdefaults.Defaults) *
 		GlobalFlags: globalFlags,
 		Log:         log.GetInstance(),
 	}
-	description := `
-#######################################################
-################### loft share space ##################
-#######################################################
+	description := product.ReplaceWithHeader("share space", `
 Shares a space with another loft user or team. The user
 or team need to have access to the cluster.
 
@@ -50,13 +48,13 @@ Example:
 loft share space myspace
 loft share space myspace --project myproject
 loft share space myspace --project myproject --user admin
-#######################################################
-	`
+########################################################
+	`)
 	if upgrade.IsPlugin == "true" {
 		description = `
-#######################################################
-################# devspace share space ################
-#######################################################
+########################################################
+################# devspace share space #################
+########################################################
 Shares a space with another loft user or team. The user
 or team need to have access to the cluster.
 
@@ -64,12 +62,12 @@ Example:
 devspace share space myspace
 devspace share space myspace --project myproject
 devspace share space myspace --project myproject --user admin
-#######################################################
+########################################################
 	`
 	}
 	c := &cobra.Command{
 		Use:   "space" + util.SpaceNameOnlyUseLine,
-		Short: "Shares a space with another loft user or team",
+		Short: product.Replace("Shares a space with another loft user or team"),
 		Long:  description,
 		Args:  util.SpaceNameOnlyValidator,
 		RunE: func(cobraCmd *cobra.Command, args []string) error {
@@ -106,20 +104,22 @@ func (cmd *SpaceCmd) Run(cobraCmd *cobra.Command, args []string) error {
 		return err
 	}
 
+	ctx := cobraCmd.Context()
+
 	if cmd.Project == "" {
-		return cmd.legacyShareSpace(baseClient, spaceName)
+		return cmd.legacyShareSpace(ctx, baseClient, spaceName)
 	}
 
-	return cmd.shareSpace(baseClient, spaceName)
+	return cmd.shareSpace(ctx, baseClient, spaceName)
 }
 
-func (cmd *SpaceCmd) shareSpace(baseClient client.Client, spaceName string) error {
+func (cmd *SpaceCmd) shareSpace(ctx context.Context, baseClient client.Client, spaceName string) error {
 	managementClient, err := baseClient.Management()
 	if err != nil {
 		return err
 	}
 
-	spaceInstance, err := managementClient.Loft().ManagementV1().SpaceInstances(naming.ProjectNamespace(cmd.Project)).Get(context.TODO(), spaceName, metav1.GetOptions{})
+	spaceInstance, err := managementClient.Loft().ManagementV1().SpaceInstances(naming.ProjectNamespace(cmd.Project)).Get(ctx, spaceName, metav1.GetOptions{})
 	if err != nil {
 		return err
 	}
@@ -137,40 +137,40 @@ func (cmd *SpaceCmd) shareSpace(baseClient client.Client, spaceName string) erro
 	if spaceInstance.Spec.TemplateRef != nil {
 		spaceInstance.Spec.TemplateRef.SyncOnce = true
 	}
-	_, err = managementClient.Loft().ManagementV1().SpaceInstances(naming.ProjectNamespace(cmd.Project)).Update(context.TODO(), spaceInstance, metav1.UpdateOptions{})
+	_, err = managementClient.Loft().ManagementV1().SpaceInstances(naming.ProjectNamespace(cmd.Project)).Update(ctx, spaceInstance, metav1.UpdateOptions{})
 	if err != nil {
 		return err
 	}
 
 	if cmd.User != "" {
 		cmd.Log.Donef("Successfully granted user %s access to space %s", ansi.Color(cmd.User, "white+b"), ansi.Color(spaceName, "white+b"))
-		cmd.Log.Infof("The user can access the space now via: %s", ansi.Color(fmt.Sprintf("loft use space %s --project %s", spaceName, cmd.Project), "white+b"))
+		cmd.Log.Infof("The user can access the space now via: %s", ansi.Color(fmt.Sprintf(product.Replace("loft use space %s --project %s"), spaceName, cmd.Project), "white+b"))
 	} else {
 		cmd.Log.Donef("Successfully granted team %s access to space %s", ansi.Color(cmd.Team, "white+b"), ansi.Color(spaceName, "white+b"))
-		cmd.Log.Infof("The team can access the space now via: %s", ansi.Color(fmt.Sprintf("loft use space %s --project %s", spaceName, cmd.Project), "white+b"))
+		cmd.Log.Infof("The team can access the space now via: %s", ansi.Color(fmt.Sprintf(product.Replace("loft use space %s --project %s"), spaceName, cmd.Project), "white+b"))
 	}
 
 	return nil
 }
 
-func (cmd *SpaceCmd) legacyShareSpace(baseClient client.Client, spaceName string) error {
-	userOrTeam, err := createRoleBinding(baseClient, cmd.Cluster, spaceName, cmd.User, cmd.Team, cmd.ClusterRole, cmd.Log)
+func (cmd *SpaceCmd) legacyShareSpace(ctx context.Context, baseClient client.Client, spaceName string) error {
+	userOrTeam, err := createRoleBinding(ctx, baseClient, cmd.Cluster, spaceName, cmd.User, cmd.Team, cmd.ClusterRole, cmd.Log)
 	if err != nil {
 		return err
 	}
 
 	if !userOrTeam.Team {
 		cmd.Log.Donef("Successfully granted user %s access to space %s", ansi.Color(userOrTeam.ClusterMember.Info.Name, "white+b"), ansi.Color(spaceName, "white+b"))
-		cmd.Log.Infof("The user can access the space now via: %s", ansi.Color(fmt.Sprintf("loft use space %s --cluster %s", spaceName, cmd.Cluster), "white+b"))
+		cmd.Log.Infof("The user can access the space now via: %s", ansi.Color(fmt.Sprintf(product.Replace("loft use space %s --cluster %s"), spaceName, cmd.Cluster), "white+b"))
 	} else {
 		cmd.Log.Donef("Successfully granted team %s access to space %s", ansi.Color(userOrTeam.ClusterMember.Info.Name, "white+b"), ansi.Color(spaceName, "white+b"))
-		cmd.Log.Infof("The team can access the space now via: %s", ansi.Color(fmt.Sprintf("loft use space %s --cluster %s", spaceName, cmd.Cluster), "white+b"))
+		cmd.Log.Infof("The team can access the space now via: %s", ansi.Color(fmt.Sprintf(product.Replace("loft use space %s --cluster %s"), spaceName, cmd.Cluster), "white+b"))
 	}
 
 	return nil
 }
 
-func createRoleBinding(baseClient client.Client, clusterName, spaceName, userName, teamName, clusterRole string, log log.Logger) (*helper.ClusterUserOrTeam, error) {
+func createRoleBinding(ctx context.Context, baseClient client.Client, clusterName, spaceName, userName, teamName, clusterRole string, log log.Logger) (*helper.ClusterUserOrTeam, error) {
 	userOrTeam, err := helper.SelectClusterUserOrTeam(baseClient, clusterName, userName, teamName, log)
 	if err != nil {
 		return nil, err
@@ -182,7 +182,7 @@ func createRoleBinding(baseClient client.Client, clusterName, spaceName, userNam
 	}
 
 	// check if there is already a role binding for this user or team already
-	roleBindings, err := clusterClient.RbacV1().RoleBindings(spaceName).List(context.TODO(), metav1.ListOptions{})
+	roleBindings, err := clusterClient.RbacV1().RoleBindings(spaceName).List(ctx, metav1.ListOptions{})
 	if err != nil {
 		return nil, err
 	}
@@ -216,7 +216,7 @@ func createRoleBinding(baseClient client.Client, clusterName, spaceName, userNam
 	}
 
 	// create the rolebinding
-	_, err = clusterClient.RbacV1().RoleBindings(spaceName).Create(context.TODO(), &rbacv1.RoleBinding{
+	_, err = clusterClient.RbacV1().RoleBindings(spaceName).Create(ctx, &rbacv1.RoleBinding{
 		ObjectMeta: metav1.ObjectMeta{
 			GenerateName: roleBindingName + "-",
 		},

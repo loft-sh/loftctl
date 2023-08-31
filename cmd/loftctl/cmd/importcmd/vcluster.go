@@ -9,6 +9,7 @@ import (
 	"github.com/mgutz/ansi"
 
 	managementv1 "github.com/loft-sh/api/v3/pkg/apis/management/v1"
+	"github.com/loft-sh/api/v3/pkg/product"
 
 	"github.com/loft-sh/loftctl/v3/cmd/loftctl/flags"
 	"github.com/loft-sh/loftctl/v3/pkg/upgrade"
@@ -34,17 +35,14 @@ func NewVClusterCmd(globalFlags *flags.GlobalFlags) *cobra.Command {
 		log:         log.GetInstance(),
 	}
 
-	description := `
-#######################################################
-################## loft import vcluster ###############
-#######################################################
+	description := product.ReplaceWithHeader("import vcluster", `
 Imports a vcluster into a Loft project.
 
 Example:
 loft import vcluster my-vcluster --cluster connected-cluster my-vcluster \
   --namespace vcluster-my-vcluster --project my-project --importname my-vcluster
 #######################################################
-	`
+	`)
 	if upgrade.IsPlugin == "true" {
 		description = `
 #######################################################
@@ -67,7 +65,7 @@ devspace import vcluster my-vcluster --cluster connected-cluster my-vcluster \
 			// Check for newer version
 			upgrade.PrintNewerVersionWarning()
 
-			return cmd.Run(args)
+			return cmd.Run(cobraCmd.Context(), args)
 		},
 	}
 
@@ -83,7 +81,7 @@ devspace import vcluster my-vcluster --cluster connected-cluster my-vcluster \
 	return c
 }
 
-func (cmd *VClusterCmd) Run(args []string) error {
+func (cmd *VClusterCmd) Run(ctx context.Context, args []string) error {
 	// Get vclusterName from command argument
 	var vclusterName string = args[0]
 
@@ -102,7 +100,7 @@ func (cmd *VClusterCmd) Run(args []string) error {
 		return err
 	}
 
-	if _, err = managementClient.Loft().ManagementV1().Projects().ImportVirtualCluster(context.TODO(), cmd.Project, &managementv1.ProjectImportVirtualCluster{
+	if _, err = managementClient.Loft().ManagementV1().Projects().ImportVirtualCluster(ctx, cmd.Project, &managementv1.ProjectImportVirtualCluster{
 		SourceVirtualCluster: managementv1.ProjectImportVirtualClusterSource{
 			Name:       vclusterName,
 			Namespace:  cmd.VClusterNamespace,

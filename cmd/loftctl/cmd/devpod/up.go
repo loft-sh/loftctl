@@ -163,7 +163,7 @@ func createWorkspace(ctx context.Context, baseClient client.Client, log log.Logg
 	log.Infof("Created workspace %s", workspace.Name)
 
 	// we need to wait until instance is scheduled
-	err = wait.PollImmediate(time.Second, time.Second*30, func() (bool, error) {
+	err = wait.PollUntilContextTimeout(ctx, time.Second, 30*time.Second, true, func(ctx context.Context) (done bool, err error) {
 		workspace, err = managementClient.Loft().ManagementV1().DevPodWorkspaceInstances(naming.ProjectNamespace(projectName)).Get(ctx, workspace.Name, metav1.GetOptions{})
 		if err != nil {
 			return false, err

@@ -53,7 +53,11 @@ const (
 
 func init() {
 	hd, _ := homedir.Dir()
-	CacheFolder = filepath.Join(hd, CacheFolder)
+	if folder, ok := os.LookupEnv(constants.LoftCacheFolderEnv); ok {
+		CacheFolder = filepath.Join(hd, folder)
+	} else {
+		CacheFolder = filepath.Join(hd, CacheFolder)
+	}
 	DefaultCacheConfig = filepath.Join(CacheFolder, DefaultCacheConfig)
 }
 
