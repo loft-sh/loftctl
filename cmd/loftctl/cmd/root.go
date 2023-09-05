@@ -100,7 +100,10 @@ func BuildRoot(log *log.StreamLogger) *cobra.Command {
 		rootCmd = &cobra.Command{Use: "vcluster"}
 		rootCmd.AddCommand(proCmd)
 
-		vclusterpro.BuildVclusterProRoot(proCmd, globalFlags, defaults)
+		vclusterpro.BuildVclusterProRoot(proCmd, globalFlags, defaults, []*cobra.Command{
+			NewStartCmd(globalFlags),
+			NewLoginCmd(globalFlags),
+		})
 	case product.DevPodPro, product.Loft:
 		buildLoftRoot(rootCmd, defaults)
 	}

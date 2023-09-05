@@ -10,7 +10,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
-func BuildVclusterProRoot(rootCmd *cobra.Command, globalFlags *flags.GlobalFlags, defaults *defaults.Defaults) {
+func BuildVclusterProRoot(rootCmd *cobra.Command, globalFlags *flags.GlobalFlags, defaults *defaults.Defaults, additionalCommands []*cobra.Command) {
 	// vcluster pro related top level commands
 	rootCmd.AddCommand(NewConnectCmd(globalFlags, defaults))
 	rootCmd.AddCommand(NewCreateCmd(globalFlags, defaults))
@@ -23,4 +23,7 @@ func BuildVclusterProRoot(rootCmd *cobra.Command, globalFlags *flags.GlobalFlags
 	rootCmd.AddCommand(secret.NewRootCmd(globalFlags, defaults))
 	rootCmd.AddCommand(generate.NewGenerateCmd(globalFlags))
 	rootCmd.AddCommand(reset.NewResetCmd(globalFlags))
+
+	// add additional commands
+	rootCmd.AddCommand(additionalCommands...)
 }
