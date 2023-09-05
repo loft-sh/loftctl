@@ -17,9 +17,9 @@ func NewDevPodCmd(globalFlags *flags.GlobalFlags) *cobra.Command {
 		Hidden: true,
 		Short:  "DevPod commands",
 		Long: `
-#######################################################
-##################### loft devpod #####################
-#######################################################
+########################################################
+##################### loft devpod ######################
+########################################################
 	`,
 		PersistentPreRunE: func(cobraCmd *cobra.Command, args []string) error {
 			if os.Getenv("DEVPOD_DEBUG") == "true" {

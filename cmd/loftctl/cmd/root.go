@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/loft-sh/api/v3/pkg/product"
 	"github.com/loft-sh/loftctl/v3/cmd/loftctl/cmd/connect"
 	"github.com/loft-sh/loftctl/v3/cmd/loftctl/cmd/create"
 	cmddefaults "github.com/loft-sh/loftctl/v3/cmd/loftctl/cmd/defaults"
@@ -35,7 +36,7 @@ func NewRootCmd(streamLogger *log.StreamLogger) *cobra.Command {
 		Use:           "loft",
 		SilenceUsage:  true,
 		SilenceErrors: true,
-		Short:         "Welcome to Loft!",
+		Short:         product.Replace("Welcome to Loft!"),
 		PersistentPreRunE: func(cobraCmd *cobra.Command, args []string) error {
 			if globalFlags.Silent {
 				streamLogger.SetLevel(logrus.FatalLevel)
@@ -54,7 +55,7 @@ func NewRootCmd(streamLogger *log.StreamLogger) *cobra.Command {
 
 			return nil
 		},
-		Long: `Loft CLI - www.loft.sh`,
+		Long: product.Replace(`Loft CLI`) + " - www.loft.sh",
 	}
 }
 
@@ -115,6 +116,22 @@ func BuildRoot(log *log.StreamLogger) *cobra.Command {
 	rootCmd.AddCommand(connect.NewConnectCmd(globalFlags))
 	rootCmd.AddCommand(cmddefaults.NewDefaultsCmd(globalFlags, defaults))
 	rootCmd.AddCommand(devpod.NewDevPodCmd(globalFlags))
+
+	if product.IsProduct(product.VClusterPro) {
+		proCmd := rootCmd
+		rootCmd = &cobra.Command{}
+
+		switch product.Product() {
+		case product.DevPodPro:
+			rootCmd.Use = "devpod"
+		case product.VClusterPro:
+			rootCmd.Use = "vcluster"
+		case product.Loft:
+		}
+
+		proCmd.Use = "pro"
+		rootCmd.AddCommand(proCmd)
+	}
 
 	return rootCmd
 }

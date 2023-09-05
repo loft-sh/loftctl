@@ -4,6 +4,7 @@ import (
 	"context"
 	"time"
 
+	"github.com/loft-sh/api/v3/pkg/product"
 	"github.com/loft-sh/loftctl/v3/pkg/client/naming"
 	"github.com/loft-sh/loftctl/v3/pkg/constants"
 	"github.com/loft-sh/loftctl/v3/pkg/kube"
@@ -42,17 +43,14 @@ func NewVirtualClusterCmd(globalFlags *flags.GlobalFlags, defaults *pdefaults.De
 		GlobalFlags: globalFlags,
 		Log:         log.GetInstance(),
 	}
-	description := `
-#######################################################
-############ loft delete virtualcluster ###############
-#######################################################
+	description := product.ReplaceWithHeader("delete virtualcluster", `
 Deletes a virtual cluster from a cluster
 
 Example:
 loft delete vcluster myvirtualcluster
 loft delete vcluster myvirtualcluster --project myproject
-#######################################################
-	`
+########################################################
+	`)
 	if upgrade.IsPlugin == "true" {
 		description = `
 #######################################################
@@ -75,7 +73,7 @@ devspace delete vcluster myvirtualcluster --project myproject
 			// Check for newer version
 			upgrade.PrintNewerVersionWarning()
 
-			return cmd.Run(args)
+			return cmd.Run(cobraCmd.Context(), args)
 		},
 	}
 
@@ -90,7 +88,7 @@ devspace delete vcluster myvirtualcluster --project myproject
 }
 
 // Run executes the command
-func (cmd *VirtualClusterCmd) Run(args []string) error {
+func (cmd *VirtualClusterCmd) Run(ctx context.Context, args []string) error {
 	baseClient, err := client.NewClientFromPath(cmd.Config)
 	if err != nil {
 		return err
@@ -107,19 +105,19 @@ func (cmd *VirtualClusterCmd) Run(args []string) error {
 	}
 
 	if cmd.Project == "" {
-		return cmd.legacyDeleteVirtualCluster(baseClient, virtualClusterName)
+		return cmd.legacyDeleteVirtualCluster(ctx, baseClient, virtualClusterName)
 	}
 
-	return cmd.deleteVirtualCluster(baseClient, virtualClusterName)
+	return cmd.deleteVirtualCluster(ctx, baseClient, virtualClusterName)
 }
 
-func (cmd *VirtualClusterCmd) deleteVirtualCluster(baseClient client.Client, virtualClusterName string) error {
+func (cmd *VirtualClusterCmd) deleteVirtualCluster(ctx context.Context, baseClient client.Client, virtualClusterName string) error {
 	managementClient, err := baseClient.Management()
 	if err != nil {
 		return err
 	}
 
-	err = managementClient.Loft().ManagementV1().VirtualClusterInstances(naming.ProjectNamespace(cmd.Project)).Delete(context.TODO(), virtualClusterName, metav1.DeleteOptions{})
+	err = managementClient.Loft().ManagementV1().VirtualClusterInstances(naming.ProjectNamespace(cmd.Project)).Delete(ctx, virtualClusterName, metav1.DeleteOptions{})
 	if err != nil {
 		return errors.Wrap(err, "delete virtual cluster")
 	}
@@ -139,7 +137,7 @@ func (cmd *VirtualClusterCmd) deleteVirtualCluster(baseClient client.Client, vir
 	// wait until deleted
 	if cmd.Wait {
 		cmd.Log.Info("Waiting for virtual cluster to be deleted...")
-		for isVirtualClusterInstanceStillThere(managementClient, naming.ProjectNamespace(cmd.Project), virtualClusterName) {
+		for isVirtualClusterInstanceStillThere(ctx, managementClient, naming.ProjectNamespace(cmd.Project), virtualClusterName) {
 			time.Sleep(time.Second)
 		}
 		cmd.Log.Done("Virtual Cluster is deleted")
@@ -148,19 +146,19 @@ func (cmd *VirtualClusterCmd) deleteVirtualCluster(baseClient client.Client, vir
 	return nil
 }
 
-func isVirtualClusterInstanceStillThere(managementClient kube.Interface, namespace, name string) bool {
-	_, err := managementClient.Loft().ManagementV1().VirtualClusterInstances(namespace).Get(context.TODO(), name, metav1.GetOptions{})
+func isVirtualClusterInstanceStillThere(ctx context.Context, managementClient kube.Interface, namespace, name string) bool {
+	_, err := managementClient.Loft().ManagementV1().VirtualClusterInstances(namespace).Get(ctx, name, metav1.GetOptions{})
 	return err == nil
 }
 
-func (cmd *VirtualClusterCmd) legacyDeleteVirtualCluster(baseClient client.Client, virtualClusterName string) error {
+func (cmd *VirtualClusterCmd) legacyDeleteVirtualCluster(ctx context.Context, baseClient client.Client, virtualClusterName string) error {
 	clusterClient, err := baseClient.Cluster(cmd.Cluster)
 	if err != nil {
 		return err
 	}
 
 	gracePeriod := int64(0)
-	err = clusterClient.Agent().StorageV1().VirtualClusters(cmd.Space).Delete(context.TODO(), virtualClusterName, metav1.DeleteOptions{GracePeriodSeconds: &gracePeriod})
+	err = clusterClient.Agent().StorageV1().VirtualClusters(cmd.Space).Delete(ctx, virtualClusterName, metav1.DeleteOptions{GracePeriodSeconds: &gracePeriod})
 	if err != nil {
 		return errors.Wrap(err, "delete virtual cluster")
 	}
@@ -178,14 +176,14 @@ func (cmd *VirtualClusterCmd) legacyDeleteVirtualCluster(baseClient client.Clien
 	}
 
 	// check if we should delete space
-	spaceObject, err := clusterClient.Agent().ClusterV1().Spaces().Get(context.TODO(), cmd.Space, metav1.GetOptions{})
+	spaceObject, err := clusterClient.Agent().ClusterV1().Spaces().Get(ctx, cmd.Space, metav1.GetOptions{})
 	if err == nil && spaceObject.Annotations != nil && spaceObject.Annotations[constants.VClusterSpace] == "true" {
 		cmd.DeleteSpace = true
 	}
 
 	// delete space
 	if cmd.DeleteSpace {
-		err = clusterClient.Agent().ClusterV1().Spaces().Delete(context.TODO(), cmd.Space, metav1.DeleteOptions{})
+		err = clusterClient.Agent().ClusterV1().Spaces().Delete(ctx, cmd.Space, metav1.DeleteOptions{})
 		if err != nil {
 			return err
 		}
@@ -193,7 +191,7 @@ func (cmd *VirtualClusterCmd) legacyDeleteVirtualCluster(baseClient client.Clien
 		// wait for termination
 		if cmd.Wait {
 			cmd.Log.Info("Waiting for space to be deleted...")
-			for isSpaceStillThere(clusterClient, cmd.Space) {
+			for isSpaceStillThere(ctx, clusterClient, cmd.Space) {
 				time.Sleep(time.Second)
 			}
 		}

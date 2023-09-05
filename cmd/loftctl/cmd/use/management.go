@@ -3,6 +3,7 @@ package use
 import (
 	"os"
 
+	"github.com/loft-sh/api/v3/pkg/product"
 	"github.com/loft-sh/loftctl/v3/cmd/loftctl/flags"
 	"github.com/loft-sh/loftctl/v3/pkg/client"
 	"github.com/loft-sh/loftctl/v3/pkg/kubeconfig"
@@ -28,31 +29,28 @@ func NewManagementCmd(globalFlags *flags.GlobalFlags) *cobra.Command {
 		log:         log.GetInstance(),
 	}
 
-	description := `
-#######################################################
-################## loft use management ################
-#######################################################
+	description := product.ReplaceWithHeader("use management", `
 Creates a new kube context to the Loft Management API.
 
 Example:
 loft use management
-#######################################################
-	`
+########################################################
+	`)
 	if upgrade.IsPlugin == "true" {
 		description = `
-#######################################################
-################ devspace use management ##############
-#######################################################
+########################################################
+################ devspace use management ###############
+########################################################
 Creates a new kube context to the Loft Management API.
 
 Example:
 devspace use management
-#######################################################
+########################################################
 	`
 	}
 	c := &cobra.Command{
 		Use:   "management",
-		Short: "Creates a kube context to the Loft Management API",
+		Short: product.Replace("Creates a kube context to the Loft Management API"),
 		Long:  description,
 		Args:  cobra.MaximumNArgs(1),
 		RunE: func(cobraCmd *cobra.Command, args []string) error {

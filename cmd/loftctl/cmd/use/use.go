@@ -1,6 +1,7 @@
 package use
 
 import (
+	"github.com/loft-sh/api/v3/pkg/product"
 	"github.com/loft-sh/loftctl/v3/cmd/loftctl/flags"
 	pdefaults "github.com/loft-sh/loftctl/v3/pkg/defaults"
 	"github.com/loft-sh/loftctl/v3/pkg/upgrade"
@@ -9,13 +10,10 @@ import (
 
 // NewUseCmd creates a new cobra command
 func NewUseCmd(globalFlags *flags.GlobalFlags, defaults *pdefaults.Defaults) *cobra.Command {
-	description := `
-#######################################################
-###################### loft use #######################
-#######################################################
+	description := product.ReplaceWithHeader("use", `
 
 Activates a kube context for the given cluster / space / vcluster / management.
-	`
+	`)
 	if upgrade.IsPlugin == "true" {
 		description = `
 #######################################################
@@ -27,7 +25,7 @@ Activates a kube context for the given cluster / space / vcluster / management.
 	}
 	useCmd := &cobra.Command{
 		Use:   "use",
-		Short: "Uses loft resources",
+		Short: product.Replace("Uses loft resources"),
 		Long:  description,
 		Args:  cobra.NoArgs,
 	}

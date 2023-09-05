@@ -1,16 +1,17 @@
 module github.com/loft-sh/loftctl/v3
 
-go 1.21
+go 1.21.0
 
 require (
 	github.com/blang/semver v3.5.1+incompatible
+	github.com/denisbrodbeck/machineid v1.0.1
 	github.com/docker/cli v23.0.0-rc.1+incompatible
 	github.com/docker/docker v23.0.0-rc.1+incompatible
 	github.com/evanphx/json-patch v5.6.0+incompatible
 	github.com/ghodss/yaml v1.0.0
 	github.com/gorilla/websocket v1.4.2
-	github.com/loft-sh/agentapi/v3 v3.2.3
-	github.com/loft-sh/api/v3 v3.2.3
+	github.com/loft-sh/agentapi/v3 v3.2.4
+	github.com/loft-sh/api/v3 v3.2.4
 	github.com/loft-sh/apiserver v0.0.0-20230628051307-f26967fbb40f
 	github.com/loft-sh/devpod v0.3.0
 	github.com/loft-sh/log v0.0.0-20230719145733-9d1aeda592a2
@@ -52,7 +53,6 @@ require (
 	github.com/coreos/go-semver v0.3.1 // indirect
 	github.com/coreos/go-systemd/v22 v22.5.0 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
-	github.com/denisbrodbeck/machineid v1.0.1 // indirect
 	github.com/docker/docker-credential-helpers v0.7.0 // indirect
 	github.com/emicklei/go-restful/v3 v3.10.2 // indirect
 	github.com/evanphx/json-patch/v5 v5.6.0 // indirect

@@ -4,6 +4,7 @@ import (
 	"context"
 	"time"
 
+	"github.com/loft-sh/api/v3/pkg/product"
 	"github.com/loft-sh/loftctl/v3/pkg/client/naming"
 	pdefaults "github.com/loft-sh/loftctl/v3/pkg/defaults"
 	"github.com/loft-sh/loftctl/v3/pkg/util"
@@ -39,17 +40,14 @@ func NewSpaceCmd(globalFlags *flags.GlobalFlags, defaults *pdefaults.Defaults) *
 		GlobalFlags: globalFlags,
 		Log:         log.GetInstance(),
 	}
-	description := `
-#######################################################
-################# loft delete space ###################
-#######################################################
+	description := product.ReplaceWithHeader("delete space", `
 Deletes a space from a cluster
 
 Example:
 loft delete space myspace
 loft delete space myspace --project myproject
-#######################################################
-	`
+########################################################
+	`)
 	if upgrade.IsPlugin == "true" {
 		description = `
 #######################################################
@@ -72,7 +70,7 @@ devspace delete space myspace --project myproject
 			// Check for newer version
 			upgrade.PrintNewerVersionWarning()
 
-			return cmd.Run(args)
+			return cmd.Run(cobraCmd.Context(), args)
 		},
 	}
 
@@ -85,7 +83,7 @@ devspace delete space myspace --project myproject
 }
 
 // Run executes the command
-func (cmd *SpaceCmd) Run(args []string) error {
+func (cmd *SpaceCmd) Run(ctx context.Context, args []string) error {
 	baseClient, err := client.NewClientFromPath(cmd.Config)
 	if err != nil {
 		return err
@@ -102,19 +100,19 @@ func (cmd *SpaceCmd) Run(args []string) error {
 	}
 
 	if cmd.Project == "" {
-		return cmd.legacyDeleteSpace(baseClient, spaceName)
+		return cmd.legacyDeleteSpace(ctx, baseClient, spaceName)
 	}
 
-	return cmd.deleteSpace(baseClient, spaceName)
+	return cmd.deleteSpace(ctx, baseClient, spaceName)
 }
 
-func (cmd *SpaceCmd) deleteSpace(baseClient client.Client, spaceName string) error {
+func (cmd *SpaceCmd) deleteSpace(ctx context.Context, baseClient client.Client, spaceName string) error {
 	managementClient, err := baseClient.Management()
 	if err != nil {
 		return err
 	}
 
-	err = managementClient.Loft().ManagementV1().SpaceInstances(naming.ProjectNamespace(cmd.Project)).Delete(context.TODO(), spaceName, metav1.DeleteOptions{})
+	err = managementClient.Loft().ManagementV1().SpaceInstances(naming.ProjectNamespace(cmd.Project)).Delete(ctx, spaceName, metav1.DeleteOptions{})
 	if err != nil {
 		return errors.Wrap(err, "delete space")
 	}
@@ -134,7 +132,7 @@ func (cmd *SpaceCmd) deleteSpace(baseClient client.Client, spaceName string) err
 	// wait until deleted
 	if cmd.Wait {
 		cmd.Log.Info("Waiting for space to be deleted...")
-		for isSpaceInstanceStillThere(managementClient, naming.ProjectNamespace(cmd.Project), spaceName) {
+		for isSpaceInstanceStillThere(ctx, managementClient, naming.ProjectNamespace(cmd.Project), spaceName) {
 			time.Sleep(time.Second)
 		}
 		cmd.Log.Done("Space is deleted")
@@ -143,19 +141,19 @@ func (cmd *SpaceCmd) deleteSpace(baseClient client.Client, spaceName string) err
 	return nil
 }
 
-func isSpaceInstanceStillThere(managementClient kube.Interface, spaceInstanceNamespace, spaceName string) bool {
-	_, err := managementClient.Loft().ManagementV1().SpaceInstances(spaceInstanceNamespace).Get(context.TODO(), spaceName, metav1.GetOptions{})
+func isSpaceInstanceStillThere(ctx context.Context, managementClient kube.Interface, spaceInstanceNamespace, spaceName string) bool {
+	_, err := managementClient.Loft().ManagementV1().SpaceInstances(spaceInstanceNamespace).Get(ctx, spaceName, metav1.GetOptions{})
 	return err == nil
 }
 
-func (cmd *SpaceCmd) legacyDeleteSpace(baseClient client.Client, spaceName string) error {
+func (cmd *SpaceCmd) legacyDeleteSpace(ctx context.Context, baseClient client.Client, spaceName string) error {
 	clusterClient, err := baseClient.Cluster(cmd.Cluster)
 	if err != nil {
 		return err
 	}
 
 	gracePeriod := int64(0)
-	err = clusterClient.Agent().ClusterV1().Spaces().Delete(context.TODO(), spaceName, metav1.DeleteOptions{GracePeriodSeconds: &gracePeriod})
+	err = clusterClient.Agent().ClusterV1().Spaces().Delete(ctx, spaceName, metav1.DeleteOptions{GracePeriodSeconds: &gracePeriod})
 	if err != nil {
 		return errors.Wrap(err, "delete space")
 	}
@@ -175,7 +173,7 @@ func (cmd *SpaceCmd) legacyDeleteSpace(baseClient client.Client, spaceName strin
 	// update kube config
 	if cmd.Wait {
 		cmd.Log.Info("Waiting for space to be deleted...")
-		for isSpaceStillThere(clusterClient, spaceName) {
+		for isSpaceStillThere(ctx, clusterClient, spaceName) {
 			time.Sleep(time.Second)
 		}
 		cmd.Log.Done("Space is deleted")
@@ -184,7 +182,7 @@ func (cmd *SpaceCmd) legacyDeleteSpace(baseClient client.Client, spaceName strin
 	return nil
 }
 
-func isSpaceStillThere(clusterClient kube.Interface, spaceName string) bool {
-	_, err := clusterClient.Agent().ClusterV1().Spaces().Get(context.TODO(), spaceName, metav1.GetOptions{})
+func isSpaceStillThere(ctx context.Context, clusterClient kube.Interface, spaceName string) bool {
+	_, err := clusterClient.Agent().ClusterV1().Spaces().Get(ctx, spaceName, metav1.GetOptions{})
 	return err == nil
 }

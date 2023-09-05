@@ -16,6 +16,7 @@ import (
 
 	managementv1 "github.com/loft-sh/api/v3/pkg/apis/management/v1"
 	storagev1 "github.com/loft-sh/api/v3/pkg/apis/storage/v1"
+	"github.com/loft-sh/api/v3/pkg/product"
 	"github.com/loft-sh/loftctl/v3/cmd/loftctl/cmd/generate"
 	"github.com/loft-sh/loftctl/v3/cmd/loftctl/flags"
 	"github.com/loft-sh/loftctl/v3/pkg/kubeconfig"
@@ -44,31 +45,28 @@ func NewClusterCmd(globalFlags *flags.GlobalFlags) *cobra.Command {
 		Log:         log.GetInstance(),
 	}
 
-	description := `
-#######################################################
-################## loft connect cluster ###############
-#######################################################
+	description := product.ReplaceWithHeader("connect cluster", `
 Connect a cluster to the Loft instance.
 
 Example:
 loft connect cluster my-cluster
-#######################################################
-	`
+########################################################
+	`)
 	if upgrade.IsPlugin == "true" {
 		description = `
-#######################################################
-################ devspace connect cluster #############
-#######################################################
+########################################################
+################ devspace connect cluster ##############
+########################################################
 Connect a cluster to the Loft instance.
 
 Example:
 devspace connect cluster my-cluster
-#######################################################
+########################################################
 	`
 	}
 	c := &cobra.Command{
 		Use:   "cluster",
-		Short: "connect current cluster to Loft",
+		Short: product.Replace("connect current cluster to Loft"),
 		Long:  description,
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cobraCmd *cobra.Command, args []string) error {
@@ -81,7 +79,7 @@ devspace connect cluster my-cluster
 			// Check for newer version
 			upgrade.PrintNewerVersionWarning()
 
-			return cmd.Run(c, args)
+			return cmd.Run(cobraCmd.Context(), c, args)
 		},
 	}
 
@@ -93,7 +91,7 @@ devspace connect cluster my-cluster
 	return c
 }
 
-func (cmd *ClusterCmd) Run(c *rest.Config, args []string) error {
+func (cmd *ClusterCmd) Run(ctx context.Context, c *rest.Config, args []string) error {
 	// Get clusterName from command argument
 	var clusterName string = args[0]
 
@@ -113,19 +111,19 @@ func (cmd *ClusterCmd) Run(c *rest.Config, args []string) error {
 	}
 
 	// get user details
-	user, team, err := getUserOrTeam(managementClient)
+	user, team, err := getUserOrTeam(ctx, managementClient)
 	if err != nil {
 		return err
 	}
 
 	// get cluster config
-	clusterConfig, err := getClusterKubeConfig(c, cmd.Namespace, cmd.ServiceAccount)
+	clusterConfig, err := getClusterKubeConfig(ctx, c, cmd.Namespace, cmd.ServiceAccount)
 	if err != nil {
 		return err
 	}
 
 	// connect cluster
-	_, err = managementClient.Loft().ManagementV1().ClusterConnects().Create(context.TODO(), &managementv1.ClusterConnect{
+	_, err = managementClient.Loft().ManagementV1().ClusterConnects().Create(ctx, &managementv1.ClusterConnect{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: clusterName,
 		},
@@ -152,8 +150,8 @@ func (cmd *ClusterCmd) Run(c *rest.Config, args []string) error {
 
 	if cmd.Wait {
 		cmd.Log.Info("Waiting for the cluster to be initialized...")
-		waitErr := wait.Poll(time.Second, config.Timeout(), func() (done bool, err error) {
-			clusterInstance, err := managementClient.Loft().ManagementV1().Clusters().Get(context.TODO(), clusterName, metav1.GetOptions{})
+		waitErr := wait.PollUntilContextTimeout(ctx, time.Second, config.Timeout(), false, func(ctx context.Context) (done bool, err error) {
+			clusterInstance, err := managementClient.Loft().ManagementV1().Clusters().Get(ctx, clusterName, metav1.GetOptions{})
 			if err != nil && !kerrors.IsNotFound(err) {
 				return false, err
 			}
@@ -170,10 +168,10 @@ func (cmd *ClusterCmd) Run(c *rest.Config, args []string) error {
 	return nil
 }
 
-func getUserOrTeam(managementClient kube.Interface) (string, string, error) {
+func getUserOrTeam(ctx context.Context, managementClient kube.Interface) (string, string, error) {
 	var user, team string
 
-	userName, teamName, err := helper.GetCurrentUser(context.TODO(), managementClient)
+	userName, teamName, err := helper.GetCurrentUser(ctx, managementClient)
 	if err != nil {
 		return "", "", err
 	}
@@ -204,10 +202,10 @@ func getAccess(user, team string) []storagev1.Access {
 	return access
 }
 
-func getClusterKubeConfig(c *rest.Config, namespace, serviceAccount string) (bytes.Buffer, error) {
+func getClusterKubeConfig(ctx context.Context, c *rest.Config, namespace, serviceAccount string) (bytes.Buffer, error) {
 	var clusterConfig bytes.Buffer
 
-	token, err := generate.GetAuthToken(c, namespace, serviceAccount)
+	token, err := generate.GetAuthToken(ctx, c, namespace, serviceAccount)
 	if err != nil {
 		return bytes.Buffer{}, errors.Wrap(err, "get auth token")
 	}

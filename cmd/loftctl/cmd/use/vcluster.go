@@ -7,6 +7,7 @@ import (
 	"os"
 
 	managementv1 "github.com/loft-sh/api/v3/pkg/apis/management/v1"
+	"github.com/loft-sh/api/v3/pkg/product"
 	"github.com/loft-sh/loftctl/v3/cmd/loftctl/flags"
 	"github.com/loft-sh/loftctl/v3/pkg/client"
 	"github.com/loft-sh/loftctl/v3/pkg/client/helper"
@@ -50,10 +51,7 @@ func NewVirtualClusterCmd(globalFlags *flags.GlobalFlags, defaults *pdefaults.De
 		Log:         log.GetInstance(),
 	}
 
-	description := `
-#######################################################
-################## loft use vcluster ##################
-#######################################################
+	description := product.ReplaceWithHeader("use vcluster", `
 Creates a new kube context for the given virtual cluster.
 
 Example:
@@ -61,13 +59,13 @@ loft use vcluster
 loft use vcluster myvcluster
 loft use vcluster myvcluster --cluster mycluster
 loft use vcluster myvcluster --cluster mycluster --space myspace
-#######################################################
-	`
+########################################################
+	`)
 	if upgrade.IsPlugin == "true" {
 		description = `
-#######################################################
-################ devspace use vcluster ################
-#######################################################
+########################################################
+################ devspace use vcluster #################
+########################################################
 Creates a new kube context for the given virtual cluster.
 
 Example:
@@ -75,7 +73,7 @@ devspace use vcluster
 devspace use vcluster myvcluster
 devspace use vcluster myvcluster --cluster mycluster
 devspace use vcluster myvcluster --cluster mycluster --space myspace
-#######################################################
+########################################################
 	`
 	}
 	useLine, validator := util.NamedPositionalArgsValidator(false, "VCLUSTER_NAME")
@@ -90,7 +88,7 @@ devspace use vcluster myvcluster --cluster mycluster --space myspace
 				upgrade.PrintNewerVersionWarning()
 			}
 
-			return cmd.Run(args)
+			return cmd.Run(cobraCmd.Context(), args)
 		},
 	}
 
@@ -105,7 +103,7 @@ devspace use vcluster myvcluster --cluster mycluster --space myspace
 }
 
 // Run executes the command
-func (cmd *VirtualClusterCmd) Run(args []string) error {
+func (cmd *VirtualClusterCmd) Run(ctx context.Context, args []string) error {
 	baseClient, err := client.NewClientFromPath(cmd.Config)
 	if err != nil {
 		return err
@@ -127,25 +125,25 @@ func (cmd *VirtualClusterCmd) Run(args []string) error {
 	}
 
 	if cmd.Project == "" {
-		return cmd.legacyUseVirtualCluster(baseClient, virtualClusterName)
+		return cmd.legacyUseVirtualCluster(ctx, baseClient, virtualClusterName)
 	}
 
-	return cmd.useVirtualCluster(baseClient, virtualClusterName)
+	return cmd.useVirtualCluster(ctx, baseClient, virtualClusterName)
 }
 
-func (cmd *VirtualClusterCmd) useVirtualCluster(baseClient client.Client, virtualClusterName string) error {
+func (cmd *VirtualClusterCmd) useVirtualCluster(ctx context.Context, baseClient client.Client, virtualClusterName string) error {
 	managementClient, err := baseClient.Management()
 	if err != nil {
 		return err
 	}
 
-	virtualClusterInstance, err := vcluster.WaitForVirtualClusterInstance(context.TODO(), managementClient, naming.ProjectNamespace(cmd.Project), virtualClusterName, !cmd.SkipWait, cmd.Log)
+	virtualClusterInstance, err := vcluster.WaitForVirtualClusterInstance(ctx, managementClient, naming.ProjectNamespace(cmd.Project), virtualClusterName, !cmd.SkipWait, cmd.Log)
 	if err != nil {
 		return err
 	}
 
 	// create kube context options
-	contextOptions, err := CreateVirtualClusterInstanceOptions(baseClient, cmd.Config, cmd.Project, virtualClusterInstance, cmd.DisableDirectClusterEndpoint, true, cmd.Log)
+	contextOptions, err := CreateVirtualClusterInstanceOptions(ctx, baseClient, cmd.Config, cmd.Project, virtualClusterInstance, cmd.DisableDirectClusterEndpoint, true, cmd.Log)
 	if err != nil {
 		return err
 	}
@@ -169,8 +167,8 @@ func (cmd *VirtualClusterCmd) useVirtualCluster(baseClient client.Client, virtua
 	return nil
 }
 
-func CreateVirtualClusterInstanceOptions(baseClient client.Client, config string, projectName string, virtualClusterInstance *managementv1.VirtualClusterInstance, disableClusterGateway, setActive bool, log log.Logger) (kubeconfig.ContextOptions, error) {
-	cluster, err := findProjectCluster(baseClient, projectName, virtualClusterInstance.Spec.ClusterRef.Cluster)
+func CreateVirtualClusterInstanceOptions(ctx context.Context, baseClient client.Client, config string, projectName string, virtualClusterInstance *managementv1.VirtualClusterInstance, disableClusterGateway, setActive bool, log log.Logger) (kubeconfig.ContextOptions, error) {
+	cluster, err := findProjectCluster(ctx, baseClient, projectName, virtualClusterInstance.Spec.ClusterRef.Cluster)
 	if err != nil {
 		return kubeconfig.ContextOptions{}, errors.Wrap(err, "find space instance cluster")
 	}
@@ -181,7 +179,7 @@ func CreateVirtualClusterInstanceOptions(baseClient client.Client, config string
 		SetActive:  setActive,
 	}
 	if virtualClusterInstance.Status.VirtualCluster != nil && virtualClusterInstance.Status.VirtualCluster.AccessPoint.Ingress.Enabled {
-		kubeConfig, err := getVirtualClusterInstanceAccessConfig(baseClient, virtualClusterInstance)
+		kubeConfig, err := getVirtualClusterInstanceAccessConfig(ctx, baseClient, virtualClusterInstance)
 		if err != nil {
 			return kubeconfig.ContextOptions{}, errors.Wrap(err, "retrieve kube config")
 		}
@@ -214,14 +212,14 @@ func CreateVirtualClusterInstanceOptions(baseClient client.Client, config string
 	return contextOptions, nil
 }
 
-func (cmd *VirtualClusterCmd) legacyUseVirtualCluster(baseClient client.Client, virtualClusterName string) error {
+func (cmd *VirtualClusterCmd) legacyUseVirtualCluster(ctx context.Context, baseClient client.Client, virtualClusterName string) error {
 	managementClient, err := baseClient.Management()
 	if err != nil {
 		return err
 	}
 
 	// check if the cluster exists
-	cluster, err := managementClient.Loft().ManagementV1().Clusters().Get(context.TODO(), cmd.Cluster, metav1.GetOptions{})
+	cluster, err := managementClient.Loft().ManagementV1().Clusters().Get(ctx, cmd.Cluster, metav1.GetOptions{})
 	if err != nil {
 		if kerrors.IsForbidden(err) {
 			return fmt.Errorf("cluster '%s' does not exist, or you don't have permission to use it", cmd.Cluster)
@@ -234,7 +232,7 @@ func (cmd *VirtualClusterCmd) legacyUseVirtualCluster(baseClient client.Client, 
 	if !cmd.Print && !cmd.PrintToken {
 		cmd.Log.Info("Waiting for virtual cluster to become ready...")
 	}
-	err = vcluster.WaitForVCluster(context.TODO(), baseClient, cmd.Cluster, cmd.Space, virtualClusterName, cmd.Log)
+	err = vcluster.WaitForVCluster(ctx, baseClient, cmd.Cluster, cmd.Space, virtualClusterName, cmd.Log)
 	if err != nil {
 		return err
 	}
@@ -289,14 +287,14 @@ func CreateVClusterContextOptions(baseClient client.Client, config string, clust
 	return contextOptions, nil
 }
 
-func getVirtualClusterInstanceAccessConfig(baseClient client.Client, virtualClusterInstance *managementv1.VirtualClusterInstance) (*api.Config, error) {
+func getVirtualClusterInstanceAccessConfig(ctx context.Context, baseClient client.Client, virtualClusterInstance *managementv1.VirtualClusterInstance) (*api.Config, error) {
 	managementClient, err := baseClient.Management()
 	if err != nil {
 		return nil, err
 	}
 
 	kubeConfig, err := managementClient.Loft().ManagementV1().VirtualClusterInstances(virtualClusterInstance.Namespace).GetKubeConfig(
-		context.TODO(),
+		ctx,
 		virtualClusterInstance.Name,
 		&managementv1.VirtualClusterInstanceKubeConfig{
 			Spec: managementv1.VirtualClusterInstanceKubeConfigSpec{},

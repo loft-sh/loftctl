@@ -17,6 +17,7 @@ import (
 	clusterv1 "github.com/loft-sh/agentapi/v3/pkg/apis/loft/cluster/v1"
 	agentstoragev1 "github.com/loft-sh/agentapi/v3/pkg/apis/loft/storage/v1"
 	storagev1 "github.com/loft-sh/api/v3/pkg/apis/storage/v1"
+	"github.com/loft-sh/api/v3/pkg/product"
 	"github.com/loft-sh/loftctl/v3/cmd/loftctl/cmd/use"
 	"github.com/loft-sh/loftctl/v3/pkg/clihelper"
 	"github.com/loft-sh/loftctl/v3/pkg/constants"
@@ -77,10 +78,7 @@ func NewSpaceCmd(globalFlags *flags.GlobalFlags, defaults *pdefaults.Defaults) *
 		GlobalFlags: globalFlags,
 		Log:         log.GetInstance(),
 	}
-	description := `
-#######################################################
-################## loft create space ##################
-#######################################################
+	description := product.ReplaceWithHeader("create space", `
 Creates a new space for the given project, if
 it does not yet exist.
 
@@ -88,13 +86,13 @@ Example:
 loft create space myspace
 loft create space myspace --project myproject
 loft create space myspace --project myproject --team myteam
-#######################################################
-	`
+########################################################
+	`)
 	if upgrade.IsPlugin == "true" {
 		description = `
-#######################################################
-################ devspace create space ################
-#######################################################
+########################################################
+################ devspace create space #################
+########################################################
 Creates a new space for the given project, if
 it does not yet exist.
 
@@ -102,7 +100,7 @@ Example:
 devspace create space myspace
 devspace create space myspace --project myproject
 devspace create space myspace --project myproject --team myteam
-#######################################################
+########################################################
 	`
 	}
 	c := &cobra.Command{
@@ -114,7 +112,7 @@ devspace create space myspace --project myproject --team myteam
 			// Check for newer version
 			upgrade.PrintNewerVersionWarning()
 
-			return cmd.Run(args)
+			return cmd.Run(cobraCmd.Context(), args)
 		},
 	}
 
@@ -128,12 +126,12 @@ devspace create space myspace --project myproject --team myteam
 	c.Flags().StringVar(&cmd.Team, "team", "", "The team to create the space for")
 	c.Flags().Int64Var(&cmd.SleepAfter, "sleep-after", 0, "DEPRECATED: If set to non zero, will tell the space to sleep after specified seconds of inactivity")
 	c.Flags().Int64Var(&cmd.DeleteAfter, "delete-after", 0, "DEPRECATED: If set to non zero, will tell loft to delete the space after specified seconds of inactivity")
-	c.Flags().BoolVar(&cmd.CreateContext, "create-context", true, "If loft should create a kube context for the space")
-	c.Flags().BoolVar(&cmd.SwitchContext, "switch-context", true, "If loft should switch the current context to the new context")
+	c.Flags().BoolVar(&cmd.CreateContext, "create-context", true, product.Replace("If loft should create a kube context for the space"))
+	c.Flags().BoolVar(&cmd.SwitchContext, "switch-context", true, product.Replace("If loft should switch the current context to the new context"))
 	c.Flags().BoolVar(&cmd.SkipWait, "skip-wait", false, "If true, will not wait until the space is running")
-	c.Flags().BoolVar(&cmd.Recreate, "recreate", false, "If enabled and there already exists a space with this name, Loft will delete it first")
+	c.Flags().BoolVar(&cmd.Recreate, "recreate", false, product.Replace("If enabled and there already exists a space with this name, Loft will delete it first"))
 	c.Flags().BoolVar(&cmd.Update, "update", false, "If enabled and a space already exists, will update the template, version and parameters")
-	c.Flags().BoolVar(&cmd.UseExisting, "use", false, "If loft should use the space if its already there")
+	c.Flags().BoolVar(&cmd.UseExisting, "use", false, product.Replace("If loft should use the space if its already there"))
 	c.Flags().StringVar(&cmd.Template, "template", "", "The space template to use")
 	c.Flags().StringVar(&cmd.Version, "version", "", "The template version to use")
 	c.Flags().StringSliceVar(&cmd.Set, "set", []string{}, "Allows specific template parameters to be set. E.g. --set myParameter=myValue")
@@ -143,7 +141,7 @@ devspace create space myspace --project myproject --team myteam
 }
 
 // Run executes the command
-func (cmd *SpaceCmd) Run(args []string) error {
+func (cmd *SpaceCmd) Run(ctx context.Context, args []string) error {
 	spaceName := args[0]
 	baseClient, err := client.NewClientFromPath(cmd.Config)
 	if err != nil {
@@ -164,14 +162,14 @@ func (cmd *SpaceCmd) Run(args []string) error {
 	// create legacy space?
 	if cmd.Project == "" {
 		// create legacy space
-		return cmd.legacyCreateSpace(baseClient, spaceName)
+		return cmd.legacyCreateSpace(ctx, baseClient, spaceName)
 	}
 
 	// create space
-	return cmd.createSpace(baseClient, spaceName)
+	return cmd.createSpace(ctx, baseClient, spaceName)
 }
 
-func (cmd *SpaceCmd) createSpace(baseClient client.Client, spaceName string) error {
+func (cmd *SpaceCmd) createSpace(ctx context.Context, baseClient client.Client, spaceName string) error {
 	spaceNamespace := naming.ProjectNamespace(cmd.Project)
 	managementClient, err := baseClient.Management()
 	if err != nil {
@@ -180,7 +178,7 @@ func (cmd *SpaceCmd) createSpace(baseClient client.Client, spaceName string) err
 
 	// get current user / team
 	if cmd.User == "" && cmd.Team == "" {
-		userName, teamName, err := helper.GetCurrentUser(context.TODO(), managementClient)
+		userName, teamName, err := helper.GetCurrentUser(ctx, managementClient)
 		if err != nil {
 			return err
 		}
@@ -193,12 +191,12 @@ func (cmd *SpaceCmd) createSpace(baseClient client.Client, spaceName string) err
 
 	// delete the existing cluster if needed
 	if cmd.Recreate {
-		_, err := managementClient.Loft().ManagementV1().SpaceInstances(spaceNamespace).Get(context.TODO(), spaceName, metav1.GetOptions{})
+		_, err := managementClient.Loft().ManagementV1().SpaceInstances(spaceNamespace).Get(ctx, spaceName, metav1.GetOptions{})
 		if err != nil && !kerrors.IsNotFound(err) {
 			return fmt.Errorf("couldn't retrieve space instance: %w", err)
 		} else if err == nil {
 			// delete the space
-			err = managementClient.Loft().ManagementV1().SpaceInstances(spaceNamespace).Delete(context.TODO(), spaceName, metav1.DeleteOptions{})
+			err = managementClient.Loft().ManagementV1().SpaceInstances(spaceNamespace).Delete(ctx, spaceName, metav1.DeleteOptions{})
 			if err != nil && !kerrors.IsNotFound(err) {
 				return fmt.Errorf("couldn't delete space instance: %w", err)
 			}
@@ -207,15 +205,15 @@ func (cmd *SpaceCmd) createSpace(baseClient client.Client, spaceName string) err
 
 	var spaceInstance *managementv1.SpaceInstance
 	// make sure we wait until space is deleted
-	spaceInstance, err = managementClient.Loft().ManagementV1().SpaceInstances(spaceNamespace).Get(context.TODO(), spaceName, metav1.GetOptions{})
+	spaceInstance, err = managementClient.Loft().ManagementV1().SpaceInstances(spaceNamespace).Get(ctx, spaceName, metav1.GetOptions{})
 	if err != nil && !kerrors.IsNotFound(err) {
 		return fmt.Errorf("couldn't retrieve space instance: %w", err)
 	} else if err == nil && spaceInstance.DeletionTimestamp != nil {
 		cmd.Log.Infof("Waiting until space is deleted...")
 
 		// wait until the space instance is deleted
-		waitErr := wait.Poll(time.Second, config.Timeout(), func() (done bool, err error) {
-			spaceInstance, err = managementClient.Loft().ManagementV1().SpaceInstances(spaceNamespace).Get(context.TODO(), spaceName, metav1.GetOptions{})
+		waitErr := wait.PollUntilContextTimeout(ctx, time.Second, config.Timeout(), false, func(ctx context.Context) (done bool, err error) {
+			spaceInstance, err = managementClient.Loft().ManagementV1().SpaceInstances(spaceNamespace).Get(ctx, spaceName, metav1.GetOptions{})
 			if err != nil && !kerrors.IsNotFound(err) {
 				return false, err
 			} else if err == nil && spaceInstance.DeletionTimestamp != nil {
@@ -278,7 +276,7 @@ func (cmd *SpaceCmd) createSpace(baseClient client.Client, spaceName string) err
 		SetCustomLinksAnnotation(spaceInstance, cmd.Links)
 		// create space
 		cmd.Log.Infof("Creating space %s in project %s with template %s...", ansi.Color(spaceName, "white+b"), ansi.Color(cmd.Project, "white+b"), ansi.Color(spaceTemplate.Name, "white+b"))
-		spaceInstance, err = managementClient.Loft().ManagementV1().SpaceInstances(spaceInstance.Namespace).Create(context.TODO(), spaceInstance, metav1.CreateOptions{})
+		spaceInstance, err = managementClient.Loft().ManagementV1().SpaceInstances(spaceInstance.Namespace).Create(ctx, spaceInstance, metav1.CreateOptions{})
 		if err != nil {
 			return errors.Wrap(err, "create space")
 		}
@@ -313,7 +311,7 @@ func (cmd *SpaceCmd) createSpace(baseClient client.Client, spaceName string) err
 				return errors.Wrap(err, "calculate update patch")
 			}
 			cmd.Log.Infof("Updating space %s in project %s with patch \n%s\n...", ansi.Color(spaceName, "white+b"), ansi.Color(cmd.Project, "white+b"), string(patchData))
-			spaceInstance, err = managementClient.Loft().ManagementV1().SpaceInstances(spaceInstance.Namespace).Patch(context.TODO(), spaceInstance.Name, patch.Type(), patchData, metav1.PatchOptions{})
+			spaceInstance, err = managementClient.Loft().ManagementV1().SpaceInstances(spaceInstance.Namespace).Patch(ctx, spaceInstance.Name, patch.Type(), patchData, metav1.PatchOptions{})
 			if err != nil {
 				return errors.Wrap(err, "patch space")
 			}
@@ -323,7 +321,7 @@ func (cmd *SpaceCmd) createSpace(baseClient client.Client, spaceName string) err
 	}
 
 	// wait until space is ready
-	spaceInstance, err = space.WaitForSpaceInstance(context.TODO(), managementClient, spaceInstance.Namespace, spaceInstance.Name, !cmd.SkipWait, cmd.Log)
+	spaceInstance, err = space.WaitForSpaceInstance(ctx, managementClient, spaceInstance.Namespace, spaceInstance.Name, !cmd.SkipWait, cmd.Log)
 	if err != nil {
 		return err
 	}
@@ -332,7 +330,7 @@ func (cmd *SpaceCmd) createSpace(baseClient client.Client, spaceName string) err
 	// should we create a kube context for the space
 	if cmd.CreateContext {
 		// create kube context options
-		contextOptions, err := use.CreateSpaceInstanceOptions(baseClient, cmd.Config, cmd.Project, spaceInstance, cmd.DisableDirectClusterEndpoint, cmd.SwitchContext, cmd.Log)
+		contextOptions, err := use.CreateSpaceInstanceOptions(ctx, baseClient, cmd.Config, cmd.Project, spaceInstance, cmd.DisableDirectClusterEndpoint, cmd.SwitchContext, cmd.Log)
 		if err != nil {
 			return err
 		}
@@ -389,7 +387,7 @@ func (cmd *SpaceCmd) resolveTemplate(baseClient client.Client) (*managementv1.Sp
 	return spaceTemplate, resolvedParameters, nil
 }
 
-func (cmd *SpaceCmd) legacyCreateSpace(baseClient client.Client, spaceName string) error {
+func (cmd *SpaceCmd) legacyCreateSpace(ctx context.Context, baseClient client.Client, spaceName string) error {
 	var err error
 	if cmd.SkipWait {
 		cmd.Log.Warnf("--skip-wait is not supported for legacy space creation, please specify a project instead")
@@ -421,7 +419,7 @@ func (cmd *SpaceCmd) legacyCreateSpace(baseClient client.Client, spaceName strin
 	}
 
 	// get current user / team
-	userName, teamName, err := helper.GetCurrentUser(context.TODO(), managementClient)
+	userName, teamName, err := helper.GetCurrentUser(ctx, managementClient)
 	if err != nil {
 		return err
 	}
@@ -433,7 +431,7 @@ func (cmd *SpaceCmd) legacyCreateSpace(baseClient client.Client, spaceName strin
 	}
 
 	// check if the cluster exists
-	cluster, err := managementClient.Loft().ManagementV1().Clusters().Get(context.TODO(), cmd.Cluster, metav1.GetOptions{})
+	cluster, err := managementClient.Loft().ManagementV1().Clusters().Get(ctx, cmd.Cluster, metav1.GetOptions{})
 	if err != nil {
 		if kerrors.IsForbidden(err) {
 			return fmt.Errorf("cluster '%s' does not exist, or you don't have permission to use it", cmd.Cluster)
@@ -444,7 +442,7 @@ func (cmd *SpaceCmd) legacyCreateSpace(baseClient client.Client, spaceName strin
 
 	spaceNotFound := true
 	if cmd.UseExisting {
-		_, err := clusterClient.Agent().ClusterV1().Spaces().Get(context.TODO(), spaceName, metav1.GetOptions{})
+		_, err := clusterClient.Agent().ClusterV1().Spaces().Get(ctx, spaceName, metav1.GetOptions{})
 		if err != nil && !kerrors.IsNotFound(err) {
 			return err
 		}
@@ -454,7 +452,7 @@ func (cmd *SpaceCmd) legacyCreateSpace(baseClient client.Client, spaceName strin
 
 	if spaceNotFound {
 		// get default space template
-		spaceTemplate, err := resolveSpaceTemplate(managementClient, cluster, cmd.Template)
+		spaceTemplate, err := resolveSpaceTemplate(ctx, managementClient, cluster, cmd.Template)
 		if err != nil {
 			return errors.Wrap(err, "resolve space template")
 		} else if spaceTemplate != nil {
@@ -548,7 +546,7 @@ func (cmd *SpaceCmd) legacyCreateSpace(baseClient client.Client, spaceName strin
 				}
 			}
 
-			apps, err := resolveApps(managementClient, spaceTemplate.Spec.Template.Apps)
+			apps, err := resolveApps(ctx, managementClient, spaceTemplate.Spec.Template.Apps)
 			if err != nil {
 				return errors.Wrap(err, "resolve space template apps")
 			}
@@ -566,13 +564,13 @@ func (cmd *SpaceCmd) legacyCreateSpace(baseClient client.Client, spaceName strin
 			}
 
 			// create the task and stream
-			err = task.StreamTask(context.TODO(), managementClient, createTask, os.Stdout, cmd.Log)
+			err = task.StreamTask(ctx, managementClient, createTask, os.Stdout, cmd.Log)
 			if err != nil {
 				return err
 			}
 		} else {
 			// create the space
-			_, err = clusterClient.Agent().ClusterV1().Spaces().Create(context.TODO(), space, metav1.CreateOptions{})
+			_, err = clusterClient.Agent().ClusterV1().Spaces().Create(ctx, space, metav1.CreateOptions{})
 			if err != nil {
 				return errors.Wrap(err, "create space")
 			}
@@ -601,13 +599,13 @@ func (cmd *SpaceCmd) legacyCreateSpace(baseClient client.Client, spaceName strin
 	return nil
 }
 
-func resolveSpaceTemplate(client kube.Interface, cluster *managementv1.Cluster, template string) (*managementv1.SpaceTemplate, error) {
+func resolveSpaceTemplate(ctx context.Context, client kube.Interface, cluster *managementv1.Cluster, template string) (*managementv1.SpaceTemplate, error) {
 	if template == "" && cluster.Annotations != nil && cluster.Annotations[constants.LoftDefaultSpaceTemplate] != "" {
 		template = cluster.Annotations[constants.LoftDefaultSpaceTemplate]
 	}
 
 	if template != "" {
-		spaceTemplate, err := client.Loft().ManagementV1().SpaceTemplates().Get(context.TODO(), template, metav1.GetOptions{})
+		spaceTemplate, err := client.Loft().ManagementV1().SpaceTemplates().Get(ctx, template, metav1.GetOptions{})
 		if err != nil {
 			return nil, err
 		}
@@ -618,8 +616,8 @@ func resolveSpaceTemplate(client kube.Interface, cluster *managementv1.Cluster, 
 	return nil, nil
 }
 
-func resolveApps(client kube.Interface, apps []agentstoragev1.AppReference) ([]parameters.NamespacedApp, error) {
-	appsList, err := client.Loft().ManagementV1().Apps().List(context.TODO(), metav1.ListOptions{})
+func resolveApps(ctx context.Context, client kube.Interface, apps []agentstoragev1.AppReference) ([]parameters.NamespacedApp, error) {
+	appsList, err := client.Loft().ManagementV1().Apps().List(ctx, metav1.ListOptions{})
 	if err != nil {
 		return nil, err
 	}
