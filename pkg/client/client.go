@@ -21,6 +21,7 @@ import (
 	"k8s.io/utils/pointer"
 
 	"github.com/loft-sh/api/v3/pkg/auth"
+	"github.com/loft-sh/api/v3/pkg/product"
 
 	managementv1 "github.com/loft-sh/api/v3/pkg/apis/management/v1"
 	storagev1 "github.com/loft-sh/api/v3/pkg/apis/storage/v1"
@@ -530,7 +531,7 @@ func (c *client) restConfig(hostSuffix string) (*rest.Config, error) {
 	if c.config == nil {
 		return nil, perrors.New("no config loaded")
 	} else if c.config.Host == "" || c.config.AccessKey == "" {
-		return nil, perrors.New("not logged in, please make sure you have run 'loft login [loft-url]'")
+		return nil, perrors.New(product.Replace("not logged in, please make sure you have run 'loft login [loft-url]'"))
 	}
 
 	// build a rest config
