@@ -144,7 +144,7 @@ func (l *LoftStarter) successDocker(ctx context.Context, containerID string) err
 
 func PrintSuccessMessageDockerInstall(host, password string, log log.Logger) {
 	url := "https://" + host
-	log.WriteString(logrus.InfoLevel, product.Replace(`
+	log.WriteString(logrus.InfoLevel, fmt.Sprintf(product.Replace(`
 
 
 ##########################   LOGIN   ############################
@@ -152,15 +152,19 @@ func PrintSuccessMessageDockerInstall(host, password string, log log.Logger) {
 Username: `+ansi.Color("admin", "green+b")+`
 Password: `+ansi.Color(password, "green+b")+`
 
-Login via UI:  `+ansi.Color(url, "green+b")+`
-Login via CLI: `+ansi.Color(`loft login `+url, "green+b")+`
+Login via UI:  %s
+Login via CLI: %s
 
 #################################################################
 
-Loft was successfully installed and can now be reached at: `+url+`
+Loft was successfully installed and can now be reached at: %s
 
 Thanks for using Loft!
-`))
+`),
+		ansi.Color(url, "green+b"),
+		ansi.Color(product.Replace(`loft login `)+url, "green+b"),
+		url,
+	))
 }
 
 func (l *LoftStarter) waitForLoftDocker(ctx context.Context, containerID string) (string, error) {
