@@ -74,6 +74,7 @@ Imports a vcluster into a vCluster.Pro project.`)
 func NewListCmd(globalFlags *flags.GlobalFlags, defaults *defaults.Defaults) *cobra.Command {
 	listCmd := list.NewVirtualClustersCmd(globalFlags)
 	listCmd.Use = "list"
+	listCmd.Aliases = []string{"ls"}
 
 	listCmd.Long = product.ReplaceWithHeader("list", `
 List the virtual clusters you have access to.`)
