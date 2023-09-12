@@ -16,7 +16,7 @@ const (
 )
 
 const linksHelpText = `Labeled Links to annotate the object with.
-These links will be visible from the UI.\nWhen used with update, existing links will be replaced.
+These links will be visible from the UI. When used with update, existing links will be replaced.
 E.g. --link 'Prod=http://exampleprod.com,Dev=http://exampledev.com'`
 
 // SetCustomLinksAnnotation sets the list of links for the UI to display next to the project member({space/virtualcluster}instance)
