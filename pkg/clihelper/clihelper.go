@@ -45,6 +45,8 @@ const defaultReleaseName = "loft"
 
 const LoftRouterDomainSecret = "loft-router-domain"
 
+var defaultDeploymentName = "loft"
+
 func GetDisplayName(name string, displayName string) string {
 	if displayName != "" {
 		return displayName
@@ -336,7 +338,7 @@ func EnterHostNameQuestion(log log.Logger) (string, error) {
 }
 
 func IsLoftAlreadyInstalled(ctx context.Context, kubeClient kubernetes.Interface, namespace string) (bool, error) {
-	_, err := kubeClient.AppsV1().Deployments(namespace).Get(ctx, "loft", metav1.GetOptions{})
+	_, err := kubeClient.AppsV1().Deployments(namespace).Get(ctx, defaultDeploymentName, metav1.GetOptions{})
 	if err != nil {
 		if kerrors.IsNotFound(err) {
 			return false, nil
@@ -351,7 +353,7 @@ func IsLoftAlreadyInstalled(ctx context.Context, kubeClient kubernetes.Interface
 func UninstallLoft(ctx context.Context, kubeClient kubernetes.Interface, restConfig *rest.Config, kubeContext, namespace string, log log.Logger) error {
 	log.Infof(product.Replace("Uninstalling loft..."))
 	releaseName := defaultReleaseName
-	deploy, err := kubeClient.AppsV1().Deployments(namespace).Get(ctx, "loft", metav1.GetOptions{})
+	deploy, err := kubeClient.AppsV1().Deployments(namespace).Get(ctx, defaultDeploymentName, metav1.GetOptions{})
 	if err != nil && !kerrors.IsNotFound(err) {
 		return err
 	} else if deploy != nil && deploy.Labels != nil && deploy.Labels["release"] != "" {

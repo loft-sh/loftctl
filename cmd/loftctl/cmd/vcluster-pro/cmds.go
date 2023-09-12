@@ -15,19 +15,19 @@ import (
 )
 
 func NewConnectCmd(globalFlags *flags.GlobalFlags, defaults *defaults.Defaults) *cobra.Command {
-	useCmd := use.NewVirtualClusterCmd(globalFlags, defaults)
-	useCmd.Use = strings.Replace(useCmd.Use, "vcluster", "use", 1)
-	useCmd.Aliases = []string{"use"}
+	connectCmd := use.NewVirtualClusterCmd(globalFlags, defaults)
+	connectCmd.Use = strings.Replace(connectCmd.Use, "vcluster", "connect", 1)
+	connectCmd.Aliases = []string{"use"}
 
-	useCmd.Long = product.ReplaceWithHeader("connect", `
+	connectCmd.Long = product.ReplaceWithHeader("connect", `
 Creates a new kube context for the given virtual cluster.`)
 
-	useCmd.Example = product.Replace(`  vcluster pro connect
+	connectCmd.Example = product.Replace(`  vcluster pro connect
   vcluster pro connect myvcluster
   vcluster pro connect myvcluster --cluster mycluster
   vcluster pro connect myvcluster --cluster mycluster --space myspace`)
 
-	return useCmd
+	return connectCmd
 }
 
 func NewCreateCmd(globalFlags *flags.GlobalFlags, defaults *defaults.Defaults) *cobra.Command {
@@ -74,6 +74,7 @@ Imports a vcluster into a vCluster.Pro project.`)
 func NewListCmd(globalFlags *flags.GlobalFlags, defaults *defaults.Defaults) *cobra.Command {
 	listCmd := list.NewVirtualClustersCmd(globalFlags)
 	listCmd.Use = "list"
+	listCmd.Aliases = []string{"ls"}
 
 	listCmd.Long = product.ReplaceWithHeader("list", `
 List the virtual clusters you have access to.`)
