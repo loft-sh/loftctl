@@ -10,10 +10,9 @@ require (
 	github.com/evanphx/json-patch v5.6.0+incompatible
 	github.com/ghodss/yaml v1.0.0
 	github.com/gorilla/websocket v1.4.2
-	github.com/loft-sh/agentapi/v3 v3.3.0-alpha.19
+	github.com/loft-sh/agentapi/v3 v3.3.0-alpha.20
 	github.com/loft-sh/api/v3 v3.0.0-20230912072607-65d5c9ef39ae
 	github.com/loft-sh/apiserver v0.0.0-20230628051307-f26967fbb40f
-	github.com/loft-sh/devpod v0.3.0
 	github.com/loft-sh/log v0.0.0-20230719145733-9d1aeda592a2
 	github.com/mgutz/ansi v0.0.0-20200706080929-d51e80ef957d
 	github.com/mitchellh/go-homedir v1.1.0
@@ -24,7 +23,6 @@ require (
 	github.com/spf13/cobra v1.7.0
 	github.com/spf13/pflag v1.0.5
 	go.uber.org/atomic v1.11.0
-	gopkg.in/square/go-jose.v2 v2.6.0
 	gopkg.in/yaml.v2 v2.4.0
 	gotest.tools v2.2.0+incompatible
 	gotest.tools/v3 v3.0.3
@@ -43,7 +41,6 @@ require (
 	github.com/Azure/go-ansiterm v0.0.0-20210617225240-d185dfc1b5a1 // indirect
 	github.com/NYTimes/gziphandler v1.1.1 // indirect
 	github.com/acarl005/stripansi v0.0.0-20180116102854-5a71ef0e047d // indirect
-	github.com/alessio/shellescape v1.4.1 // indirect
 	github.com/antlr/antlr4/runtime/Go/antlr/v4 v4.0.0-20230305170008-8188dc5388df // indirect
 	github.com/asaskevich/govalidator v0.0.0-20230301143203-a9d515a09cc2 // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
