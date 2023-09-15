@@ -256,18 +256,18 @@ func (l *LoftStarter) runLoftInDocker(ctx context.Context, name, email string) (
 	if l.Product != "" {
 		args = append(args, "--env", "PRODUCT="+l.Product)
 		if l.Product == "devpod-pro" {
-			_, err := os.Stat("/var/run/docker.sock")
-			if err == nil {
-				args = append(args, "-v", "/var/run/docker.sock:/var/run/docker.sock")
+			// run as root otherwise we get permission errors
+			args = append(args, "-u", "root")
 
-				// run as root otherwise we get permission errors
-				args = append(args, "-u", "root")
-			}
+			// run docker in docker
+			args = append(args, "--env", "LOFT_DIND=true")
+			args = append(args, "-v", "loft-docker:/var/lib/docker")
+			args = append(args, "--privileged")
 		}
 	}
 
 	// mount the loft lib
-	args = append(args, "-v", "/var/lib/loft:/var/lib/loft")
+	args = append(args, "-v", "loft-data:/var/lib/loft")
 
 	// set port
 	if l.LocalPort != "" {
@@ -278,7 +278,9 @@ func (l *LoftStarter) runLoftInDocker(ctx context.Context, name, email string) (
 	args = append(args, l.DockerArgs...)
 
 	// set image
-	if l.Version != "" {
+	if l.DockerImage != "" {
+		args = append(args, l.DockerImage)
+	} else if l.Version != "" {
 		args = append(args, "ghcr.io/loft-sh/loft:"+strings.TrimPrefix(l.Version, "v"))
 	} else {
 		args = append(args, "ghcr.io/loft-sh/loft:latest")
