@@ -32,8 +32,9 @@ var emailRegex = regexp.MustCompile(`^[^@]+@[^\.]+\..+$`)
 type Options struct {
 	*flags.GlobalFlags
 
-	Docker     bool
-	DockerArgs []string
+	Docker      bool
+	DockerArgs  []string
+	DockerImage string
 
 	Product string
 

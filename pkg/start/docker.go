@@ -69,13 +69,13 @@ func (l *LoftStarter) startDocker(ctx context.Context, name string) error {
 	}
 
 	// try to find loft container
-	containerID, err := l.findLoftContainer(ctx, name)
+	containerID, err := l.findLoftContainer(ctx, name, true)
 	if err != nil {
 		return err
 	}
 
 	// check if container is there
-	if containerID != "" && l.Reset || l.Upgrade {
+	if containerID != "" && (l.Reset || l.Upgrade) {
 		l.Log.Info(product.Replace("Existing Loft instance found."))
 		err = l.uninstallDocker(ctx, containerID)
 		if err != nil {
@@ -130,11 +130,19 @@ func (l *LoftStarter) successDocker(ctx context.Context, containerID string) err
 
 	// wait for domain to become reachable
 	l.Log.Infof(product.Replace("Wait for Loft to become available at %s..."), host)
-	waitErr := wait.PollUntilContextTimeout(ctx, time.Second, time.Minute*10, true, func(ctx context.Context) (bool, error) {
+	err = wait.PollUntilContextTimeout(ctx, time.Second, time.Minute*10, true, func(ctx context.Context) (bool, error) {
+		containerDetails, err := l.inspectContainer(ctx, containerID)
+		if err != nil {
+			return false, fmt.Errorf("inspect loft container: %w", err)
+		} else if strings.ToLower(containerDetails.State.Status) == "exited" || strings.ToLower(containerDetails.State.Status) == "dead" {
+			logs, _ := l.logsContainer(ctx, containerID)
+			return false, fmt.Errorf("container failed (status: %s):\n %s", containerDetails.State.Status, logs)
+		}
+
 		return clihelper.IsLoftReachable(ctx, host)
 	})
-	if waitErr != nil {
-		return fmt.Errorf(product.Replace("error waiting for loft: %w"), err)
+	if err != nil {
+		return fmt.Errorf(product.Replace("error waiting for loft: %v%w"), err)
 	}
 
 	// print success message
@@ -256,18 +264,18 @@ func (l *LoftStarter) runLoftInDocker(ctx context.Context, name, email string) (
 	if l.Product != "" {
 		args = append(args, "--env", "PRODUCT="+l.Product)
 		if l.Product == "devpod-pro" {
-			_, err := os.Stat("/var/run/docker.sock")
-			if err == nil {
-				args = append(args, "-v", "/var/run/docker.sock:/var/run/docker.sock")
-
-				// run as root otherwise we get permission errors
-				args = append(args, "-u", "root")
-			}
+			// run docker in docker
+			args = append(args, "--env", "LOFT_DIND=true")
+			args = append(args, "-v", "loft-docker:/var/lib/docker")
+			args = append(args, "--privileged")
 		}
 	}
 
+	// run as root otherwise we get permission errors
+	args = append(args, "-u", "root")
+
 	// mount the loft lib
-	args = append(args, "-v", "/var/lib/loft:/var/lib/loft")
+	args = append(args, "-v", "loft-data:/var/lib/loft")
 
 	// set port
 	if l.LocalPort != "" {
@@ -278,7 +286,9 @@ func (l *LoftStarter) runLoftInDocker(ctx context.Context, name, email string) (
 	args = append(args, l.DockerArgs...)
 
 	// set image
-	if l.Version != "" {
+	if l.DockerImage != "" {
+		args = append(args, l.DockerImage)
+	} else if l.Version != "" {
 		args = append(args, "ghcr.io/loft-sh/loft:"+strings.TrimPrefix(l.Version, "v"))
 	} else {
 		args = append(args, "ghcr.io/loft-sh/loft:latest")
@@ -293,12 +303,21 @@ func (l *LoftStarter) runLoftInDocker(ctx context.Context, name, email string) (
 		return "", err
 	}
 
-	return l.findLoftContainer(ctx, name)
+	return l.findLoftContainer(ctx, name, false)
+}
+
+func (l *LoftStarter) logsContainer(ctx context.Context, id string) (string, error) {
+	args := []string{"logs", id}
+	out, err := l.buildDockerCmd(ctx, args...).CombinedOutput()
+	if err != nil {
+		return "", fmt.Errorf("logs container: %w", WrapCommandError(out, err))
+	}
+
+	return string(out), nil
 }
 
 func (l *LoftStarter) inspectContainer(ctx context.Context, id string) (*ContainerDetails, error) {
-	args := []string{"inspect", "--type", "container"}
-	args = append(args, id)
+	args := []string{"inspect", "--type", "container", id}
 	out, err := l.buildDockerCmd(ctx, args...).Output()
 	if err != nil {
 		return nil, fmt.Errorf("inspect container: %w", WrapCommandError(out, err))
@@ -315,7 +334,17 @@ func (l *LoftStarter) inspectContainer(ctx context.Context, id string) (*Contain
 	return containerDetails[0], nil
 }
 
-func (l *LoftStarter) findLoftContainer(ctx context.Context, name string) (string, error) {
+func (l *LoftStarter) removeContainer(ctx context.Context, id string) error {
+	args := []string{"rm", id}
+	out, err := l.buildDockerCmd(ctx, args...).Output()
+	if err != nil {
+		return fmt.Errorf("remove container: %w", WrapCommandError(out, err))
+	}
+
+	return nil
+}
+
+func (l *LoftStarter) findLoftContainer(ctx context.Context, name string, onlyRunning bool) (string, error) {
 	args := []string{"ps", "-q", "-a", "-f", "name=^" + name + "$"}
 	out, err := l.buildDockerCmd(ctx, args...).Output()
 	if err != nil {
@@ -332,7 +361,23 @@ func (l *LoftStarter) findLoftContainer(ctx context.Context, name string) (strin
 		return "", nil
 	}
 
-	return arr[0], nil
+	// remove the failed / exited containers
+	runningContainerID := ""
+	for _, containerID := range arr {
+		containerState, err := l.inspectContainer(ctx, containerID)
+		if err != nil {
+			return "", err
+		} else if onlyRunning && strings.ToLower(containerState.State.Status) != "running" {
+			err = l.removeContainer(ctx, containerID)
+			if err != nil {
+				return "", err
+			}
+		} else {
+			runningContainerID = containerID
+		}
+	}
+
+	return runningContainerID, nil
 }
 
 func (l *LoftStarter) buildDockerCmd(ctx context.Context, args ...string) *exec.Cmd {

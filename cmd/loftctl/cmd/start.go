@@ -51,6 +51,7 @@ before running this command:
 	}
 
 	startCmd.Flags().BoolVar(&cmd.Docker, "docker", false, product.Replace("If enabled will try to deploy Loft to the local docker installation."))
+	startCmd.Flags().StringVar(&cmd.DockerImage, "docker-image", "", product.Replace("The docker image to install."))
 	startCmd.Flags().StringArrayVar(&cmd.DockerArgs, "docker-arg", []string{}, product.Replace("Extra docker args for running Loft."))
 	startCmd.Flags().StringVar(&cmd.Product, "product", "", "The Loft product to install")
 	startCmd.Flags().StringVar(&cmd.Context, "context", "", "The kube context to use for installation")
@@ -58,7 +59,7 @@ before running this command:
 	startCmd.Flags().StringVar(&cmd.LocalPort, "local-port", "", "The local port to bind to if using port-forwarding")
 	startCmd.Flags().StringVar(&cmd.Host, "host", "", "Provide a hostname to enable ingress and configure its hostname")
 	startCmd.Flags().StringVar(&cmd.Password, "password", "", "The password to use for the admin account. (If empty this will be the namespace UID)")
-	startCmd.Flags().StringVar(&cmd.Version, "version", "", product.Replace("The loft version to install"))
+	startCmd.Flags().StringVar(&cmd.Version, "version", upgrade.GetVersion(), product.Replace("The loft version to install"))
 	startCmd.Flags().StringVar(&cmd.Values, "values", "", product.Replace("Path to a file for extra loft helm chart values"))
 	startCmd.Flags().BoolVar(&cmd.ReuseValues, "reuse-values", true, product.Replace("Reuse previous Loft helm values on upgrade"))
 	startCmd.Flags().BoolVar(&cmd.Upgrade, "upgrade", false, product.Replace("If true, Loft will try to upgrade the release"))
