@@ -2,6 +2,7 @@ package set
 
 import (
 	"context"
+	"fmt"
 	"strings"
 
 	managementv1 "github.com/loft-sh/api/v3/pkg/apis/management/v1"
@@ -22,7 +23,7 @@ import (
 )
 
 var (
-	ErrNoSecret = errors.New(product.Replace("please specify a secret key to set. For example 'loft set secret my-secret.key value'"))
+	ErrNoSecret = errors.New("please specify a secret key to set")
 )
 
 type SecretType string
@@ -155,7 +156,7 @@ func (cmd *SecretCmd) setProjectSecret(ctx context.Context, managementClient kub
 
 	if keyName == "" {
 		if secret == nil {
-			return ErrNoSecret
+			return fmt.Errorf(product.Replace("%w: for example 'loft set secret my-secret.key value'"), ErrNoSecret)
 		}
 		if len(secret.Spec.Data) == 0 {
 			return errors.Errorf(product.Replace("secret %s has no keys. Please specify a key like `loft set secret name.key value`"), secretName)
@@ -222,7 +223,7 @@ func (cmd *SecretCmd) setSharedSecret(ctx context.Context, managementClient kube
 
 	if keyName == "" {
 		if secret == nil {
-			return ErrNoSecret
+			return fmt.Errorf(product.Replace("%w: for example 'loft set secret my-secret.key value'"), ErrNoSecret)
 		}
 		if len(secret.Spec.Data) == 0 {
 			return errors.Errorf(product.Replace("secret %s has no keys. Please specify a key like `loft set secret name.key value`"), secretName)

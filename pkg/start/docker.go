@@ -26,8 +26,8 @@ import (
 )
 
 var (
-	ErrMissingContainer = errors.New(product.Replace("couldn't find Loft container after starting it"))
-	ErrLoftNotReachable = errors.New(product.Replace("cannot connect to Loft as it has no exposed port and --no-tunnel is enabled"))
+	ErrMissingContainer = errors.New("missing container")
+	ErrLoftNotReachable = errors.New("product is not reachable")
 )
 
 type ContainerDetails struct {
@@ -111,7 +111,7 @@ func (l *LoftStarter) startDocker(ctx context.Context, name string) error {
 	if err != nil {
 		return err
 	} else if containerID == "" {
-		return ErrMissingContainer
+		return fmt.Errorf("%w: %s", ErrMissingContainer, product.Replace("couldn't find Loft container after starting it"))
 	}
 
 	return l.successDocker(ctx, containerID)
@@ -188,7 +188,7 @@ func (l *LoftStarter) waitForLoftDocker(ctx context.Context, containerID string)
 
 	// check if no tunnel
 	if l.NoTunnel {
-		return "", ErrLoftNotReachable
+		return "", fmt.Errorf("%w: %s", ErrLoftNotReachable, product.Replace("cannot connect to Loft as it has no exposed port and --no-tunnel is enabled"))
 	}
 
 	// wait for router

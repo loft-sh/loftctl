@@ -23,7 +23,7 @@ import (
 )
 
 var (
-	ErrMissingEmail = errors.New(product.Replace("please enter an email via 'loft start --email my-email@domain.com'"))
+	ErrMissingEmail = errors.New("missing email")
 )
 
 var emailRegex = regexp.MustCompile(`^[^@]+@[^\.]+\..+$`)
@@ -152,7 +152,7 @@ func (l *LoftStarter) getEmail() (string, error) {
 	email := l.Email
 	if email == "" {
 		if !term.IsTerminal(os.Stdin) {
-			return "", ErrMissingEmail
+			return "", fmt.Errorf("%w: %s", ErrMissingEmail, product.Replace("please enter an email via 'loft start --email my-email@domain.com'"))
 		}
 
 		email, err = l.Log.Question(&survey.QuestionOptions{
