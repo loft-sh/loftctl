@@ -35,9 +35,7 @@ by running 'loft start' again.
 `)
 }
 
-func PrintSuccessMessageLocalInstall(password, localPort string, log log.Logger) {
-	url := "https://localhost:" + localPort
-
+func PrintSuccessMessageLocalInstall(password, url string, log log.Logger) {
 	if password == "" {
 		password = passwordChangedHint
 	}
@@ -55,10 +53,10 @@ Login via CLI: %s
 !!! You must accept the untrusted certificate in your browser !!!
 
 #################################################################
-
+	
 Loft was successfully installed and port-forwarding has been started.
 If you stop this command, run 'loft start' again to restart port-forwarding.
-
+	
 Thanks for using Loft!
 `), ansi.Color(url, "green+b"), ansi.Color(product.Replace(`loft login --insecure `)+url, "green+b")))
 }

@@ -57,6 +57,7 @@ type Options struct {
 	NoWait           bool
 	NoPortForwarding bool
 	NoTunnel         bool
+	NoLogin          bool
 
 	// Will be filled later
 	KubeClient kubernetes.Interface

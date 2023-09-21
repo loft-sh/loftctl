@@ -68,6 +68,7 @@ before running this command:
 	startCmd.Flags().BoolVar(&cmd.NoWait, "no-wait", false, product.Replace("If true, loft will not wait after installing it"))
 	startCmd.Flags().BoolVar(&cmd.NoPortForwarding, "no-port-forwarding", false, product.Replace("If true, loft will not do port forwarding after installing it"))
 	startCmd.Flags().BoolVar(&cmd.NoTunnel, "no-tunnel", false, product.Replace("If true, loft will not create a loft.host tunnel for this installation"))
+	startCmd.Flags().BoolVar(&cmd.NoLogin, "no-login", false, product.Replace("If true, loft will not login to a loft instance on start"))
 	startCmd.Flags().StringVar(&cmd.ChartPath, "chart-path", "", product.Replace("The local chart path to deploy Loft"))
 	startCmd.Flags().StringVar(&cmd.ChartRepo, "chart-repo", "https://charts.loft.sh/", product.Replace("The chart repo to deploy Loft"))
 	startCmd.Flags().StringVar(&cmd.ChartName, "chart-name", "loft", product.Replace("The chart name to deploy Loft"))
