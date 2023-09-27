@@ -363,10 +363,10 @@ func SelectSpaceInstanceOrSpace(baseClient client.Client, spaceName, projectName
 	return "", "", "", fmt.Errorf("couldn't find answer")
 }
 
-func SelectProjectOrCluster(baseClient client.Client, clusterName, projectName string, log log.Logger) (cluster string, project string, err error) {
+func SelectProjectOrCluster(baseClient client.Client, clusterName, projectName string, allowClusterOnly bool, log log.Logger) (cluster string, project string, err error) {
 	if projectName != "" {
 		return clusterName, projectName, nil
-	} else if clusterName != "" {
+	} else if allowClusterOnly && clusterName != "" {
 		return clusterName, "", nil
 	}
 
@@ -445,9 +445,9 @@ func SelectCluster(baseClient client.Client, log log.Logger) (string, error) {
 		clusterNames = append(clusterNames, clihelper.GetDisplayName(cluster.Name, cluster.Spec.DisplayName))
 	}
 
-	if len(clusterNames) == 0 {
+	if len(clusterList.Items) == 0 {
 		return "", errNoClusterAccess
-	} else if len(clusterNames) == 1 {
+	} else if len(clusterList.Items) == 1 {
 		return clusterList.Items[0].Name, nil
 	}
 
@@ -485,7 +485,6 @@ func SelectProjectCluster(baseClient client.Client, project *managementv1.Projec
 	}
 
 	anyClusterOption := "Any Cluster [Loft Selects Cluster]"
-
 	clusterNames := []string{}
 	for _, allowedCluster := range project.Spec.AllowedClusters {
 		if allowedCluster.Name == "*" {
@@ -498,9 +497,9 @@ func SelectProjectCluster(baseClient client.Client, project *managementv1.Projec
 		clusterNames = append(clusterNames, clihelper.GetDisplayName(cluster.Name, cluster.Spec.DisplayName))
 	}
 
-	if len(clusterNames) == 0 {
+	if len(clusterList.Clusters) == 0 {
 		return "", errNoClusterAccess
-	} else if len(clusterNames) == 1 {
+	} else if len(clusterList.Clusters) == 1 {
 		return clusterList.Clusters[0].Name, nil
 	}
 

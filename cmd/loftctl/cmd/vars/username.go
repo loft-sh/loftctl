@@ -12,7 +12,7 @@ import (
 )
 
 var (
-	ErrUserSetNoLogin = errors.New(product.Replace("not logged in loft, but predefined var LOFT_USERNAME is used"))
+	ErrUserSetNoLogin = errors.New("not logged in, but predefined var LOFT_USERNAME is used")
 )
 
 type usernameCmd struct {

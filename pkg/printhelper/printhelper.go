@@ -35,9 +35,7 @@ by running 'loft start' again.
 `)
 }
 
-func PrintSuccessMessageLocalInstall(password, localPort string, log log.Logger) {
-	url := "https://localhost:" + localPort
-
+func PrintSuccessMessageLocalInstall(password, url string, log log.Logger) {
 	if password == "" {
 		password = passwordChangedHint
 	}
@@ -47,7 +45,7 @@ func PrintSuccessMessageLocalInstall(password, localPort string, log log.Logger)
 ##########################   LOGIN   ############################
 
 Username: `+ansi.Color("admin", "green+b")+`
-Password: `+ansi.Color(password, "green+b")+`  # Change via UI or via: `+ansi.Color(product.Replace("loft reset password"), "green+b")+`
+Password: `+ansi.Color(password, "green+b")+`  # Change via UI or via: `+ansi.Color(product.ResetPassword(), "green+b")+`
 
 Login via UI:  %s
 Login via CLI: %s
@@ -60,7 +58,7 @@ Loft was successfully installed and port-forwarding has been started.
 If you stop this command, run 'loft start' again to restart port-forwarding.
 
 Thanks for using Loft!
-`), ansi.Color(url, "green+b"), ansi.Color(product.Replace(`loft login --insecure `)+url, "green+b")))
+`), ansi.Color(url, "green+b"), ansi.Color(product.LoginCmd()+" --insecure "+url, "green+b")))
 }
 
 func PrintSuccessMessageRemoteInstall(host, password string, log log.Logger) {
@@ -76,7 +74,7 @@ func PrintSuccessMessageRemoteInstall(host, password string, log log.Logger) {
 ##########################   LOGIN   ############################
 
 Username: `+ansi.Color("admin", "green+b")+`
-Password: `+ansi.Color(password, "green+b")+`  # Change via UI or via: `+ansi.Color(product.Replace("loft reset password"), "green+b")+`
+Password: `+ansi.Color(password, "green+b")+`  # Change via UI or via: `+ansi.Color(product.ResetPassword(), "green+b")+`
 
 Login via UI:  %s
 Login via CLI: %s
@@ -92,7 +90,7 @@ Loft was successfully installed and can now be reached at: %s
 Thanks for using Loft!
 `),
 		ansi.Color(url, "green+b"),
-		ansi.Color(product.Replace(`loft login --insecure `)+url, "green+b"),
+		ansi.Color(product.LoginCmd()+" --insecure "+url, "green+b"),
 		"https://loft.sh/docs/administration/ssl",
 		url,
 	))
@@ -111,7 +109,7 @@ func PrintSuccessMessageLoftRouterInstall(host, password string, log log.Logger)
 ##########################   LOGIN   ############################
 
 Username: `+ansi.Color("admin", "green+b")+`
-Password: `+ansi.Color(password, "green+b")+`  # Change via UI or via: `+ansi.Color(product.Replace("loft reset password"), "green+b")+`
+Password: `+ansi.Color(password, "green+b")+`  # Change via UI or via: `+ansi.Color(product.ResetPassword(), "green+b")+`
 
 Login via UI:  %s
 Login via CLI: %s
@@ -123,7 +121,7 @@ Loft was successfully installed and can now be reached at: %s
 Thanks for using Loft!
 `),
 		ansi.Color(url, "green+b"),
-		ansi.Color(product.Replace(`loft login `)+url, "green+b"),
+		ansi.Color(product.LoginCmd()+" "+url, "green+b"),
 		url,
 	))
 }

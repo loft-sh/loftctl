@@ -43,6 +43,13 @@ func (l *LoftStarter) success(ctx context.Context) error {
 				l.Log.Errorf("Error retrieving loft router domain: %v", err)
 				l.Log.Info("Fallback to use port-forwarding")
 			} else if loftRouterDomain != "" {
+				if !l.NoLogin {
+					err := l.login(loftRouterDomain)
+					if err != nil {
+						return err
+					}
+				}
+
 				printhelper.PrintSuccessMessageLoftRouterInstall(loftRouterDomain, l.Password, l.Log)
 				return nil
 			}
@@ -142,7 +149,16 @@ func (l *LoftStarter) pingLoftRouter(ctx context.Context, loftPod *corev1.Pod) (
 }
 
 func (l *LoftStarter) successLocal() error {
-	printhelper.PrintSuccessMessageLocalInstall(l.Password, l.LocalPort, l.Log)
+	url := "https://localhost:" + l.LocalPort
+
+	if !l.NoLogin {
+		err := l.login(url)
+		if err != nil {
+			return err
+		}
+	}
+
+	printhelper.PrintSuccessMessageLocalInstall(l.Password, url, l.Log)
 
 	blockChan := make(chan bool)
 	<-blockChan

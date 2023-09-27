@@ -26,8 +26,8 @@ import (
 )
 
 var (
-	ErrMissingContainer = errors.New(product.Replace("couldn't find Loft container after starting it"))
-	ErrLoftNotReachable = errors.New(product.Replace("cannot connect to Loft as it has no exposed port and --no-tunnel is enabled"))
+	ErrMissingContainer = errors.New("missing container")
+	ErrLoftNotReachable = errors.New("product is not reachable")
 )
 
 type ContainerDetails struct {
@@ -100,18 +100,12 @@ func (l *LoftStarter) startDocker(ctx context.Context, name string) error {
 	l.Log.Info(product.Replace("Welcome to Loft!"))
 	l.Log.Info(product.Replace("This installer will help you configure and deploy Loft."))
 
-	// Get email
-	email, err := l.getEmail()
-	if err != nil {
-		return err
-	}
-
 	// make sure we are ready for installing
-	containerID, err = l.runLoftInDocker(ctx, name, email)
+	containerID, err = l.runLoftInDocker(ctx, name)
 	if err != nil {
 		return err
 	} else if containerID == "" {
-		return ErrMissingContainer
+		return fmt.Errorf("%w: %s", ErrMissingContainer, product.Replace("couldn't find Loft container after starting it"))
 	}
 
 	return l.successDocker(ctx, containerID)
@@ -170,7 +164,7 @@ Loft was successfully installed and can now be reached at: %s
 Thanks for using Loft!
 `),
 		ansi.Color(url, "green+b"),
-		ansi.Color(product.Replace(`loft login `)+url, "green+b"),
+		ansi.Color(product.LoginCmd()+" "+url, "green+b"),
 		url,
 	))
 }
@@ -188,7 +182,7 @@ func (l *LoftStarter) waitForLoftDocker(ctx context.Context, containerID string)
 
 	// check if no tunnel
 	if l.NoTunnel {
-		return "", ErrLoftNotReachable
+		return "", fmt.Errorf("%w: %s", ErrLoftNotReachable, product.Replace("cannot connect to Loft as it has no exposed port and --no-tunnel is enabled"))
 	}
 
 	// wait for router
@@ -250,16 +244,13 @@ func (l *LoftStarter) uninstallDocker(ctx context.Context, id string) error {
 	return nil
 }
 
-func (l *LoftStarter) runLoftInDocker(ctx context.Context, name, email string) (string, error) {
+func (l *LoftStarter) runLoftInDocker(ctx context.Context, name string) (string, error) {
 	args := []string{"run", "-d", "--name", name}
 	if l.NoTunnel {
 		args = append(args, "--env", "DISABLE_LOFT_ROUTER=true")
 	}
 	if l.Password != "" {
 		args = append(args, "--env", "ADMIN_PASSWORD_HASH="+hash.String(l.Password))
-	}
-	if email != "" {
-		args = append(args, "--env", "ADMIN_EMAIL="+email)
 	}
 	if l.Product != "" {
 		args = append(args, "--env", "PRODUCT="+l.Product)

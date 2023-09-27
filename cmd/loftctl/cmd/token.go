@@ -18,7 +18,7 @@ import (
 
 var (
 	ErrNoConfigLoaded = errors.New("no config loaded")
-	ErrNotLoggedIn    = errors.New(product.Replace("not logged in, please make sure you have run 'loft login [loft-url]'"))
+	ErrNotLoggedIn    = errors.New("not logged in")
 )
 
 // TokenCmd holds the cmd flags
@@ -99,7 +99,7 @@ func getToken(cmd *TokenCmd, baseClient client.Client) error {
 	if config == nil {
 		return ErrNoConfigLoaded
 	} else if config.Host == "" || config.AccessKey == "" {
-		return ErrNotLoggedIn
+		return fmt.Errorf("%w: please make sure you have run '%s [%s]'", ErrNotLoggedIn, product.LoginCmd(), product.Url())
 	}
 
 	// by default we print the access key as token
