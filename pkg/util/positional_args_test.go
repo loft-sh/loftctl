@@ -29,22 +29,24 @@ func TestNamedPositionalArgsValidator(t *testing.T) {
 			testNum += 1
 			// loop through both values of failMissing
 			for _, failMissing := range []bool{true, false} {
-				// execute test
-				t.Logf("running test #%d with failMissing %v, expectedArgs: %q, args: %q", testNum, failMissing, expectedArgs, actualArgs)
-				// if testNum == 23 {
-				// 	t.Log("focus a test number number for debugging")
-				// }
-				_, validator := NamedPositionalArgsValidator(failMissing, expectedArgs...)
-				err := validator(&cobra.Command{}, actualArgs)
-				if len(actualArgs) > len(expectedArgs) { // extra arguments always fail
-					assert.ErrorContains(t, err, "extra arguments:", "expect error to not be nil as arg count is mismatched")
-				} else if len(actualArgs) == len(expectedArgs) || !failMissing { // count matches or failmissing is off
-					assert.NilError(t, err, "", "expect error to be nil as all args provided and no extra")
-				} else { // fail if missing args
-					assert.ErrorContains(t, err, "please specify missing:", "expect error to not be nil as arg count is mismatched")
+				for _, failExtra := range []bool{true, false} {
+					// execute test
+					t.Logf("running test #%d with failMissing %v, failExtra %v, expectedArgs: %q, args: %q", testNum, failMissing, failExtra, expectedArgs, actualArgs)
+					// if testNum == 23 {
+					// 	t.Log("focus a test number number for debugging")
+					// }
+					_, validator := NamedPositionalArgsValidator(failMissing, failExtra, expectedArgs...)
+					err := validator(&cobra.Command{}, actualArgs)
+					if len(actualArgs) > len(expectedArgs) && failExtra {
+						assert.ErrorContains(t, err, "extra arguments:", "expect error to not be nil as arg count is mismatched")
+					} else if len(actualArgs) < len(expectedArgs) && failMissing {
+						assert.ErrorContains(t, err, "please specify missing:", "expect error to not be nil as arg count is mismatched")
+					} else {
+						assert.NilError(t, err, "expect error to be nil as all args provided and no extra")
+					}
+					// append to actual args
+					actualArgs = append(actualArgs, fmt.Sprintf("ARG_%d", len(actualArgs)))
 				}
-				// append to actual args
-				actualArgs = append(actualArgs, fmt.Sprintf("ARG_%d", len(actualArgs)))
 			}
 		}
 		// append to expected args
