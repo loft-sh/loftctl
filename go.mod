@@ -10,8 +10,9 @@ require (
 	github.com/evanphx/json-patch v5.6.0+incompatible
 	github.com/ghodss/yaml v1.0.0
 	github.com/gorilla/websocket v1.4.2
-	github.com/loft-sh/agentapi/v3 v3.3.0-beta.2
-	github.com/loft-sh/api/v3 v3.0.0-20231002075709-103158ad55b5
+	github.com/loft-sh/admin-apis v0.0.0-20231005083919-a177d920e993
+	github.com/loft-sh/agentapi/v3 v3.3.0-ci.1.0.20231005145009-3a5ce22c731a
+	github.com/loft-sh/api/v3 v3.0.0-20231011095658-d9afe455ba0d
 	github.com/loft-sh/apiserver v0.0.0-20230628051307-f26967fbb40f
 	github.com/loft-sh/log v0.0.0-20230719145733-9d1aeda592a2
 	github.com/mgutz/ansi v0.0.0-20200706080929-d51e80ef957d
@@ -79,7 +80,6 @@ require (
 	github.com/json-iterator/go v1.1.12 // indirect
 	github.com/k0kubun/go-ansi v0.0.0-20180517002512-3bf9e2903213 // indirect
 	github.com/kballard/go-shellquote v0.0.0-20180428030007-95032a82bc51 // indirect
-	github.com/loft-sh/external-types v0.0.2-0.20230301201552-ec939da949b4 // indirect
 	github.com/loft-sh/jspolicy v0.1.0 // indirect
 	github.com/mailru/easyjson v0.7.7 // indirect
 	github.com/mattn/go-colorable v0.1.8 // indirect
