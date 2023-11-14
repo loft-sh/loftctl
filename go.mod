@@ -6,7 +6,7 @@ require (
 	github.com/blang/semver v3.5.1+incompatible
 	github.com/denisbrodbeck/machineid v1.0.1
 	github.com/docker/cli v24.0.6+incompatible
-	github.com/docker/docker v24.0.6+incompatible
+	github.com/docker/docker v24.0.7+incompatible
 	github.com/evanphx/json-patch v5.7.0+incompatible
 	github.com/ghodss/yaml v1.0.0
 	github.com/gorilla/websocket v1.5.0
