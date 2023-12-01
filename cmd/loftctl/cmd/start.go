@@ -71,6 +71,7 @@ before running this command:
 	startCmd.Flags().StringVar(&cmd.ChartPath, "chart-path", "", product.Replace("The local chart path to deploy Loft"))
 	startCmd.Flags().StringVar(&cmd.ChartRepo, "chart-repo", "https://charts.loft.sh/", product.Replace("The chart repo to deploy Loft"))
 	startCmd.Flags().StringVar(&cmd.ChartName, "chart-name", "loft", product.Replace("The chart name to deploy Loft"))
+	startCmd.Flags().StringVar(&cmd.Product, "product", "", product.Replace("The Loft product to install"))
 	return startCmd
 }
 
