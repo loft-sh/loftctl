@@ -11,8 +11,8 @@ require (
 	github.com/ghodss/yaml v1.0.0
 	github.com/gorilla/websocket v1.5.0
 	github.com/loft-sh/admin-apis v0.0.0-20231102064836-7a6574be5f16
-	github.com/loft-sh/agentapi/v3 v3.4.0-alpha.3.0.20231130180319-bb49dce8aa41
-	github.com/loft-sh/api/v3 v3.0.0-20231130180341-c6ee6bf88f93
+	github.com/loft-sh/agentapi/v3 v3.4.0-beta.1
+	github.com/loft-sh/api/v3 v3.0.0-20231205175305-513bb7ccee9e
 	github.com/loft-sh/apiserver v0.0.0-20231018103030-cf3977856bec
 	github.com/loft-sh/log v0.0.0-20230824104949-bd516c25712a
 	github.com/mgutz/ansi v0.0.0-20200706080929-d51e80ef957d
