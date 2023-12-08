@@ -3,6 +3,9 @@ package connect
 import (
 	"bytes"
 	"context"
+	"fmt"
+	"os"
+	"os/exec"
 	"time"
 
 	"github.com/loft-sh/loftctl/v3/pkg/client"
@@ -29,13 +32,12 @@ import (
 
 type ClusterCmd struct {
 	*flags.GlobalFlags
-
+	Log            log.Logger
 	Namespace      string
 	ServiceAccount string
 	DisplayName    string
 	Wait           bool
-
-	Log log.Logger
+	Experimental   bool
 }
 
 // NewClusterCmd creates a new command
@@ -73,7 +75,7 @@ devspace connect cluster my-cluster
 			loader := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(clientcmd.NewDefaultClientConfigLoadingRules(), &clientcmd.ConfigOverrides{})
 			c, err := loader.ClientConfig()
 			if err != nil {
-				return err
+				return fmt.Errorf("get kube config: %w", err)
 			}
 
 			// Check for newer version
@@ -87,65 +89,141 @@ devspace connect cluster my-cluster
 	c.Flags().StringVar(&cmd.ServiceAccount, "service-account", "loft-admin", "The service account name to create")
 	c.Flags().StringVar(&cmd.DisplayName, "display-name", "", "The display name to show in the UI for this cluster")
 	c.Flags().BoolVar(&cmd.Wait, "wait", false, "If true, will wait until the cluster is initialized")
+	c.Flags().BoolVar(&cmd.Experimental, "experimental", false, "If true, will use a new, experimental, egress-only cluster enrollment feature")
 
 	return c
 }
 
 func (cmd *ClusterCmd) Run(ctx context.Context, c *rest.Config, args []string) error {
 	// Get clusterName from command argument
-	var clusterName string = args[0]
+	clusterName := args[0]
 
 	baseClient, err := client.NewClientFromPath(cmd.Config)
 	if err != nil {
-		return err
+		return fmt.Errorf("new client from path: %w", err)
 	}
 
 	err = client.VerifyVersion(baseClient)
 	if err != nil {
-		return err
+		return fmt.Errorf("verify loft version: %w", err)
 	}
 
 	managementClient, err := baseClient.Management()
 	if err != nil {
-		return err
+		return fmt.Errorf("create management client: %w", err)
 	}
 
 	// get user details
 	user, team, err := getUserOrTeam(ctx, managementClient)
 	if err != nil {
-		return err
+		return fmt.Errorf("get user or team: %w", err)
 	}
 
-	// get cluster config
-	clusterConfig, err := getClusterKubeConfig(ctx, c, cmd.Namespace, cmd.ServiceAccount)
-	if err != nil {
-		return err
-	}
+	if cmd.Experimental {
+		_, err = managementClient.Loft().ManagementV1().Clusters().Create(ctx, &managementv1.Cluster{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: clusterName,
+			},
+			Spec: managementv1.ClusterSpec{
+				ClusterSpec: storagev1.ClusterSpec{
+					DisplayName: cmd.DisplayName,
+					Owner: &storagev1.UserOrTeam{
+						User: user,
+						Team: team,
+					},
+					NetworkPeer: true,
+					Access:      getAccess(user, team),
+				},
+			},
+		}, metav1.CreateOptions{})
+		if err != nil && !kerrors.IsAlreadyExists(err) {
+			return fmt.Errorf("create cluster: %w", err)
+		}
 
-	// connect cluster
-	_, err = managementClient.Loft().ManagementV1().ClusterConnects().Create(ctx, &managementv1.ClusterConnect{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: clusterName,
-		},
-		Spec: managementv1.ClusterConnectSpec{
-			Config:    clusterConfig.String(),
-			AdminUser: user,
-			ClusterTemplate: managementv1.Cluster{
-				Spec: managementv1.ClusterSpec{
-					ClusterSpec: storagev1.ClusterSpec{
-						DisplayName: cmd.DisplayName,
-						Owner: &storagev1.UserOrTeam{
-							User: user,
-							Team: team,
+		accessKey, err := managementClient.Loft().ManagementV1().Clusters().GetAccessKey(ctx, clusterName, metav1.GetOptions{})
+		if err != nil {
+			return fmt.Errorf("get cluster access key: %w", err)
+		}
+
+		args := []string{
+			"upgrade", "--install", "loft", "loft",
+			"--repo", "https://charts.loft.sh",
+			"--create-namespace",
+			"--namespace", "loft",
+			"--set", "agentOnly=true",
+		}
+
+		if os.Getenv("DEVELOPMENT") == "true" {
+			args = []string{
+				"upgrade", "--install", "loft", "./chart",
+				"--create-namespace",
+				"--namespace", "loft",
+				"--set", "agentOnly=true",
+				"--set", "image=ghcr.io/loft-sh/enterprise:release-test",
+			}
+		}
+
+		if accessKey.LoftHost != "" {
+			args = append(args, "--set", "url="+accessKey.LoftHost)
+		}
+
+		if accessKey.AccessKey != "" {
+			args = append(args, "--set", "token="+accessKey.AccessKey)
+		}
+
+		if accessKey.Insecure {
+			args = append(args, "--set", "insecureSkipVerify=true")
+		}
+
+		if accessKey.CaCert != "" {
+			args = append(args, "--set", "additionalCA="+accessKey.CaCert)
+		}
+
+		if cmd.Wait {
+			args = append(args, "--wait")
+		}
+
+		helmCmd := exec.CommandContext(ctx, "helm", args...)
+		helmCmd.Stdout = os.Stdout
+		helmCmd.Stderr = os.Stderr
+		helmCmd.Stdin = os.Stdin
+
+		err = helmCmd.Run()
+		if err != nil {
+			return fmt.Errorf("failed to install loft chart: %w", err)
+		}
+	} else {
+		// get cluster config
+		clusterConfig, err := getClusterKubeConfig(ctx, c, cmd.Namespace, cmd.ServiceAccount)
+		if err != nil {
+			return fmt.Errorf("get cluster kubeconfig: %w", err)
+		}
+
+		// connect cluster
+		_, err = managementClient.Loft().ManagementV1().ClusterConnects().Create(ctx, &managementv1.ClusterConnect{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: clusterName,
+			},
+			Spec: managementv1.ClusterConnectSpec{
+				Config:    clusterConfig.String(),
+				AdminUser: user,
+				ClusterTemplate: managementv1.Cluster{
+					Spec: managementv1.ClusterSpec{
+						ClusterSpec: storagev1.ClusterSpec{
+							DisplayName: cmd.DisplayName,
+							Owner: &storagev1.UserOrTeam{
+								User: user,
+								Team: team,
+							},
+							Access: getAccess(user, team),
 						},
-						Access: getAccess(user, team),
 					},
 				},
 			},
-		},
-	}, metav1.CreateOptions{})
-	if err != nil {
-		return err
+		}, metav1.CreateOptions{})
+		if err != nil {
+			return fmt.Errorf("create cluster connect: %w", err)
+		}
 	}
 
 	if cmd.Wait {
@@ -173,7 +251,7 @@ func getUserOrTeam(ctx context.Context, managementClient kube.Interface) (string
 
 	userName, teamName, err := helper.GetCurrentUser(ctx, managementClient)
 	if err != nil {
-		return "", "", err
+		return "", "", fmt.Errorf("get current user: %w", err)
 	}
 
 	if userName != nil {
