@@ -120,6 +120,7 @@ func (cmd *ClusterCmd) Run(ctx context.Context, c *rest.Config, args []string) e
 	}
 
 	if cmd.Experimental {
+		// TODO(ThomasK33): Eventually change this into an Apply instead of a Create call
 		_, err = managementClient.Loft().ManagementV1().Clusters().Create(ctx, &managementv1.Cluster{
 			ObjectMeta: metav1.ObjectMeta{
 				Name: clusterName,
