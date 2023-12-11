@@ -120,6 +120,11 @@ func (cmd *ClusterCmd) Run(ctx context.Context, c *rest.Config, args []string) e
 	}
 
 	if cmd.Experimental {
+		loftVersion, err := baseClient.Version()
+		if err != nil {
+			return fmt.Errorf("get loft version: %w", err)
+		}
+
 		// TODO(ThomasK33): Eventually change this into an Apply instead of a Create call
 		_, err = managementClient.Loft().ManagementV1().Clusters().Create(ctx, &managementv1.Cluster{
 			ObjectMeta: metav1.ObjectMeta{
@@ -162,6 +167,8 @@ func (cmd *ClusterCmd) Run(ctx context.Context, c *rest.Config, args []string) e
 				"--set", "agentOnly=true",
 				"--set", "image=ghcr.io/loft-sh/enterprise:release-test",
 			}
+		} else if loftVersion.Version != "" {
+			args = append(args, "--version", loftVersion.Version)
 		}
 
 		if accessKey.LoftHost != "" {
