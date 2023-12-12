@@ -54,6 +54,8 @@ type Options struct {
 	KubeClient kubernetes.Interface
 	RestConfig *rest.Config
 	Log        log.Logger
+
+	Product string
 }
 
 func NewLoftStarter(options Options) *LoftStarter {
