@@ -42,7 +42,7 @@ before running this command:
 ########################################################
 	`),
 		Args: cobra.NoArgs,
-		RunE: func(cobraCmd *cobra.Command, args []string) error {
+		RunE: func(cobraCmd *cobra.Command, _ []string) error {
 			// Check for newer version
 			upgrade.PrintNewerVersionWarning()
 
