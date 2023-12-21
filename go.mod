@@ -11,8 +11,8 @@ require (
 	github.com/ghodss/yaml v1.0.0
 	github.com/gorilla/websocket v1.5.1
 	github.com/loft-sh/admin-apis v0.0.0-20231102064836-7a6574be5f16
-	github.com/loft-sh/agentapi/v3 v3.4.0-beta.6
-	github.com/loft-sh/api/v3 v3.4.0-beta.6
+	github.com/loft-sh/agentapi/v3 v3.4.0-beta.9
+	github.com/loft-sh/api/v3 v3.4.0-beta.9
 	github.com/loft-sh/apiserver v0.0.0-20231018103030-cf3977856bec
 	github.com/loft-sh/log v0.0.0-20230824104949-bd516c25712a
 	github.com/mgutz/ansi v0.0.0-20200706080929-d51e80ef957d
@@ -115,7 +115,7 @@ require (
 	go.opentelemetry.io/proto/otlp v1.0.0 // indirect
 	go.uber.org/multierr v1.11.0 // indirect
 	go.uber.org/zap v1.26.0 // indirect
-	golang.org/x/crypto v0.16.0 // indirect
+	golang.org/x/crypto v0.17.0 // indirect
 	golang.org/x/exp v0.0.0-20231127185646-65229373498e // indirect
 	golang.org/x/net v0.19.0 // indirect
 	golang.org/x/oauth2 v0.15.0 // indirect
