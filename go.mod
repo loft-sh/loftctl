@@ -11,9 +11,9 @@ require (
 	github.com/ghodss/yaml v1.0.0
 	github.com/gorilla/websocket v1.5.1
 	github.com/loft-sh/admin-apis v0.0.0-20231102064836-7a6574be5f16
-	github.com/loft-sh/agentapi/v3 v3.4.0-beta.11.0.20240123094803-669b6def4eb6
+	github.com/loft-sh/agentapi/v3 v3.4.0-beta.12.0.20240125152158-193bcb58d641
 	github.com/loft-sh/api/v3 v3.0.0-20240123094839-7e1855cd6ad7
-	github.com/loft-sh/apiserver v0.0.0-20240122115656-e1a690b2e2d8
+	github.com/loft-sh/apiserver v0.0.0-20240125143607-a106e2f2e0f1
 	github.com/loft-sh/log v0.0.0-20230824104949-bd516c25712a
 	github.com/mgutz/ansi v0.0.0-20200706080929-d51e80ef957d
 	github.com/mitchellh/go-homedir v1.1.0
