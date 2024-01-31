@@ -22,11 +22,11 @@ var (
 
 // Defaults holds the default values
 type Defaults struct {
-	folderPath string
-	fileName   string
-	fullPath   string
+	FolderPath string
+	FileName   string
+	FullPath   string
 
-	values map[string]string
+	Values map[string]string
 }
 
 // NewFromPath creates a new defaults instance from the given path
@@ -45,7 +45,7 @@ func NewFromPath(folderPath string, fileName string) (*Defaults, error) {
 	if len(contents) == 0 {
 		return defaults, nil
 	}
-	if err = json.Unmarshal(contents, &defaults.values); err != nil {
+	if err = json.Unmarshal(contents, &defaults.Values); err != nil {
 		return defaults, errors.Wrap(err, "invalid json")
 	}
 
@@ -58,12 +58,12 @@ func (d *Defaults) Set(key string, value string) error {
 		return errors.Errorf("key %s is not supported", key)
 	}
 
-	d.values[key] = value
-	json, err := json.Marshal(d.values)
+	d.Values[key] = value
+	json, err := json.Marshal(d.Values)
 	if err != nil {
 		return errors.Wrap(err, "invalid json")
 	}
-	if err = os.WriteFile(d.fullPath, json, os.ModePerm); err != nil {
+	if err = os.WriteFile(d.FullPath, json, os.ModePerm); err != nil {
 		return errors.Wrap(err, "write config file")
 	}
 
@@ -76,7 +76,7 @@ func (d *Defaults) Get(key string, fallback string) (string, error) {
 		return fallback, errors.Errorf("key %s is not supported", key)
 	}
 
-	return d.values[key], nil
+	return d.Values[key], nil
 }
 
 // IsSupportedKey returns true if the given key is supported
@@ -91,17 +91,17 @@ func IsSupportedKey(key string) bool {
 }
 
 func (d *Defaults) ensureConfigFile() error {
-	_, err := os.Stat(d.fullPath)
+	_, err := os.Stat(d.FullPath)
 	// file exists
 	if err == nil {
 		return nil
 	}
 
 	if os.IsNotExist(err) {
-		if err := os.MkdirAll(d.folderPath, os.ModePerm); err != nil {
+		if err := os.MkdirAll(d.FolderPath, os.ModePerm); err != nil {
 			return errors.Wrap(err, "create cache folder")
 		}
-		if _, err := os.Create(d.fullPath); err != nil {
+		if _, err := os.Create(d.FullPath); err != nil {
 			return errors.Wrap(err, "create defaults file")
 		}
 
