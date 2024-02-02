@@ -11,8 +11,8 @@ require (
 	github.com/ghodss/yaml v1.0.0
 	github.com/gorilla/websocket v1.5.1
 	github.com/loft-sh/admin-apis v0.0.0-20240202092301-43d989db6f95
-	github.com/loft-sh/agentapi/v3 v3.4.0-beta.12.0.20240202134118-4931d69b59dc
-	github.com/loft-sh/api/v3 v3.0.0-20240202134139-cd9c0d8d0bdc
+	github.com/loft-sh/agentapi/v3 v3.4.0-beta.12.0.20240202135812-bc4ecf58f665
+	github.com/loft-sh/api/v3 v3.0.0-20240202135831-33c4357035e6
 	github.com/loft-sh/apiserver v0.0.0-20240125143607-a106e2f2e0f1
 	github.com/loft-sh/log v0.0.0-20230824104949-bd516c25712a
 	github.com/mgutz/ansi v0.0.0-20200706080929-d51e80ef957d
@@ -145,7 +145,3 @@ require (
 	sigs.k8s.io/structured-merge-diff/v4 v4.4.1 // indirect
 	sigs.k8s.io/yaml v1.4.0 // indirect
 )
-
-replace k8s.io/apiserver => github.com/loft-sh/k8s-apiserver v0.29.1-loft.0
-
-replace k8s.io => ../../../../../../../apiserver
