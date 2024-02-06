@@ -47,6 +47,7 @@ type ClusterCmd struct {
 	Experimental   bool
 	Insecure       bool
 	Wait           bool
+	Description    string
 }
 
 // NewClusterCmd creates a new command
@@ -101,6 +102,7 @@ devspace connect cluster my-cluster
 	c.Flags().BoolVar(&cmd.Experimental, "experimental", false, "If true, will use a new, experimental, egress-only cluster enrollment feature")
 	c.Flags().StringVar(&cmd.Context, "context", "", "The kube context to use for installation")
 	c.Flags().StringVar(&cmd.Project, "project", "", "The project name to use for the project cluster")
+	c.Flags().StringVar(&cmd.Description, "description", "", "The project name to use for the project cluster")
 
 	c.Flags().StringVar(&cmd.HelmChartPath, "helm-chart-path", "", "The agent chart to deploy")
 	c.Flags().StringArrayVar(&cmd.HelmSet, "helm-set", []string{}, "Extra helm values for the agent chart")
@@ -110,6 +112,7 @@ devspace connect cluster my-cluster
 	c.Flags().BoolVar(&cmd.Development, "development", os.Getenv("DEVELOPMENT") == "true", "If the development chart should be deployed")
 
 	_ = c.Flags().MarkHidden("development")
+	_ = c.Flags().MarkHidden("description")
 	return c
 }
 
@@ -217,6 +220,7 @@ func (cmd *ClusterCmd) connectCluster(ctx context.Context, baseClient client.Cli
 		Spec: managementv1.ClusterSpec{
 			ClusterSpec: storagev1.ClusterSpec{
 				DisplayName: cmd.DisplayName,
+				Description: cmd.Description,
 				Owner: &storagev1.UserOrTeam{
 					User: user,
 					Team: team,
