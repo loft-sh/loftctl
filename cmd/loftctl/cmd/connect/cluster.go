@@ -34,20 +34,20 @@ import (
 
 type ClusterCmd struct {
 	*flags.GlobalFlags
-	Log            log.Logger
-	Context        string
-	DisplayName    string
-	HelmChartPath  string
-	Namespace      string
-	Project        string
-	ServiceAccount string
-	HelmSet        []string
-	HelmValues     []string
-	Development    bool
-	Experimental   bool
-	Insecure       bool
-	Wait           bool
-	Description    string
+	Log             log.Logger
+	Context         string
+	DisplayName     string
+	HelmChartPath   string
+	Namespace       string
+	Project         string
+	ServiceAccount  string
+	Description     string
+	HelmSet         []string
+	HelmValues      []string
+	Development     bool
+	EgressOnlyAgent bool
+	Insecure        bool
+	Wait            bool
 }
 
 // NewClusterCmd creates a new command
@@ -99,7 +99,7 @@ devspace connect cluster my-cluster
 	c.Flags().StringVar(&cmd.ServiceAccount, "service-account", "loft-admin", "The service account name to create")
 	c.Flags().StringVar(&cmd.DisplayName, "display-name", "", "The display name to show in the UI for this cluster")
 	c.Flags().BoolVar(&cmd.Wait, "wait", false, "If true, will wait until the cluster is initialized")
-	c.Flags().BoolVar(&cmd.Experimental, "experimental", false, "If true, will use a new, experimental, egress-only cluster enrollment feature")
+	c.Flags().BoolVar(&cmd.EgressOnlyAgent, "egress-only-agent", true, "If true, will use an egress-only cluster enrollment feature")
 	c.Flags().StringVar(&cmd.Context, "context", "", "The kube context to use for installation")
 	c.Flags().StringVar(&cmd.Project, "project", "", "The project name to use for the project cluster")
 	c.Flags().StringVar(&cmd.Description, "description", "", "The project name to use for the project cluster")
@@ -141,7 +141,7 @@ func (cmd *ClusterCmd) Run(ctx context.Context, localConfig *rest.Config, args [
 	}
 
 	// check if we should connect via the new way
-	if cmd.Project != "" || cmd.Experimental {
+	if cmd.Project != "" || cmd.EgressOnlyAgent {
 		// create new kube client
 		kubeClient, err := kubernetes.NewForConfig(localConfig)
 		if err != nil {
