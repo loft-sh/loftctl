@@ -10,10 +10,9 @@ require (
 	github.com/evanphx/json-patch v5.8.1+incompatible
 	github.com/ghodss/yaml v1.0.0
 	github.com/gorilla/websocket v1.5.1
-	github.com/loft-sh/admin-apis v0.0.0-20231102064836-7a6574be5f16
-	github.com/loft-sh/agentapi/v3 v3.4.0-beta.12
-	github.com/loft-sh/api/v3 v3.4.0-beta.12
-	github.com/loft-sh/apiserver v0.0.0-20240122115656-e1a690b2e2d8
+	github.com/loft-sh/agentapi/v3 v3.4.0-beta.15
+	github.com/loft-sh/api/v3 v3.4.0-beta.15
+	github.com/loft-sh/apiserver v0.0.0-20240125143607-a106e2f2e0f1
 	github.com/loft-sh/log v0.0.0-20230824104949-bd516c25712a
 	github.com/mgutz/ansi v0.0.0-20200706080929-d51e80ef957d
 	github.com/mitchellh/go-homedir v1.1.0
@@ -81,6 +80,7 @@ require (
 	github.com/k0kubun/go-ansi v0.0.0-20180517002512-3bf9e2903213 // indirect
 	github.com/kballard/go-shellquote v0.0.0-20180428030007-95032a82bc51 // indirect
 	github.com/liggitt/tabwriter v0.0.0-20181228230101-89fcab3d43de // indirect
+	github.com/loft-sh/admin-apis v0.0.0-20240203010124-3600c1c582a8 // indirect
 	github.com/loft-sh/jspolicy v0.2.2 // indirect
 	github.com/mailru/easyjson v0.7.7 // indirect
 	github.com/mattn/go-colorable v0.1.13 // indirect
@@ -145,7 +145,3 @@ require (
 	sigs.k8s.io/structured-merge-diff/v4 v4.4.1 // indirect
 	sigs.k8s.io/yaml v1.4.0 // indirect
 )
-
-replace k8s.io/apiserver => github.com/loft-sh/k8s-apiserver v0.29.1-loft.0
-
-replace k8s.io => ../../../../../../../apiserver

@@ -23,6 +23,7 @@ import (
 	"github.com/loft-sh/loftctl/v3/cmd/loftctl/cmd/vars"
 	"github.com/loft-sh/loftctl/v3/cmd/loftctl/cmd/wakeup"
 	"github.com/loft-sh/loftctl/v3/cmd/loftctl/flags"
+	"github.com/loft-sh/loftctl/v3/pkg/client"
 	"github.com/loft-sh/loftctl/v3/pkg/defaults"
 	"github.com/loft-sh/loftctl/v3/pkg/upgrade"
 	"github.com/loft-sh/log"
@@ -41,7 +42,7 @@ func NewRootCmd(streamLogger *log.StreamLogger) *cobra.Command {
 			if globalFlags.Silent {
 				streamLogger.SetLevel(logrus.FatalLevel)
 			}
-			if globalFlags.Config == "" && os.Getenv("LOFT_CONFIG") != "" {
+			if (globalFlags.Config == "" || globalFlags.Config == client.DefaultCacheConfig) && os.Getenv("LOFT_CONFIG") != "" {
 				globalFlags.Config = os.Getenv("LOFT_CONFIG")
 			}
 
