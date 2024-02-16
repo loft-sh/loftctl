@@ -352,7 +352,6 @@ func (pf *PortForwarder) handleConnection(ctx context.Context, conn net.Conn, po
 	defer conn.Close()
 
 	logger := klog.FromContext(ctx)
-
 	pf.numConnections.Inc()
 	defer pf.numConnections.Dec()
 	if pf.out != nil {
@@ -400,7 +399,7 @@ func (pf *PortForwarder) handleConnection(ctx context.Context, conn net.Conn, po
 	go func() {
 		// Copy from the remote side to the local port.
 		if _, err := io.Copy(conn, dataStream); err != nil && !strings.Contains(err.Error(), "use of closed network connection") {
-			logger.V(4).Error(err, "error copying from remote stream to local connection")
+			logger.V(4).Info("error copying from remote stream to local connection", "error", err)
 		}
 
 		// inform the select below that the remote copy is done
@@ -413,7 +412,7 @@ func (pf *PortForwarder) handleConnection(ctx context.Context, conn net.Conn, po
 
 		// Copy from the local port to the remote side.
 		if _, err := io.Copy(dataStream, conn); err != nil && !strings.Contains(err.Error(), "use of closed network connection") {
-			logger.V(4).Error(err, "error copying from local connection to remote stream")
+			logger.V(4).Info("error copying from local connection to remote stream", "error", err)
 
 			// break out of the select below without waiting for the other copy to finish
 			close(localError)
