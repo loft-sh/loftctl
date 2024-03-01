@@ -546,10 +546,11 @@ github.com/liggitt/tabwriter v0.0.0-20181228230101-89fcab3d43de h1:9TO3cAIGXtEhn
 github.com/liggitt/tabwriter v0.0.0-20181228230101-89fcab3d43de/go.mod h1:zAbeS9B/r2mtpb6U+EI2rYA5OAXxsYw6wTamcNW+zcE=
 github.com/loft-sh/admin-apis v0.0.0-20240203010124-3600c1c582a8 h1:nuY9Vgvabh2FlaTYp9yhzh3cBzY6jjFEFSsOvw9ZAJw=
 github.com/loft-sh/admin-apis v0.0.0-20240203010124-3600c1c582a8/go.mod h1:MWczNwKvWssHo1KaeZKaWDdRLYSNbWqQBGsTLoCNd7U=
-github.com/loft-sh/agentapi/v3 v3.4.0-beta.16.0.20240219132351-25c01475341f h1:SamYCmBz3RzbzpzI80JJWkGu6vYSPvEaPvJngG+/3iE=
-github.com/loft-sh/agentapi/v3 v3.4.0-beta.16.0.20240219132351-25c01475341f/go.mod h1:P6u4QZZ6+MXywDCWKlZMPbjuUz61wIdXAVdoZ5qf934=
-github.com/loft-sh/api/v3 v3.0.0-20240221062637-f82e2eef4338 h1:qELkk0zkZFktJ6vIZAt7+Y84z9MpEmC4Z0jZU9+vyus=
-github.com/loft-sh/api/v3 v3.0.0-20240221062637-f82e2eef4338/go.mod h1:l+D4vugbMHxQaXK6pzQPMtJajisyi5RymQaSAj3FkD0=
+github.com/loft-sh/agentapi/v3 v3.4.0/go.mod h1:P6u4QZZ6+MXywDCWKlZMPbjuUz61wIdXAVdoZ5qf934=
+github.com/loft-sh/agentapi/v3 v3.4.1-0.20240301102544-827a154a252d h1:kEa12ouwM2bPm/1jAFZTRde4olIfEtBh8MUc3NFuGe8=
+github.com/loft-sh/agentapi/v3 v3.4.1-0.20240301102544-827a154a252d/go.mod h1:/N9C/knBF0dQI4gJ5pvvejwJ9ZVw2WHLdc7/BpFv8BY=
+github.com/loft-sh/api/v3 v3.0.0-20240301102543-cc058a6f09b7 h1:yBnaaj5wTjjsTQSAUEP+YGMShPEgsZAU2UPVc28TxCY=
+github.com/loft-sh/api/v3 v3.0.0-20240301102543-cc058a6f09b7/go.mod h1:1be4ap0VmGcfry5K6wFmNQbLirn7u9jvO5gPkfVFs4Y=
 github.com/loft-sh/apiserver v0.0.0-20240129130254-7b9a55ab1744 h1:1Yhs86ugpnEsex4kkFpyvCHNy42O5vtJjY7Loty9JkI=
 github.com/loft-sh/apiserver v0.0.0-20240129130254-7b9a55ab1744/go.mod h1:/QBF5drEoeQ0pggzT6q29+cyirRg5/MOJCq39ghku+8=
 github.com/loft-sh/jspolicy v0.2.2 h1:+7QqVumYm225mSJsGOjnbCGYzh9XyKYQab6FgLiHYJU=
@@ -1000,8 +1001,8 @@ golang.org/x/oauth2 v0.0.0-20210313182246-cd4f82c27b84/go.mod h1:KelEdhl1UZF7XfJ
 golang.org/x/oauth2 v0.0.0-20210402161424-2e8d93401602/go.mod h1:KelEdhl1UZF7XfJ4dDtk6s++YSgaE7mD/BuKKDLBl4A=
 golang.org/x/oauth2 v0.0.0-20210514164344-f6687ab2804c/go.mod h1:KelEdhl1UZF7XfJ4dDtk6s++YSgaE7mD/BuKKDLBl4A=
 golang.org/x/oauth2 v0.0.0-20210819190943-2bc19b11175f/go.mod h1:KelEdhl1UZF7XfJ4dDtk6s++YSgaE7mD/BuKKDLBl4A=
-golang.org/x/oauth2 v0.16.0 h1:aDkGMBSYxElaoP81NpoUoz2oo2R2wHdZpGToUxfyQrQ=
-golang.org/x/oauth2 v0.16.0/go.mod h1:hqZ+0LWXsiVoZpeld6jVt06P3adbS2Uu911W1SsJv2o=
+golang.org/x/oauth2 v0.17.0 h1:6m3ZPmLEFdVxKKWnKq4VqZ60gutO35zm+zrAHVmHyDQ=
+golang.org/x/oauth2 v0.17.0/go.mod h1:OzPDGQiuQMguemayvdylqddI7qcD9lnSDb+1FiwQ5HA=
 golang.org/x/sync v0.0.0-20180314180146-1d60e4601c6f/go.mod h1:RxMgew5VJxzue5/jJTE5uejpjVlOe/izrB70Jof72aM=
 golang.org/x/sync v0.0.0-20181108010431-42b317875d0f/go.mod h1:RxMgew5VJxzue5/jJTE5uejpjVlOe/izrB70Jof72aM=
 golang.org/x/sync v0.0.0-20181221193216-37e7f081c4d4/go.mod h1:RxMgew5VJxzue5/jJTE5uejpjVlOe/izrB70Jof72aM=
