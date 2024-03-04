@@ -14,9 +14,8 @@ import (
 // NewDevPodCmd creates a new cobra command
 func NewDevPodCmd(globalFlags *flags.GlobalFlags) *cobra.Command {
 	c := &cobra.Command{
-		Use:    "devpod",
-		Hidden: true,
-		Short:  "DevPod commands",
+		Use:   "devpod",
+		Short: "DevPod commands",
 		Long: `
 ########################################################
 ##################### loft devpod ######################
@@ -42,5 +41,6 @@ func NewDevPodCmd(globalFlags *flags.GlobalFlags) *cobra.Command {
 	c.AddCommand(NewSshCmd(globalFlags))
 	c.AddCommand(NewStatusCmd(globalFlags))
 	c.AddCommand(NewDeleteCmd(globalFlags))
+	c.AddCommand(NewRebuildCmd(globalFlags))
 	return c
 }
