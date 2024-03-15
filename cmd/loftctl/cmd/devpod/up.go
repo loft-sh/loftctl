@@ -21,6 +21,8 @@ import (
 	"github.com/loft-sh/loftctl/v3/pkg/remotecommand"
 	"github.com/loft-sh/log"
 	"github.com/spf13/cobra"
+	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/equality"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
 )
@@ -57,6 +59,7 @@ func NewUpCmd(globalFlags *flags.GlobalFlags) *cobra.Command {
 }
 
 func (cmd *UpCmd) Run(ctx context.Context, stdin io.Reader, stdout io.Writer, stderr io.Writer) error {
+	l := cmd.Log.ErrorStreamOnly()
 	baseClient, err := client.NewClientFromPath(cmd.Config)
 	if err != nil {
 		return err
@@ -76,6 +79,74 @@ func (cmd *UpCmd) Run(ctx context.Context, stdin io.Reader, stdout io.Writer, st
 		workspace, err = createWorkspace(ctx, baseClient, cmd.Log.ErrorStreamOnly())
 		if err != nil {
 			return fmt.Errorf("create workspace: %w", err)
+		}
+	} else if workspace.Spec.TemplateRef != nil {
+		oldWorkspace := workspace.DeepCopy()
+		managementClient, err := baseClient.Management()
+		if err != nil {
+			return err
+		}
+		template := os.Getenv(devpodpkg.LoftTemplateOption)
+		if template == "" {
+			return fmt.Errorf("%s is missing in environment", devpodpkg.LoftTemplateOption)
+		}
+		version := os.Getenv(devpodpkg.LoftTemplateVersionOption)
+		if version == "latest" {
+			version = ""
+		}
+
+		// set template and version
+		workspace.Spec.TemplateRef = &storagev1.TemplateRef{
+			Name:    template,
+			Version: version,
+		}
+
+		// find parameters for template
+		resolvedParameters, err := getParametersFromEnvironment(ctx, managementClient, info.ProjectName, template, version)
+		if err != nil {
+			return fmt.Errorf("resolve parameters: %w", err)
+		}
+		workspace.Spec.Parameters = resolvedParameters
+
+		if workspaceChanged(workspace, oldWorkspace) {
+			workspace.Spec.TemplateRef.SyncOnce = true
+			// update template synced condition
+			for i, condition := range workspace.Status.Conditions {
+				if condition.Type == storagev1.InstanceTemplateSynced {
+					workspace.Status.Conditions[i].Status = corev1.ConditionFalse
+					workspace.Status.Conditions[i].Reason = "TemplateChanged"
+					workspace.Status.Conditions[i].Message = "Template has been changed"
+				}
+			}
+
+			// update workspace resource
+			workspace, err = managementClient.Loft().ManagementV1().
+				DevPodWorkspaceInstances(naming.ProjectNamespace(info.ProjectName)).
+				Update(ctx, workspace, metav1.UpdateOptions{})
+			if err != nil {
+				return err
+			}
+
+			//  wait until status is updated
+			err = wait.PollUntilContextTimeout(ctx, time.Second, 30*time.Second, true, func(ctx context.Context) (done bool, err error) {
+				workspace, err = managementClient.Loft().ManagementV1().
+					DevPodWorkspaceInstances(naming.ProjectNamespace(info.ProjectName)).
+					Get(ctx, workspace.Name, metav1.GetOptions{})
+				if err != nil {
+					return false, err
+				}
+
+				if !isReady(workspace) || !templateSynced(workspace) {
+					l.Debugf("Workspace %s is in phase %s, waiting until its ready", workspace.Name, workspace.Status.Phase)
+					return false, nil
+				}
+
+				l.Debugf("Workspace %s has been updated", workspace.Name)
+				return true, nil
+			})
+			if err != nil {
+				return fmt.Errorf("wait for instance to update: %w", err)
+			}
 		}
 	}
 
@@ -245,4 +316,28 @@ func getParametersFromEnvironment(ctx context.Context, kubeClient kube.Interface
 
 func isReady(workspace *managementv1.DevPodWorkspaceInstance) bool {
 	return workspace.Status.Phase == storagev1.InstanceReady
+}
+
+func templateSynced(workspace *managementv1.DevPodWorkspaceInstance) bool {
+	for _, condition := range workspace.Status.Conditions {
+		if condition.Type == storagev1.InstanceTemplateSynced {
+			return condition.Status == corev1.ConditionTrue
+		}
+	}
+
+	return false
+}
+
+func workspaceChanged(newWorkspace, workspace *managementv1.DevPodWorkspaceInstance) bool {
+	// compare template
+	if !equality.Semantic.DeepEqual(workspace.Spec.TemplateRef, newWorkspace.Spec.TemplateRef) {
+		return true
+	}
+
+	// compare parameters
+	if !equality.Semantic.DeepEqual(workspace.Spec.Parameters, newWorkspace.Spec.Parameters) {
+		return true
+	}
+
+	return false
 }
