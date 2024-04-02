@@ -6,13 +6,13 @@ require (
 	github.com/blang/semver v3.5.1+incompatible
 	github.com/denisbrodbeck/machineid v1.0.1
 	github.com/docker/cli v24.0.7+incompatible
-	github.com/docker/docker v24.0.7+incompatible
+	github.com/docker/docker v24.0.9+incompatible
 	github.com/evanphx/json-patch v5.8.1+incompatible
 	github.com/ghodss/yaml v1.0.0
 	github.com/gorilla/websocket v1.5.1
 	github.com/loft-sh/admin-apis v0.0.0-20240203010124-3600c1c582a8
-	github.com/loft-sh/agentapi/v3 v3.4.2-beta.1
-	github.com/loft-sh/api/v3 v3.4.2-beta.1
+	github.com/loft-sh/agentapi/v3 v3.4.3-beta.1
+	github.com/loft-sh/api/v3 v3.4.3-beta.1
 	github.com/loft-sh/apiserver v0.0.0-20240129130254-7b9a55ab1744
 	github.com/loft-sh/log v0.0.0-20240219160058-26d83ffb46ac
 	github.com/mgutz/ansi v0.0.0-20200706080929-d51e80ef957d
@@ -34,7 +34,7 @@ require (
 	k8s.io/kube-aggregator v0.29.1
 	k8s.io/kubectl v0.29.1
 	k8s.io/utils v0.0.0-20240102154912-e7106e64919e
-	sigs.k8s.io/controller-runtime v0.17.0
+	sigs.k8s.io/controller-runtime v0.17.2
 )
 
 require (
@@ -131,7 +131,7 @@ require (
 	google.golang.org/genproto/googleapis/api v0.0.0-20240116215550-a9fa1716bcac // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20240116215550-a9fa1716bcac // indirect
 	google.golang.org/grpc v1.60.1 // indirect
-	google.golang.org/protobuf v1.32.0 // indirect
+	google.golang.org/protobuf v1.33.0 // indirect
 	gopkg.in/inf.v0 v0.9.1 // indirect
 	gopkg.in/natefinch/lumberjack.v2 v2.2.1 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
