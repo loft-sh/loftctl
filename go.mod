@@ -5,14 +5,14 @@ go 1.21.5
 require (
 	github.com/blang/semver v3.5.1+incompatible
 	github.com/denisbrodbeck/machineid v1.0.1
-	github.com/docker/cli v24.0.7+incompatible
-	github.com/docker/docker v24.0.9+incompatible
+	github.com/docker/cli v25.0.0+incompatible
+	github.com/docker/docker v25.0.5+incompatible
 	github.com/evanphx/json-patch v5.8.1+incompatible
 	github.com/ghodss/yaml v1.0.0
 	github.com/gorilla/websocket v1.5.1
 	github.com/loft-sh/admin-apis v0.0.0-20240203010124-3600c1c582a8
-	github.com/loft-sh/agentapi/v3 v3.4.3-beta.1
-	github.com/loft-sh/api/v3 v3.4.3-beta.1
+	github.com/loft-sh/agentapi/v3 v3.4.4-beta.3
+	github.com/loft-sh/api/v3 v3.4.4-beta.3
 	github.com/loft-sh/apiserver v0.0.0-20240129130254-7b9a55ab1744
 	github.com/loft-sh/log v0.0.0-20240219160058-26d83ffb46ac
 	github.com/mgutz/ansi v0.0.0-20200706080929-d51e80ef957d
@@ -50,8 +50,9 @@ require (
 	github.com/cespare/xxhash/v2 v2.2.0 // indirect
 	github.com/coreos/go-semver v0.3.1 // indirect
 	github.com/coreos/go-systemd/v22 v22.5.0 // indirect
+	github.com/creack/pty v1.1.21 // indirect
 	github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc // indirect
-	github.com/docker/docker-credential-helpers v0.8.0 // indirect
+	github.com/docker/docker-credential-helpers v0.8.1 // indirect
 	github.com/emicklei/go-restful/v3 v3.11.2 // indirect
 	github.com/evanphx/json-patch/v5 v5.8.1 // indirect
 	github.com/felixge/httpsnoop v1.0.4 // indirect
