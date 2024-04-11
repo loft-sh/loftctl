@@ -546,11 +546,11 @@ github.com/liggitt/tabwriter v0.0.0-20181228230101-89fcab3d43de h1:9TO3cAIGXtEhn
 github.com/liggitt/tabwriter v0.0.0-20181228230101-89fcab3d43de/go.mod h1:zAbeS9B/r2mtpb6U+EI2rYA5OAXxsYw6wTamcNW+zcE=
 github.com/loft-sh/admin-apis v0.0.0-20240203010124-3600c1c582a8 h1:nuY9Vgvabh2FlaTYp9yhzh3cBzY6jjFEFSsOvw9ZAJw=
 github.com/loft-sh/admin-apis v0.0.0-20240203010124-3600c1c582a8/go.mod h1:MWczNwKvWssHo1KaeZKaWDdRLYSNbWqQBGsTLoCNd7U=
-github.com/loft-sh/agentapi/v3 v3.4.3/go.mod h1:H6z6N4cxhi6axLQGTIfBbWiFYaWHJIiPBAPywP7LiJ8=
-github.com/loft-sh/agentapi/v3 v3.4.4-beta.4 h1:2crYxtTktjsUqNemvDh9TOlCKf+he3bThg7aXOGiBXs=
 github.com/loft-sh/agentapi/v3 v3.4.4-beta.4/go.mod h1:H6z6N4cxhi6axLQGTIfBbWiFYaWHJIiPBAPywP7LiJ8=
-github.com/loft-sh/api/v3 v3.4.4-beta.4 h1:Xxzx5deg27bk2rLSXWEOkkVsUh0W7mVnhXqqma1+/Mk=
-github.com/loft-sh/api/v3 v3.4.4-beta.4/go.mod h1:v96cSSuKxCEumwLwJTNojNdhnmt5dW6o0Pk3TbYRTM4=
+github.com/loft-sh/agentapi/v3 v3.4.4-beta.5 h1:WDYcAe3ojkTJ+kXIt0xd1lRI3AWhbaqQEF1FW/m2BEM=
+github.com/loft-sh/agentapi/v3 v3.4.4-beta.5/go.mod h1:H6z6N4cxhi6axLQGTIfBbWiFYaWHJIiPBAPywP7LiJ8=
+github.com/loft-sh/api/v3 v3.4.4-beta.5 h1:DLWposPqyz0Q43t2TKr8wsrwKLbzVFO0y5AM+x5H1dI=
+github.com/loft-sh/api/v3 v3.4.4-beta.5/go.mod h1:I3oKqr+DjGESz7m2NWxQFTK8GRpuLci8RNA2maH5n54=
 github.com/loft-sh/apiserver v0.0.0-20240129130254-7b9a55ab1744 h1:1Yhs86ugpnEsex4kkFpyvCHNy42O5vtJjY7Loty9JkI=
 github.com/loft-sh/apiserver v0.0.0-20240129130254-7b9a55ab1744/go.mod h1:/QBF5drEoeQ0pggzT6q29+cyirRg5/MOJCq39ghku+8=
 github.com/loft-sh/jspolicy v0.2.2 h1:+7QqVumYm225mSJsGOjnbCGYzh9XyKYQab6FgLiHYJU=
