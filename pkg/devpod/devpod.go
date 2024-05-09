@@ -12,10 +12,10 @@ import (
 	"time"
 
 	"github.com/gorilla/websocket"
-	managementv1 "github.com/loft-sh/api/v3/pkg/apis/management/v1"
-	storagev1 "github.com/loft-sh/api/v3/pkg/apis/storage/v1"
-	"github.com/loft-sh/loftctl/v3/pkg/client"
-	"github.com/loft-sh/loftctl/v3/pkg/client/naming"
+	managementv1 "github.com/loft-sh/api/v4/pkg/apis/management/v1"
+	storagev1 "github.com/loft-sh/api/v4/pkg/apis/storage/v1"
+	"github.com/loft-sh/loftctl/v4/pkg/client"
+	"github.com/loft-sh/loftctl/v4/pkg/client/naming"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 

@@ -7,11 +7,11 @@ import (
 	"io"
 	"os"
 
-	storagev1 "github.com/loft-sh/api/v3/pkg/apis/storage/v1"
-	"github.com/loft-sh/loftctl/v3/cmd/loftctl/flags"
-	"github.com/loft-sh/loftctl/v3/pkg/client"
-	devpodpkg "github.com/loft-sh/loftctl/v3/pkg/devpod"
-	"github.com/loft-sh/loftctl/v3/pkg/remotecommand"
+	storagev1 "github.com/loft-sh/api/v4/pkg/apis/storage/v1"
+	"github.com/loft-sh/loftctl/v4/cmd/loftctl/flags"
+	"github.com/loft-sh/loftctl/v4/pkg/client"
+	devpodpkg "github.com/loft-sh/loftctl/v4/pkg/devpod"
+	"github.com/loft-sh/loftctl/v4/pkg/remotecommand"
 	"github.com/loft-sh/log"
 	"github.com/spf13/cobra"
 )

@@ -3,10 +3,10 @@ package cmd
 import (
 	"context"
 
-	"github.com/loft-sh/api/v3/pkg/product"
-	"github.com/loft-sh/loftctl/v3/cmd/loftctl/flags"
-	"github.com/loft-sh/loftctl/v3/pkg/start"
-	"github.com/loft-sh/loftctl/v3/pkg/upgrade"
+	"github.com/loft-sh/api/v4/pkg/product"
+	"github.com/loft-sh/loftctl/v4/cmd/loftctl/flags"
+	"github.com/loft-sh/loftctl/v4/pkg/start"
+	"github.com/loft-sh/loftctl/v4/pkg/upgrade"
 	"github.com/loft-sh/log"
 	"github.com/spf13/cobra"
 )

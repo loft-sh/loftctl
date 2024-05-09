@@ -10,7 +10,7 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/blang/semver"
-	"github.com/loft-sh/api/v3/pkg/product"
+	"github.com/loft-sh/api/v4/pkg/product"
 	"github.com/loft-sh/log"
 	"github.com/rhysd/go-github-selfupdate/selfupdate"
 )

@@ -10,9 +10,9 @@ import (
 	netUrl "net/url"
 	"strings"
 
-	types "github.com/loft-sh/api/v3/pkg/auth"
-	"github.com/loft-sh/api/v3/pkg/product"
-	"github.com/loft-sh/loftctl/v3/pkg/client"
+	types "github.com/loft-sh/api/v4/pkg/auth"
+	"github.com/loft-sh/api/v4/pkg/product"
+	"github.com/loft-sh/loftctl/v4/pkg/client"
 	"github.com/mgutz/ansi"
 	"github.com/sirupsen/logrus"
 	"github.com/skratchdot/open-golang/open"

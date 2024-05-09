@@ -9,11 +9,11 @@ import (
 	"time"
 
 	"github.com/loft-sh/admin-apis/pkg/licenseapi"
-	"github.com/loft-sh/api/v3/pkg/product"
-	"github.com/loft-sh/loftctl/v3/pkg/client"
-	"github.com/loft-sh/loftctl/v3/pkg/clihelper"
-	"github.com/loft-sh/loftctl/v3/pkg/config"
-	"github.com/loft-sh/loftctl/v3/pkg/printhelper"
+	"github.com/loft-sh/api/v4/pkg/product"
+	"github.com/loft-sh/loftctl/v4/pkg/client"
+	"github.com/loft-sh/loftctl/v4/pkg/clihelper"
+	"github.com/loft-sh/loftctl/v4/pkg/config"
+	"github.com/loft-sh/loftctl/v4/pkg/printhelper"
 	"github.com/loft-sh/log/survey"
 	"github.com/sirupsen/logrus"
 	corev1 "k8s.io/api/core/v1"
@@ -213,13 +213,13 @@ func (l *LoftStarter) printVClusterProGettingStarted(url string) {
 	}
 
 	if l.isLoggedIn(url) {
-		l.Log.Donef("You are successfully logged into vCluster.Pro!")
+		l.Log.Donef("You are successfully logged into vCluster Platform!")
 		l.Log.WriteString(logrus.InfoLevel, "- Use `vcluster create` to create a new pro vCluster\n")
 		l.Log.WriteString(logrus.InfoLevel, "- Use `vcluster create --disable-pro` to create a new oss vCluster\n")
 		l.Log.WriteString(logrus.InfoLevel, "- Use `vcluster import` to import and upgrade an existing oss vCluster\n")
 	} else {
-		l.Log.Warnf("You are not logged into vCluster.Pro yet, please run the below command to log into the vCluster.Pro instance")
-		l.Log.WriteString(logrus.InfoLevel, "- Use `vcluster login "+url+"` to log into the vCluster.Pro instance\n")
+		l.Log.Warnf("You are not logged into vCluster Platform yet, please run the below command to log into the vCluster Platform instance")
+		l.Log.WriteString(logrus.InfoLevel, "- Use `vcluster login "+url+"` to log into the vCluster Platform instance\n")
 	}
 }
 

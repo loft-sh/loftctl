@@ -6,8 +6,8 @@ import (
 	"os"
 	"sort"
 
-	"github.com/loft-sh/loftctl/v3/cmd/loftctl/flags"
-	"github.com/loft-sh/loftctl/v3/pkg/client"
+	"github.com/loft-sh/loftctl/v4/cmd/loftctl/flags"
+	"github.com/loft-sh/loftctl/v4/pkg/client"
 	"github.com/loft-sh/log"
 	"github.com/spf13/cobra"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"

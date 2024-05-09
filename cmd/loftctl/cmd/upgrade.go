@@ -1,8 +1,8 @@
 package cmd
 
 import (
-	"github.com/loft-sh/api/v3/pkg/product"
-	"github.com/loft-sh/loftctl/v3/pkg/upgrade"
+	"github.com/loft-sh/api/v4/pkg/product"
+	"github.com/loft-sh/loftctl/v4/pkg/upgrade"
 	"github.com/loft-sh/log"
 	"github.com/pkg/errors"
 	"github.com/spf13/cobra"

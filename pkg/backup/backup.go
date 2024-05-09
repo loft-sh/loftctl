@@ -5,8 +5,8 @@ import (
 	"strings"
 
 	"github.com/ghodss/yaml"
-	storagev1 "github.com/loft-sh/api/v3/pkg/apis/storage/v1"
-	"github.com/loft-sh/loftctl/v3/pkg/client/naming"
+	storagev1 "github.com/loft-sh/api/v4/pkg/apis/storage/v1"
+	"github.com/loft-sh/loftctl/v4/pkg/client/naming"
 	"github.com/pkg/errors"
 	corev1 "k8s.io/api/core/v1"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"

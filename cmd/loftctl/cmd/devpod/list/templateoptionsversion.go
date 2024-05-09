@@ -5,11 +5,11 @@ import (
 	"fmt"
 	"os"
 
-	managementv1 "github.com/loft-sh/api/v3/pkg/apis/management/v1"
-	storagev1 "github.com/loft-sh/api/v3/pkg/apis/storage/v1"
-	"github.com/loft-sh/loftctl/v3/cmd/loftctl/flags"
-	"github.com/loft-sh/loftctl/v3/pkg/client"
-	"github.com/loft-sh/loftctl/v3/pkg/version"
+	managementv1 "github.com/loft-sh/api/v4/pkg/apis/management/v1"
+	storagev1 "github.com/loft-sh/api/v4/pkg/apis/storage/v1"
+	"github.com/loft-sh/loftctl/v4/cmd/loftctl/flags"
+	"github.com/loft-sh/loftctl/v4/pkg/client"
+	"github.com/loft-sh/loftctl/v4/pkg/version"
 	"github.com/loft-sh/log"
 	"github.com/spf13/cobra"
 )
