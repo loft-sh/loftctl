@@ -243,7 +243,7 @@ func (cmd *ClusterCmd) connectCluster(ctx context.Context, baseClient client.Cli
 		return fmt.Errorf("get cluster access key: %w", err)
 	}
 
-	return cmd.deployAgent(ctx, kubeClient, loftVersion.Version, accessKey.LoftHost, accessKey.AccessKey, accessKey.Insecure, accessKey.CaCert)
+	return cmd.deployAgent(ctx, kubeClient, loftVersion.Version, accessKey.LoftHost, accessKey.AccessKey, baseClient.Config().Insecure || accessKey.Insecure, accessKey.CaCert)
 }
 
 func (cmd *ClusterCmd) deployAgent(ctx context.Context, kubeClient kubernetes.Interface, loftVersion, loftHost, accessKey string, insecure bool, caCert string) error {
