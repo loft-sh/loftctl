@@ -112,7 +112,7 @@ func (cmd *UpCmd) Run(ctx context.Context, stdin io.Reader, stdout io.Writer, st
 			workspace.Spec.TemplateRef.SyncOnce = true
 			// update template synced condition
 			for i, condition := range workspace.Status.Conditions {
-				if condition.Type == storagev1.InstanceTemplateSynced {
+				if condition.Type == storagev1.InstanceTemplateResolved {
 					workspace.Status.Conditions[i].Status = corev1.ConditionFalse
 					workspace.Status.Conditions[i].Reason = "TemplateChanged"
 					workspace.Status.Conditions[i].Message = "Template has been changed"
@@ -324,7 +324,7 @@ func isReady(workspace *managementv1.DevPodWorkspaceInstance) bool {
 
 func templateSynced(workspace *managementv1.DevPodWorkspaceInstance) bool {
 	for _, condition := range workspace.Status.Conditions {
-		if condition.Type == storagev1.InstanceTemplateSynced {
+		if condition.Type == storagev1.InstanceTemplateResolved {
 			return condition.Status == corev1.ConditionTrue
 		}
 	}

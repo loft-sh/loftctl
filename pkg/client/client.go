@@ -97,6 +97,12 @@ func NewClient() Client {
 	}
 }
 
+func NewClientFromConfig(c *Config) Client {
+	return &client{
+		config: c,
+	}
+}
+
 func NewClientFromPath(path string) (Client, error) {
 	c := &client{
 		configPath: path,
@@ -555,7 +561,7 @@ func (c *client) restConfig(hostSuffix string) (*rest.Config, error) {
 	if c.config == nil {
 		return nil, perrors.New("no config loaded")
 	} else if c.config.Host == "" || c.config.AccessKey == "" {
-		return nil, perrors.New(fmt.Sprintf("not logged in, please make sure you have run '%s [%s]'", product.LoginCmd(), product.Url()))
+		return nil, perrors.New(fmt.Sprintf("not logged in, please make sure you have run '%s' to create one or '%s [%s]' if one already exists", product.StartCmd(), product.LoginCmd(), product.Url()))
 	}
 
 	// build a rest config
