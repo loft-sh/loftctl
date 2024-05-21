@@ -16,8 +16,8 @@ import (
 	"time"
 
 	"github.com/blang/semver"
-	"github.com/loft-sh/loftctl/v4/pkg/client/naming"
 	"github.com/loft-sh/loftctl/v4/pkg/kubeconfig"
+	"github.com/loft-sh/loftctl/v4/pkg/projectutil"
 
 	"github.com/loft-sh/api/v4/pkg/auth"
 	"github.com/loft-sh/api/v4/pkg/product"
@@ -65,6 +65,8 @@ func init() {
 type Client interface {
 	Management() (kube.Interface, error)
 	ManagementConfig() (*rest.Config, error)
+	RefreshSelf(ctx context.Context) error
+	Self() *managementv1.Self
 
 	SpaceInstance(project, name string) (kube.Interface, error)
 	SpaceInstanceConfig(project, name string) (*rest.Config, error)
@@ -116,10 +118,50 @@ func NewClientFromPath(path string) (Client, error) {
 	return c, nil
 }
 
+func InitClientFromPath(ctx context.Context, path string) (Client, error) {
+	c, err := NewClientFromPath(path)
+	if err != nil {
+		return nil, err
+	}
+
+	err = c.RefreshSelf(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	return c, nil
+}
+
 type client struct {
 	config     *Config
 	configPath string
 	configOnce sync.Once
+
+	self *managementv1.Self
+}
+
+func (c *client) RefreshSelf(ctx context.Context) error {
+	managementClient, err := c.Management()
+	if err != nil {
+		return fmt.Errorf("create mangement client: %w", err)
+	}
+
+	c.self, err = managementClient.Loft().ManagementV1().Selves().Create(ctx, &managementv1.Self{}, metav1.CreateOptions{})
+	if err != nil {
+		return fmt.Errorf("get self: %w", err)
+	}
+
+	projectNamespacePrefix := projectutil.DefaultProjectNamespacePrefix
+	if c.self.Status.ProjectNamespacePrefix != nil {
+		projectNamespacePrefix = *c.self.Status.ProjectNamespacePrefix
+	}
+
+	projectutil.SetProjectNamespacePrefix(&projectNamespacePrefix)
+	return nil
+}
+
+func (c *client) Self() *managementv1.Self {
+	return c.self.DeepCopy()
 }
 
 // Logout implements Client.
@@ -194,7 +236,7 @@ func (c *client) VirtualClusterAccessPointCertificate(project, virtualCluster st
 		return "", "", err
 	}
 
-	kubeConfigResponse, err := managementClient.Loft().ManagementV1().VirtualClusterInstances(naming.ProjectNamespace(project)).GetKubeConfig(
+	kubeConfigResponse, err := managementClient.Loft().ManagementV1().VirtualClusterInstances(projectutil.ProjectNamespace(project)).GetKubeConfig(
 		context.Background(),
 		virtualCluster,
 		&managementv1.VirtualClusterInstanceKubeConfig{

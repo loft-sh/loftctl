@@ -54,7 +54,7 @@ func (cmd *TemplatesCmd) Run(ctx context.Context) error {
 		return fmt.Errorf("LOFT_PROJECT environment variable is empty")
 	}
 
-	baseClient, err := client.NewClientFromPath(cmd.Config)
+	baseClient, err := client.InitClientFromPath(ctx, cmd.Config)
 	if err != nil {
 		return err
 	}
