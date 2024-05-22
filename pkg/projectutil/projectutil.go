@@ -5,7 +5,8 @@ import (
 	"sync"
 )
 
-var DefaultProjectNamespacePrefix = "loft-p-"
+// LegacyProjectNamespacePrefix is the legacy project namespace prefix
+var LegacyProjectNamespacePrefix = "loft-p-"
 
 // having a nil value means the prefix is unset and things should panic and not fail silently
 var prefix *string
@@ -13,15 +14,11 @@ var prefixMux sync.RWMutex
 
 // SetProjectNamespacePrefix sets the global project namespace prefix
 // Defaulting should be handled when reading the config via ParseProjectNamespacePrefix
-func SetProjectNamespacePrefix(newPrefix *string) {
+func SetProjectNamespacePrefix(newPrefix string) {
 	prefixMux.Lock()
 	defer prefixMux.Unlock()
 
-	if newPrefix == nil {
-		return
-	}
-
-	prefix = newPrefix
+	prefix = &newPrefix
 }
 
 func GetProjectNamespacePrefix() string {
@@ -33,15 +30,6 @@ func GetProjectNamespacePrefix() string {
 	}
 
 	return *prefix
-}
-
-// ParseConfiguredProjectNSPrefix handles the defaulting for a configured prefix and returns the prefix to be used
-func ParseConfiguredProjectNSPrefix(configuredPrefix *string) string {
-	if configuredPrefix == nil {
-		return DefaultProjectNamespacePrefix
-	}
-
-	return *configuredPrefix
 }
 
 // ProjectFromNamespace returns the project associated with the namespace

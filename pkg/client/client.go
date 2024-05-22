@@ -151,12 +151,12 @@ func (c *client) RefreshSelf(ctx context.Context) error {
 		return fmt.Errorf("get self: %w", err)
 	}
 
-	projectNamespacePrefix := projectutil.DefaultProjectNamespacePrefix
+	projectNamespacePrefix := projectutil.LegacyProjectNamespacePrefix
 	if c.self.Status.ProjectNamespacePrefix != nil {
 		projectNamespacePrefix = *c.self.Status.ProjectNamespacePrefix
 	}
 
-	projectutil.SetProjectNamespacePrefix(&projectNamespacePrefix)
+	projectutil.SetProjectNamespacePrefix(projectNamespacePrefix)
 	return nil
 }
 
