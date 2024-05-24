@@ -1,7 +1,6 @@
 package connect
 
 import (
-	"bytes"
 	"context"
 	"fmt"
 	"os"
@@ -22,9 +21,7 @@ import (
 	managementv1 "github.com/loft-sh/api/v4/pkg/apis/management/v1"
 	storagev1 "github.com/loft-sh/api/v4/pkg/apis/storage/v1"
 	"github.com/loft-sh/api/v4/pkg/product"
-	"github.com/loft-sh/loftctl/v4/cmd/loftctl/cmd/generate"
 	"github.com/loft-sh/loftctl/v4/cmd/loftctl/flags"
-	"github.com/loft-sh/loftctl/v4/pkg/kubeconfig"
 	"github.com/loft-sh/loftctl/v4/pkg/upgrade"
 	"github.com/spf13/cobra"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -43,14 +40,13 @@ type ClusterCmd struct {
 	HelmSet          []string
 	HelmValues       []string
 
-	Namespace       string
-	Project         string
-	ServiceAccount  string
-	Description     string
-	Development     bool
-	EgressOnlyAgent bool
-	Insecure        bool
-	Wait            bool
+	Namespace      string
+	Project        string
+	ServiceAccount string
+	Description    string
+	Development    bool
+	Insecure       bool
+	Wait           bool
 }
 
 // NewClusterCmd creates a new command
@@ -102,7 +98,6 @@ devspace connect cluster my-cluster
 	c.Flags().StringVar(&cmd.ServiceAccount, "service-account", "loft-admin", "The service account name to create")
 	c.Flags().StringVar(&cmd.DisplayName, "display-name", "", "The display name to show in the UI for this cluster")
 	c.Flags().BoolVar(&cmd.Wait, "wait", false, "If true, will wait until the cluster is initialized")
-	c.Flags().BoolVar(&cmd.EgressOnlyAgent, "egress-only-agent", true, "If true, will use an egress-only cluster enrollment feature")
 	c.Flags().StringVar(&cmd.Context, "context", "", "The kube context to use for installation")
 	c.Flags().StringVar(&cmd.Project, "project", "", "The project name to use for the project cluster")
 	c.Flags().StringVar(&cmd.Description, "description", "", "The project name to use for the project cluster")
@@ -144,51 +139,15 @@ func (cmd *ClusterCmd) Run(ctx context.Context, localConfig *rest.Config, args [
 		return fmt.Errorf("get user or team: %w", err)
 	}
 
-	// check if we should connect via the new way
-	if cmd.Project != "" || cmd.EgressOnlyAgent {
-		// create new kube client
-		kubeClient, err := kubernetes.NewForConfig(localConfig)
-		if err != nil {
-			return nil
-		}
+	// create new kube client
+	kubeClient, err := kubernetes.NewForConfig(localConfig)
+	if err != nil {
+		return nil
+	}
 
-		// connect cluster
-		err = cmd.connectCluster(ctx, baseClient, managementClient, kubeClient, clusterName, user, team)
-		if err != nil {
-			return err
-		}
-	} else {
-		// get cluster config
-		clusterConfig, err := getClusterKubeConfig(ctx, localConfig, cmd.Namespace, cmd.ServiceAccount)
-		if err != nil {
-			return fmt.Errorf("get cluster kubeconfig: %w", err)
-		}
-
-		// connect cluster
-		_, err = managementClient.Loft().ManagementV1().ClusterConnects().Create(ctx, &managementv1.ClusterConnect{
-			ObjectMeta: metav1.ObjectMeta{
-				Name: clusterName,
-			},
-			Spec: managementv1.ClusterConnectSpec{
-				Config:    clusterConfig.String(),
-				AdminUser: user,
-				ClusterTemplate: managementv1.Cluster{
-					Spec: managementv1.ClusterSpec{
-						ClusterSpec: storagev1.ClusterSpec{
-							DisplayName: cmd.DisplayName,
-							Owner: &storagev1.UserOrTeam{
-								User: user,
-								Team: team,
-							},
-							Access: getAccess(user, team),
-						},
-					},
-				},
-			},
-		}, metav1.CreateOptions{})
-		if err != nil {
-			return fmt.Errorf("create cluster connect: %w", err)
-		}
+	// connect cluster
+	if err = cmd.connectCluster(ctx, baseClient, managementClient, kubeClient, clusterName, user, team); err != nil {
+		return err
 	}
 
 	if cmd.Wait {
@@ -375,20 +334,4 @@ func getAccess(user, team string) []storagev1.Access {
 	}
 
 	return access
-}
-
-func getClusterKubeConfig(ctx context.Context, c *rest.Config, namespace, serviceAccount string) (bytes.Buffer, error) {
-	var clusterConfig bytes.Buffer
-
-	token, err := generate.GetAuthToken(ctx, c, namespace, serviceAccount)
-	if err != nil {
-		return bytes.Buffer{}, fmt.Errorf("get auth token: %w", err)
-	}
-
-	err = kubeconfig.WriteTokenKubeConfig(c, string(token), &clusterConfig)
-	if err != nil {
-		return bytes.Buffer{}, fmt.Errorf("write token kubeconfig: %w", err)
-	}
-
-	return clusterConfig, nil
 }
