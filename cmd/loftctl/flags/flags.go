@@ -1,8 +1,8 @@
 package flags
 
 import (
-	"github.com/loft-sh/api/v4/pkg/product"
-	"github.com/loft-sh/loftctl/v4/pkg/client"
+	"github.com/loft-sh/api/v3/pkg/product"
+	"github.com/loft-sh/loftctl/v3/pkg/client"
 	flag "github.com/spf13/pflag"
 )
 

@@ -6,8 +6,8 @@ import (
 	"os"
 	"sort"
 
-	"github.com/loft-sh/loftctl/v4/cmd/loftctl/flags"
-	"github.com/loft-sh/loftctl/v4/pkg/client"
+	"github.com/loft-sh/loftctl/v3/cmd/loftctl/flags"
+	"github.com/loft-sh/loftctl/v3/pkg/client"
 	"github.com/loft-sh/log"
 	"github.com/spf13/cobra"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -54,7 +54,7 @@ func (cmd *TemplatesCmd) Run(ctx context.Context) error {
 		return fmt.Errorf("LOFT_PROJECT environment variable is empty")
 	}
 
-	baseClient, err := client.InitClientFromPath(ctx, cmd.Config)
+	baseClient, err := client.NewClientFromPath(cmd.Config)
 	if err != nil {
 		return err
 	}
@@ -95,18 +95,15 @@ func (cmd *TemplatesCmd) Run(ctx context.Context) error {
 	return printOptions(&OptionsFormat{
 		Options: map[string]*Option{
 			"LOFT_RUNNER": {
-				DisplayName: "Runner",
 				Description: "The DevPod.Pro runner to use for a new workspace.",
 				Enum:        runners,
 			},
 			"LOFT_TEMPLATE": {
-				DisplayName:       "Template",
 				Description:       "The template to use for a new workspace.",
 				Required:          true,
 				Enum:              templates,
 				Default:           templateList.DefaultDevPodWorkspaceTemplate,
 				SubOptionsCommand: fmt.Sprintf("'%s' devpod list templateoptions", executable),
-				Mutable:           true,
 			},
 		},
 	})
