@@ -4,12 +4,11 @@ import (
 	"fmt"
 	"os"
 
-	storagev1 "github.com/loft-sh/api/v4/pkg/apis/storage/v1"
-	"github.com/loft-sh/api/v4/pkg/product"
-	"github.com/loft-sh/loftctl/v4/cmd/loftctl/flags"
-	"github.com/loft-sh/loftctl/v4/pkg/backup"
-	loftclient "github.com/loft-sh/loftctl/v4/pkg/client"
-	"github.com/loft-sh/loftctl/v4/pkg/clihelper"
+	storagev1 "github.com/loft-sh/api/v3/pkg/apis/storage/v1"
+	"github.com/loft-sh/api/v3/pkg/product"
+	"github.com/loft-sh/loftctl/v3/cmd/loftctl/flags"
+	"github.com/loft-sh/loftctl/v3/pkg/backup"
+	"github.com/loft-sh/loftctl/v3/pkg/clihelper"
 	"github.com/loft-sh/log"
 	"github.com/loft-sh/log/survey"
 	"github.com/spf13/cobra"
@@ -57,12 +56,6 @@ loft backup
 		Long:  description,
 		Args:  cobra.NoArgs,
 		RunE: func(cobraCmd *cobra.Command, args []string) error {
-			// we need to set the project namespace prefix correctly here
-			_, err := loftclient.InitClientFromPath(cobraCmd.Context(), cmd.Config)
-			if err != nil {
-				return fmt.Errorf("create loft client: %w", err)
-			}
-
 			return cmd.Run(cobraCmd, args)
 		},
 	}
@@ -94,7 +87,7 @@ func (cmd *BackupCmd) Run(cobraCmd *cobra.Command, args []string) error {
 		return err
 	} else if !isInstalled {
 		answer, err := cmd.Log.Question(&survey.QuestionOptions{
-			Question:     fmt.Sprintf(product.Replace("Seems like Loft was not installed into namespace %q, do you want to continue?"), cmd.Namespace),
+			Question:     product.Replace("Seems like Loft was not installed into namespace %s, do you want to continue?"),
 			DefaultValue: "Yes",
 			Options:      []string{"Yes", "No"},
 		})

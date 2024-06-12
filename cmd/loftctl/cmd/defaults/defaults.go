@@ -1,9 +1,9 @@
 package defaults
 
 import (
-	"github.com/loft-sh/api/v4/pkg/product"
-	"github.com/loft-sh/loftctl/v4/cmd/loftctl/flags"
-	pdefaults "github.com/loft-sh/loftctl/v4/pkg/defaults"
+	"github.com/loft-sh/api/v3/pkg/product"
+	"github.com/loft-sh/loftctl/v3/cmd/loftctl/flags"
+	pdefaults "github.com/loft-sh/loftctl/v3/pkg/defaults"
 	"github.com/spf13/cobra"
 )
 

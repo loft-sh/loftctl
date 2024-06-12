@@ -1,6 +1,6 @@
-module github.com/loft-sh/loftctl/v4
+module github.com/loft-sh/loftctl/v3
 
-go 1.22.2
+go 1.22.4
 
 require (
 	github.com/blang/semver v3.5.1+incompatible
@@ -11,8 +11,8 @@ require (
 	github.com/ghodss/yaml v1.0.0
 	github.com/gorilla/websocket v1.5.1
 	github.com/loft-sh/admin-apis v0.0.0-20240203010124-3600c1c582a8
-	github.com/loft-sh/agentapi/v4 v4.0.0-alpha.4
-	github.com/loft-sh/api/v4 v4.0.0-alpha.4
+	github.com/loft-sh/agentapi/v3 v3.4.7-rc.1
+	github.com/loft-sh/api/v3 v3.4.7-rc.1
 	github.com/loft-sh/apiserver v0.0.0-20240129130254-7b9a55ab1744
 	github.com/loft-sh/log v0.0.0-20240219160058-26d83ffb46ac
 	github.com/mgutz/ansi v0.0.0-20200706080929-d51e80ef957d
@@ -35,7 +35,6 @@ require (
 	k8s.io/kubectl v0.29.1
 	k8s.io/utils v0.0.0-20240102154912-e7106e64919e
 	sigs.k8s.io/controller-runtime v0.17.2
-	tailscale.com v1.58.2
 )
 
 require (
@@ -57,7 +56,6 @@ require (
 	github.com/emicklei/go-restful/v3 v3.11.2 // indirect
 	github.com/evanphx/json-patch/v5 v5.8.1 // indirect
 	github.com/felixge/httpsnoop v1.0.4 // indirect
-	github.com/frankban/quicktest v1.14.6 // indirect
 	github.com/fsnotify/fsnotify v1.7.0 // indirect
 	github.com/go-logr/logr v1.4.1 // indirect
 	github.com/go-logr/stdr v1.2.2 // indirect
@@ -119,10 +117,9 @@ require (
 	go.opentelemetry.io/proto/otlp v1.1.0 // indirect
 	go.uber.org/multierr v1.11.0 // indirect
 	go.uber.org/zap v1.26.0 // indirect
-	go4.org/mem v0.0.0-20220726221520-4f986261bf13 // indirect
 	golang.org/x/crypto v0.21.0 // indirect
 	golang.org/x/exp v0.0.0-20240119083558-1b970713d09a // indirect
-	golang.org/x/net v0.23.0 // indirect
+	golang.org/x/net v0.21.0 // indirect
 	golang.org/x/oauth2 v0.17.0 // indirect
 	golang.org/x/sync v0.6.0 // indirect
 	golang.org/x/sys v0.18.0 // indirect

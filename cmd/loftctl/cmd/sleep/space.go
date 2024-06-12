@@ -6,17 +6,17 @@ import (
 	"strconv"
 	"time"
 
-	clusterv1 "github.com/loft-sh/agentapi/v4/pkg/apis/loft/cluster/v1"
-	storagev1 "github.com/loft-sh/api/v4/pkg/apis/storage/v1"
-	"github.com/loft-sh/api/v4/pkg/product"
-	"github.com/loft-sh/loftctl/v4/cmd/loftctl/flags"
-	"github.com/loft-sh/loftctl/v4/pkg/client"
-	"github.com/loft-sh/loftctl/v4/pkg/client/helper"
-	"github.com/loft-sh/loftctl/v4/pkg/config"
-	pdefaults "github.com/loft-sh/loftctl/v4/pkg/defaults"
-	"github.com/loft-sh/loftctl/v4/pkg/projectutil"
-	"github.com/loft-sh/loftctl/v4/pkg/upgrade"
-	"github.com/loft-sh/loftctl/v4/pkg/util"
+	clusterv1 "github.com/loft-sh/agentapi/v3/pkg/apis/loft/cluster/v1"
+	storagev1 "github.com/loft-sh/api/v3/pkg/apis/storage/v1"
+	"github.com/loft-sh/api/v3/pkg/product"
+	"github.com/loft-sh/loftctl/v3/cmd/loftctl/flags"
+	"github.com/loft-sh/loftctl/v3/pkg/client"
+	"github.com/loft-sh/loftctl/v3/pkg/client/helper"
+	"github.com/loft-sh/loftctl/v3/pkg/client/naming"
+	"github.com/loft-sh/loftctl/v3/pkg/config"
+	pdefaults "github.com/loft-sh/loftctl/v3/pkg/defaults"
+	"github.com/loft-sh/loftctl/v3/pkg/upgrade"
+	"github.com/loft-sh/loftctl/v3/pkg/util"
 	"github.com/loft-sh/log"
 	"github.com/spf13/cobra"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -83,7 +83,7 @@ devspace sleep space myspace --project myproject
 
 // Run executes the functionality
 func (cmd *SpaceCmd) Run(ctx context.Context, args []string) error {
-	baseClient, err := client.InitClientFromPath(ctx, cmd.Config)
+	baseClient, err := client.NewClientFromPath(cmd.Config)
 	if err != nil {
 		return err
 	}
@@ -111,7 +111,7 @@ func (cmd *SpaceCmd) sleepSpace(ctx context.Context, baseClient client.Client, s
 		return err
 	}
 
-	spaceInstance, err := managementClient.Loft().ManagementV1().SpaceInstances(projectutil.ProjectNamespace(cmd.Project)).Get(ctx, spaceName, metav1.GetOptions{})
+	spaceInstance, err := managementClient.Loft().ManagementV1().SpaceInstances(naming.ProjectNamespace(cmd.Project)).Get(ctx, spaceName, metav1.GetOptions{})
 	if err != nil {
 		return err
 	}
@@ -129,7 +129,7 @@ func (cmd *SpaceCmd) sleepSpace(ctx context.Context, baseClient client.Client, s
 		return err
 	}
 
-	_, err = managementClient.Loft().ManagementV1().SpaceInstances(projectutil.ProjectNamespace(cmd.Project)).Patch(ctx, spaceInstance.Name, patch.Type(), patchData, metav1.PatchOptions{})
+	_, err = managementClient.Loft().ManagementV1().SpaceInstances(naming.ProjectNamespace(cmd.Project)).Patch(ctx, spaceInstance.Name, patch.Type(), patchData, metav1.PatchOptions{})
 	if err != nil {
 		return err
 	}
@@ -137,7 +137,7 @@ func (cmd *SpaceCmd) sleepSpace(ctx context.Context, baseClient client.Client, s
 	// wait for sleeping
 	cmd.Log.Info("Wait until space is sleeping...")
 	err = wait.PollUntilContextTimeout(ctx, time.Second, config.Timeout(), false, func(ctx context.Context) (done bool, err error) {
-		spaceInstance, err := managementClient.Loft().ManagementV1().SpaceInstances(projectutil.ProjectNamespace(cmd.Project)).Get(ctx, spaceName, metav1.GetOptions{})
+		spaceInstance, err := managementClient.Loft().ManagementV1().SpaceInstances(naming.ProjectNamespace(cmd.Project)).Get(ctx, spaceName, metav1.GetOptions{})
 		if err != nil {
 			return false, err
 		}
