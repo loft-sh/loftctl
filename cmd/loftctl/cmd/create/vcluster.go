@@ -9,33 +9,33 @@ import (
 	"strings"
 	"time"
 
-	"github.com/loft-sh/loftctl/v4/pkg/config"
-	"github.com/loft-sh/loftctl/v4/pkg/projectutil"
-	"github.com/loft-sh/loftctl/v4/pkg/util"
-	"github.com/loft-sh/loftctl/v4/pkg/vcluster"
+	"github.com/loft-sh/loftctl/v3/pkg/client/naming"
+	"github.com/loft-sh/loftctl/v3/pkg/config"
+	"github.com/loft-sh/loftctl/v3/pkg/util"
+	"github.com/loft-sh/loftctl/v3/pkg/vcluster"
 	"k8s.io/apimachinery/pkg/util/wait"
 	client2 "sigs.k8s.io/controller-runtime/pkg/client"
 
-	clusterv1 "github.com/loft-sh/agentapi/v4/pkg/apis/loft/cluster/v1"
-	agentstoragev1 "github.com/loft-sh/agentapi/v4/pkg/apis/loft/storage/v1"
-	managementv1 "github.com/loft-sh/api/v4/pkg/apis/management/v1"
-	storagev1 "github.com/loft-sh/api/v4/pkg/apis/storage/v1"
-	"github.com/loft-sh/api/v4/pkg/product"
+	clusterv1 "github.com/loft-sh/agentapi/v3/pkg/apis/loft/cluster/v1"
+	agentstoragev1 "github.com/loft-sh/agentapi/v3/pkg/apis/loft/storage/v1"
+	managementv1 "github.com/loft-sh/api/v3/pkg/apis/management/v1"
+	storagev1 "github.com/loft-sh/api/v3/pkg/apis/storage/v1"
+	"github.com/loft-sh/api/v3/pkg/product"
 
-	"github.com/loft-sh/loftctl/v4/cmd/loftctl/cmd/use"
-	"github.com/loft-sh/loftctl/v4/cmd/loftctl/flags"
-	"github.com/loft-sh/loftctl/v4/pkg/client"
-	"github.com/loft-sh/loftctl/v4/pkg/client/helper"
-	"github.com/loft-sh/loftctl/v4/pkg/clihelper"
-	"github.com/loft-sh/loftctl/v4/pkg/constants"
-	pdefaults "github.com/loft-sh/loftctl/v4/pkg/defaults"
-	"github.com/loft-sh/loftctl/v4/pkg/kube"
-	"github.com/loft-sh/loftctl/v4/pkg/kubeconfig"
-	"github.com/loft-sh/loftctl/v4/pkg/parameters"
-	"github.com/loft-sh/loftctl/v4/pkg/random"
-	"github.com/loft-sh/loftctl/v4/pkg/task"
-	"github.com/loft-sh/loftctl/v4/pkg/upgrade"
-	"github.com/loft-sh/loftctl/v4/pkg/version"
+	"github.com/loft-sh/loftctl/v3/cmd/loftctl/cmd/use"
+	"github.com/loft-sh/loftctl/v3/cmd/loftctl/flags"
+	"github.com/loft-sh/loftctl/v3/pkg/client"
+	"github.com/loft-sh/loftctl/v3/pkg/client/helper"
+	"github.com/loft-sh/loftctl/v3/pkg/clihelper"
+	"github.com/loft-sh/loftctl/v3/pkg/constants"
+	pdefaults "github.com/loft-sh/loftctl/v3/pkg/defaults"
+	"github.com/loft-sh/loftctl/v3/pkg/kube"
+	"github.com/loft-sh/loftctl/v3/pkg/kubeconfig"
+	"github.com/loft-sh/loftctl/v3/pkg/parameters"
+	"github.com/loft-sh/loftctl/v3/pkg/random"
+	"github.com/loft-sh/loftctl/v3/pkg/task"
+	"github.com/loft-sh/loftctl/v3/pkg/upgrade"
+	"github.com/loft-sh/loftctl/v3/pkg/version"
 	"github.com/loft-sh/log"
 	"github.com/mgutz/ansi"
 	perrors "github.com/pkg/errors"
@@ -161,7 +161,7 @@ devspace create vcluster test --project myproject
 // Run executes the command
 func (cmd *VirtualClusterCmd) Run(ctx context.Context, args []string) error {
 	virtualClusterName := args[0]
-	baseClient, err := client.InitClientFromPath(ctx, cmd.Config)
+	baseClient, err := client.NewClientFromPath(cmd.Config)
 	if err != nil {
 		return err
 	}
@@ -188,7 +188,7 @@ func (cmd *VirtualClusterCmd) Run(ctx context.Context, args []string) error {
 }
 
 func (cmd *VirtualClusterCmd) createVirtualCluster(ctx context.Context, baseClient client.Client, virtualClusterName string) error {
-	virtualClusterNamespace := projectutil.ProjectNamespace(cmd.Project)
+	virtualClusterNamespace := naming.ProjectNamespace(cmd.Project)
 	managementClient, err := baseClient.Management()
 	if err != nil {
 		return err
@@ -275,7 +275,7 @@ func (cmd *VirtualClusterCmd) createVirtualCluster(ctx context.Context, baseClie
 		zone, offset := time.Now().Zone()
 		virtualClusterInstance = &managementv1.VirtualClusterInstance{
 			ObjectMeta: metav1.ObjectMeta{
-				Namespace: projectutil.ProjectNamespace(cmd.Project),
+				Namespace: naming.ProjectNamespace(cmd.Project),
 				Name:      virtualClusterName,
 				Annotations: map[string]string{
 					clusterv1.SleepModeTimezoneAnnotation: zone + "#" + strconv.Itoa(offset),

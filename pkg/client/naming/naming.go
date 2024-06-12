@@ -6,6 +6,10 @@ import (
 	"strings"
 )
 
+func ProjectNamespace(projectName string) string {
+	return "loft-p-" + projectName
+}
+
 func SafeConcatName(name ...string) string {
 	return SafeConcatNameMax(name, 63)
 }
