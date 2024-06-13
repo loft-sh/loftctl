@@ -9,16 +9,16 @@ import (
 
 	dockerconfig "github.com/docker/cli/cli/config"
 	"github.com/docker/cli/cli/config/configfile"
-	managementv1 "github.com/loft-sh/api/v4/pkg/apis/management/v1"
-	storagev1 "github.com/loft-sh/api/v4/pkg/apis/storage/v1"
-	"github.com/loft-sh/api/v4/pkg/product"
-	"github.com/loft-sh/loftctl/v4/cmd/loftctl/flags"
-	"github.com/loft-sh/loftctl/v4/pkg/client"
-	"github.com/loft-sh/loftctl/v4/pkg/client/helper"
-	"github.com/loft-sh/loftctl/v4/pkg/clihelper"
-	"github.com/loft-sh/loftctl/v4/pkg/docker"
-	"github.com/loft-sh/loftctl/v4/pkg/kube"
-	"github.com/loft-sh/loftctl/v4/pkg/upgrade"
+	managementv1 "github.com/loft-sh/api/v3/pkg/apis/management/v1"
+	storagev1 "github.com/loft-sh/api/v3/pkg/apis/storage/v1"
+	"github.com/loft-sh/api/v3/pkg/product"
+	"github.com/loft-sh/loftctl/v3/cmd/loftctl/flags"
+	"github.com/loft-sh/loftctl/v3/pkg/client"
+	"github.com/loft-sh/loftctl/v3/pkg/client/helper"
+	"github.com/loft-sh/loftctl/v3/pkg/clihelper"
+	"github.com/loft-sh/loftctl/v3/pkg/docker"
+	"github.com/loft-sh/loftctl/v3/pkg/kube"
+	"github.com/loft-sh/loftctl/v3/pkg/upgrade"
 	"github.com/loft-sh/log"
 	"github.com/mgutz/ansi"
 	"github.com/pkg/errors"
@@ -75,7 +75,7 @@ devspace login https://my-loft.com --access-key myaccesskey
 		RunE: func(cobraCmd *cobra.Command, args []string) error {
 			// Check for newer version
 			upgrade.PrintNewerVersionWarning()
-			// project prefix initializatin not necessary
+
 			return cmd.RunLogin(cobraCmd.Context(), args)
 		},
 	}
@@ -92,6 +92,7 @@ func (cmd *LoginCmd) RunLogin(ctx context.Context, args []string) error {
 	if err != nil {
 		return err
 	}
+
 	var url string
 	// Print login information
 	if len(args) == 0 {

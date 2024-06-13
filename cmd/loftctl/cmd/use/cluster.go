@@ -7,13 +7,13 @@ import (
 	"os"
 	"strings"
 
-	managementv1 "github.com/loft-sh/api/v4/pkg/apis/management/v1"
-	"github.com/loft-sh/api/v4/pkg/product"
-	"github.com/loft-sh/loftctl/v4/cmd/loftctl/flags"
-	"github.com/loft-sh/loftctl/v4/pkg/client"
-	"github.com/loft-sh/loftctl/v4/pkg/client/helper"
-	"github.com/loft-sh/loftctl/v4/pkg/kubeconfig"
-	"github.com/loft-sh/loftctl/v4/pkg/upgrade"
+	managementv1 "github.com/loft-sh/api/v3/pkg/apis/management/v1"
+	"github.com/loft-sh/api/v3/pkg/product"
+	"github.com/loft-sh/loftctl/v3/cmd/loftctl/flags"
+	"github.com/loft-sh/loftctl/v3/pkg/client"
+	"github.com/loft-sh/loftctl/v3/pkg/client/helper"
+	"github.com/loft-sh/loftctl/v3/pkg/kubeconfig"
+	"github.com/loft-sh/loftctl/v3/pkg/upgrade"
 	"github.com/loft-sh/log"
 	"github.com/mgutz/ansi"
 	"github.com/pkg/errors"
@@ -94,7 +94,7 @@ devspace use cluster mycluster
 
 // Run executes the command
 func (cmd *ClusterCmd) Run(ctx context.Context, args []string) error {
-	baseClient, err := client.InitClientFromPath(ctx, cmd.Config)
+	baseClient, err := client.NewClientFromPath(cmd.Config)
 	if err != nil {
 		return err
 	}
@@ -212,7 +212,7 @@ func ApplyDirectClusterEndpointOptions(options kubeconfig.ContextOptions, cluste
 }
 
 func retrieveCaData(cluster *managementv1.Cluster) ([]byte, error) {
-	if cluster == nil || cluster.Annotations == nil || cluster.Annotations[LoftDirectClusterEndpointCaData] == "" {
+	if cluster.Annotations == nil || cluster.Annotations[LoftDirectClusterEndpointCaData] == "" {
 		return nil, nil
 	}
 

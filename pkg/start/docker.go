@@ -14,8 +14,8 @@ import (
 	"time"
 
 	"github.com/denisbrodbeck/machineid"
-	"github.com/loft-sh/api/v4/pkg/product"
-	"github.com/loft-sh/loftctl/v4/pkg/clihelper"
+	"github.com/loft-sh/api/v3/pkg/product"
+	"github.com/loft-sh/loftctl/v3/pkg/clihelper"
 	"github.com/loft-sh/log"
 	"github.com/loft-sh/log/hash"
 	"github.com/loft-sh/log/scanner"
