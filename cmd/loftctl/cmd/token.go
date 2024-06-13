@@ -1,16 +1,15 @@
 package cmd
 
 import (
-	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"os"
 
-	"github.com/loft-sh/api/v4/pkg/product"
-	"github.com/loft-sh/loftctl/v4/cmd/loftctl/flags"
-	"github.com/loft-sh/loftctl/v4/pkg/client"
-	"github.com/loft-sh/loftctl/v4/pkg/upgrade"
+	"github.com/loft-sh/api/v3/pkg/product"
+	"github.com/loft-sh/loftctl/v3/cmd/loftctl/flags"
+	"github.com/loft-sh/loftctl/v3/pkg/client"
+	"github.com/loft-sh/loftctl/v3/pkg/upgrade"
 	"github.com/loft-sh/log"
 	"github.com/spf13/cobra"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -66,8 +65,8 @@ devspace token
 		Short: product.Replace("Token prints the access token to a loft instance"),
 		Long:  description,
 		Args:  cobra.NoArgs,
-		RunE: func(cobraCmd *cobra.Command, _ []string) error {
-			return cmd.Run(cobraCmd.Context())
+		RunE: func(cobraCmd *cobra.Command, args []string) error {
+			return cmd.Run()
 		},
 	}
 
@@ -78,8 +77,8 @@ devspace token
 }
 
 // Run executes the command
-func (cmd *TokenCmd) Run(ctx context.Context) error {
-	baseClient, err := client.InitClientFromPath(ctx, cmd.Config)
+func (cmd *TokenCmd) Run() error {
+	baseClient, err := client.NewClientFromPath(cmd.Config)
 	if err != nil {
 		return err
 	}
@@ -100,7 +99,7 @@ func getToken(cmd *TokenCmd, baseClient client.Client) error {
 	if config == nil {
 		return ErrNoConfigLoaded
 	} else if config.Host == "" || config.AccessKey == "" {
-		return fmt.Errorf("%w: please make sure you have run '%s' to create one or '%s [%s]' if one already exists", ErrNotLoggedIn, product.StartCmd(), product.LoginCmd(), product.Url())
+		return fmt.Errorf("%w: please make sure you have run '%s [%s]'", ErrNotLoggedIn, product.LoginCmd(), product.Url())
 	}
 
 	// by default we print the access key as token

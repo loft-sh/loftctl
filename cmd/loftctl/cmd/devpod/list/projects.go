@@ -7,8 +7,8 @@ import (
 	"os"
 	"sort"
 
-	"github.com/loft-sh/loftctl/v4/cmd/loftctl/flags"
-	"github.com/loft-sh/loftctl/v4/pkg/client"
+	"github.com/loft-sh/loftctl/v3/cmd/loftctl/flags"
+	"github.com/loft-sh/loftctl/v3/pkg/client"
 	"github.com/loft-sh/log"
 	"github.com/spf13/cobra"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -50,7 +50,7 @@ func (cmd *ProjectsCmd) Run(ctx context.Context) error {
 		return err
 	}
 
-	baseClient, err := client.InitClientFromPath(ctx, cmd.Config)
+	baseClient, err := client.NewClientFromPath(cmd.Config)
 	if err != nil {
 		return err
 	}
@@ -80,8 +80,7 @@ func (cmd *ProjectsCmd) Run(ctx context.Context) error {
 	return printOptions(&OptionsFormat{
 		Options: map[string]*Option{
 			"LOFT_PROJECT": {
-				DisplayName:       "Project",
-				Description:       "The DevPod Pro project to use to create a new workspace in.",
+				Description:       "The DevPod.Pro project to use to create a new workspace in.",
 				Required:          true,
 				Enum:              enum,
 				Default:           enum[0],
@@ -107,9 +106,6 @@ type OptionsFormat struct {
 }
 
 type Option struct {
-	// DisplayName of the option, preferred over the option name by a supporting tool.
-	DisplayName string `json:"displayName,omitempty"`
-
 	// A description of the option displayed to the user by a supporting tool.
 	Description string `json:"description,omitempty"`
 
@@ -127,7 +123,4 @@ type Option struct {
 
 	// SubOptionsCommand is the command to run to fetch sub options
 	SubOptionsCommand string `json:"subOptionsCommand,omitempty"`
-
-	// Mutable specifies if an option can be changed on the workspace or machine after creating it
-	Mutable bool `json:"mutable,omitempty"`
 }
