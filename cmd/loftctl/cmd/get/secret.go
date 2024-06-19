@@ -7,14 +7,13 @@ import (
 	"os"
 	"strings"
 
-	"github.com/loft-sh/api/v4/pkg/product"
-	"github.com/loft-sh/loftctl/v4/cmd/loftctl/cmd/set"
-	"github.com/loft-sh/loftctl/v4/cmd/loftctl/flags"
-	"github.com/loft-sh/loftctl/v4/pkg/client"
-	pdefaults "github.com/loft-sh/loftctl/v4/pkg/defaults"
-	"github.com/loft-sh/loftctl/v4/pkg/projectutil"
-	"github.com/loft-sh/loftctl/v4/pkg/upgrade"
-	"github.com/loft-sh/loftctl/v4/pkg/util"
+	"github.com/loft-sh/api/v3/pkg/product"
+	"github.com/loft-sh/loftctl/v3/cmd/loftctl/cmd/set"
+	"github.com/loft-sh/loftctl/v3/cmd/loftctl/flags"
+	"github.com/loft-sh/loftctl/v3/pkg/client"
+	pdefaults "github.com/loft-sh/loftctl/v3/pkg/defaults"
+	"github.com/loft-sh/loftctl/v3/pkg/upgrade"
+	"github.com/loft-sh/loftctl/v3/pkg/util"
 	"github.com/loft-sh/log"
 	"github.com/loft-sh/log/survey"
 	"github.com/pkg/errors"
@@ -88,7 +87,7 @@ devspace get secret test-secret.key --project myproject
 
 // RunUsers executes the functionality
 func (cmd *SecretCmd) Run(ctx context.Context, args []string) error {
-	baseClient, err := client.InitClientFromPath(ctx, cmd.Config)
+	baseClient, err := client.NewClientFromPath(cmd.Config)
 	if err != nil {
 		return err
 	}
@@ -123,7 +122,10 @@ func (cmd *SecretCmd) Run(ctx context.Context, args []string) error {
 
 	switch secretType {
 	case set.ProjectSecret:
-		namespace = projectutil.ProjectNamespace(cmd.Project)
+		namespace, err = set.GetProjectSecretNamespace(cmd.Project)
+		if err != nil {
+			return errors.Wrap(err, "get project secrets namespace")
+		}
 	case set.SharedSecret:
 		namespace, err = set.GetSharedSecretNamespace(cmd.Namespace)
 		if err != nil {

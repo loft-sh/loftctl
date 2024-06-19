@@ -7,11 +7,11 @@ import (
 	"regexp"
 	"strings"
 
-	managementv1 "github.com/loft-sh/api/v4/pkg/apis/management/v1"
-	storagev1 "github.com/loft-sh/api/v4/pkg/apis/storage/v1"
-	"github.com/loft-sh/loftctl/v4/cmd/loftctl/flags"
-	"github.com/loft-sh/loftctl/v4/pkg/client"
-	"github.com/loft-sh/loftctl/v4/pkg/kube"
+	managementv1 "github.com/loft-sh/api/v3/pkg/apis/management/v1"
+	storagev1 "github.com/loft-sh/api/v3/pkg/apis/storage/v1"
+	"github.com/loft-sh/loftctl/v3/cmd/loftctl/flags"
+	"github.com/loft-sh/loftctl/v3/pkg/client"
+	"github.com/loft-sh/loftctl/v3/pkg/kube"
 	"github.com/loft-sh/log"
 	"github.com/spf13/cobra"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -63,7 +63,7 @@ func (cmd *TemplateOptionsCmd) Run(ctx context.Context) error {
 		return fmt.Errorf("LOFT_TEMPLATE environment variable is empty")
 	}
 
-	baseClient, err := client.InitClientFromPath(ctx, cmd.Config)
+	baseClient, err := client.NewClientFromPath(cmd.Config)
 	if err != nil {
 		return err
 	}
@@ -88,10 +88,8 @@ func (cmd *TemplateOptionsCmd) Run(ctx context.Context) error {
 		}
 
 		options["LOFT_TEMPLATE_VERSION"] = &Option{
-			DisplayName:       "Template Version",
 			Description:       "The template version. If empty will use the latest version",
 			Required:          true,
-			Mutable:           true,
 			Default:           "latest",
 			Enum:              versions,
 			SubOptionsCommand: fmt.Sprintf("'%s' devpod list templateoptionsversion", executable),
@@ -111,17 +109,11 @@ func parametersToOptions(parameters []storagev1.AppParameter) map[string]*Option
 	options := map[string]*Option{}
 	for _, parameter := range parameters {
 		optionName := VariableToEnvironmentVariable(parameter.Variable)
-		displayName := parameter.Label
-		if displayName == "" {
-			displayName = optionName
-		}
 		options[optionName] = &Option{
-			DisplayName: displayName,
 			Description: parameter.Description,
 			Required:    parameter.Required,
 			Enum:        parameter.Options,
 			Default:     parameter.DefaultValue,
-			Mutable:     true,
 		}
 	}
 	return options
