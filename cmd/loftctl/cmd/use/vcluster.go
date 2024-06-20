@@ -6,17 +6,17 @@ import (
 	"io"
 	"os"
 
-	managementv1 "github.com/loft-sh/api/v4/pkg/apis/management/v1"
-	"github.com/loft-sh/api/v4/pkg/product"
-	"github.com/loft-sh/loftctl/v4/cmd/loftctl/flags"
-	"github.com/loft-sh/loftctl/v4/pkg/client"
-	"github.com/loft-sh/loftctl/v4/pkg/client/helper"
-	pdefaults "github.com/loft-sh/loftctl/v4/pkg/defaults"
-	"github.com/loft-sh/loftctl/v4/pkg/kubeconfig"
-	"github.com/loft-sh/loftctl/v4/pkg/projectutil"
-	"github.com/loft-sh/loftctl/v4/pkg/upgrade"
-	"github.com/loft-sh/loftctl/v4/pkg/util"
-	"github.com/loft-sh/loftctl/v4/pkg/vcluster"
+	managementv1 "github.com/loft-sh/api/v3/pkg/apis/management/v1"
+	"github.com/loft-sh/api/v3/pkg/product"
+	"github.com/loft-sh/loftctl/v3/cmd/loftctl/flags"
+	"github.com/loft-sh/loftctl/v3/pkg/client"
+	"github.com/loft-sh/loftctl/v3/pkg/client/helper"
+	"github.com/loft-sh/loftctl/v3/pkg/client/naming"
+	pdefaults "github.com/loft-sh/loftctl/v3/pkg/defaults"
+	"github.com/loft-sh/loftctl/v3/pkg/kubeconfig"
+	"github.com/loft-sh/loftctl/v3/pkg/upgrade"
+	"github.com/loft-sh/loftctl/v3/pkg/util"
+	"github.com/loft-sh/loftctl/v3/pkg/vcluster"
 	"github.com/loft-sh/log"
 	"github.com/mgutz/ansi"
 	"github.com/pkg/errors"
@@ -104,7 +104,7 @@ devspace use vcluster myvcluster --cluster mycluster --space myspace
 
 // Run executes the command
 func (cmd *VirtualClusterCmd) Run(ctx context.Context, args []string) error {
-	baseClient, err := client.InitClientFromPath(ctx, cmd.Config)
+	baseClient, err := client.NewClientFromPath(cmd.Config)
 	if err != nil {
 		return err
 	}
@@ -137,7 +137,7 @@ func (cmd *VirtualClusterCmd) useVirtualCluster(ctx context.Context, baseClient 
 		return err
 	}
 
-	virtualClusterInstance, err := vcluster.WaitForVirtualClusterInstance(ctx, managementClient, projectutil.ProjectNamespace(cmd.Project), virtualClusterName, !cmd.SkipWait, cmd.Log)
+	virtualClusterInstance, err := vcluster.WaitForVirtualClusterInstance(ctx, managementClient, naming.ProjectNamespace(cmd.Project), virtualClusterName, !cmd.SkipWait, cmd.Log)
 	if err != nil {
 		return err
 	}
@@ -168,15 +168,9 @@ func (cmd *VirtualClusterCmd) useVirtualCluster(ctx context.Context, baseClient 
 }
 
 func CreateVirtualClusterInstanceOptions(ctx context.Context, baseClient client.Client, config string, projectName string, virtualClusterInstance *managementv1.VirtualClusterInstance, disableClusterGateway, setActive bool, log log.Logger) (kubeconfig.ContextOptions, error) {
-	var cluster *managementv1.Cluster
-
-	// skip finding cluster if virtual cluster is directly connected
-	if !virtualClusterInstance.Spec.NetworkPeer {
-		var err error
-		cluster, err = findProjectCluster(ctx, baseClient, projectName, virtualClusterInstance.Spec.ClusterRef.Cluster)
-		if err != nil {
-			return kubeconfig.ContextOptions{}, errors.Wrap(err, "find space instance cluster")
-		}
+	cluster, err := findProjectCluster(ctx, baseClient, projectName, virtualClusterInstance.Spec.ClusterRef.Cluster)
+	if err != nil {
+		return kubeconfig.ContextOptions{}, errors.Wrap(err, "find space instance cluster")
 	}
 
 	contextOptions := kubeconfig.ContextOptions{
@@ -198,7 +192,7 @@ func CreateVirtualClusterInstanceOptions(ctx context.Context, baseClient client.
 		contextOptions.InsecureSkipTLSVerify = true
 		contextOptions.VirtualClusterAccessPointEnabled = true
 	} else {
-		if !disableClusterGateway && cluster != nil && cluster.Annotations != nil && cluster.Annotations[LoftDirectClusterEndpoint] != "" {
+		if !disableClusterGateway && cluster.Annotations != nil && cluster.Annotations[LoftDirectClusterEndpoint] != "" {
 			contextOptions = ApplyDirectClusterEndpointOptions(contextOptions, cluster, "/kubernetes/project/"+projectName+"/virtualcluster/"+virtualClusterInstance.Name, log)
 			_, err := baseClient.DirectClusterEndpointToken(true)
 			if err != nil {

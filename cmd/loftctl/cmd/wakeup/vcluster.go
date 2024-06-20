@@ -4,15 +4,15 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/loft-sh/api/v4/pkg/product"
-	"github.com/loft-sh/loftctl/v4/cmd/loftctl/flags"
-	"github.com/loft-sh/loftctl/v4/pkg/client"
-	"github.com/loft-sh/loftctl/v4/pkg/client/helper"
-	pdefaults "github.com/loft-sh/loftctl/v4/pkg/defaults"
-	"github.com/loft-sh/loftctl/v4/pkg/projectutil"
-	"github.com/loft-sh/loftctl/v4/pkg/upgrade"
-	"github.com/loft-sh/loftctl/v4/pkg/util"
-	"github.com/loft-sh/loftctl/v4/pkg/vcluster"
+	"github.com/loft-sh/api/v3/pkg/product"
+	"github.com/loft-sh/loftctl/v3/cmd/loftctl/flags"
+	"github.com/loft-sh/loftctl/v3/pkg/client"
+	"github.com/loft-sh/loftctl/v3/pkg/client/helper"
+	"github.com/loft-sh/loftctl/v3/pkg/client/naming"
+	pdefaults "github.com/loft-sh/loftctl/v3/pkg/defaults"
+	"github.com/loft-sh/loftctl/v3/pkg/upgrade"
+	"github.com/loft-sh/loftctl/v3/pkg/util"
+	"github.com/loft-sh/loftctl/v3/pkg/vcluster"
 	"github.com/loft-sh/log"
 	"github.com/spf13/cobra"
 )
@@ -72,7 +72,7 @@ devspace wakeup vcluster myvcluster --project myproject
 
 // Run executes the functionality
 func (cmd *VClusterCmd) Run(ctx context.Context, args []string) error {
-	baseClient, err := client.InitClientFromPath(ctx, cmd.Config)
+	baseClient, err := client.NewClientFromPath(cmd.Config)
 	if err != nil {
 		return err
 	}
@@ -100,7 +100,7 @@ func (cmd *VClusterCmd) wakeUpVCluster(ctx context.Context, baseClient client.Cl
 		return err
 	}
 
-	_, err = vcluster.WaitForVirtualClusterInstance(ctx, managementClient, projectutil.ProjectNamespace(cmd.Project), vClusterName, true, cmd.Log)
+	_, err = vcluster.WaitForVirtualClusterInstance(ctx, managementClient, naming.ProjectNamespace(cmd.Project), vClusterName, true, cmd.Log)
 	if err != nil {
 		return err
 	}
