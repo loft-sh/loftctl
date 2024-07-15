@@ -1,6 +1,6 @@
 module github.com/loft-sh/loftctl/v3
 
-go 1.22.4
+go 1.22.5
 
 require (
 	github.com/blang/semver v3.5.1+incompatible
@@ -11,8 +11,8 @@ require (
 	github.com/ghodss/yaml v1.0.0
 	github.com/gorilla/websocket v1.5.1
 	github.com/loft-sh/admin-apis v0.0.0-20240203010124-3600c1c582a8
-	github.com/loft-sh/agentapi/v3 v3.4.7
-	github.com/loft-sh/api/v3 v3.4.7
+	github.com/loft-sh/agentapi/v3 v3.4.8
+	github.com/loft-sh/api/v3 v3.4.8
 	github.com/loft-sh/apiserver v0.0.0-20240129130254-7b9a55ab1744
 	github.com/loft-sh/log v0.0.0-20240219160058-26d83ffb46ac
 	github.com/mgutz/ansi v0.0.0-20200706080929-d51e80ef957d
@@ -129,7 +129,7 @@ require (
 	gomodules.xyz/jsonpatch/v2 v2.4.0 // indirect
 	google.golang.org/genproto/googleapis/api v0.0.0-20240604185151-ef581f913117 // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20240604185151-ef581f913117 // indirect
-	google.golang.org/grpc v1.64.0 // indirect
+	google.golang.org/grpc v1.64.1 // indirect
 	google.golang.org/protobuf v1.34.1 // indirect
 	gopkg.in/inf.v0 v0.9.1 // indirect
 	gopkg.in/natefinch/lumberjack.v2 v2.2.1 // indirect
