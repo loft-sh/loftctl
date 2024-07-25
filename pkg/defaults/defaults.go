@@ -5,7 +5,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/loft-sh/loftctl/v4/pkg/client"
+	"github.com/loft-sh/loftctl/v3/pkg/client"
 	"github.com/pkg/errors"
 )
 

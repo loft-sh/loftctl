@@ -7,10 +7,10 @@ import (
 	"net/url"
 	"os"
 
-	"github.com/loft-sh/loftctl/v4/cmd/loftctl/flags"
-	"github.com/loft-sh/loftctl/v4/pkg/client"
-	devpodpkg "github.com/loft-sh/loftctl/v4/pkg/devpod"
-	"github.com/loft-sh/loftctl/v4/pkg/remotecommand"
+	"github.com/loft-sh/loftctl/v3/cmd/loftctl/flags"
+	"github.com/loft-sh/loftctl/v3/pkg/client"
+	devpodpkg "github.com/loft-sh/loftctl/v3/pkg/devpod"
+	"github.com/loft-sh/loftctl/v3/pkg/remotecommand"
 	"github.com/loft-sh/log"
 	"github.com/spf13/cobra"
 )
@@ -58,7 +58,7 @@ func (cmd *RebuildCmd) Run(ctx context.Context, args []string) error {
 	}
 	targetWorkspace := args[0]
 
-	baseClient, err := client.InitClientFromPath(ctx, cmd.Config)
+	baseClient, err := client.NewClientFromPath(cmd.Config)
 	if err != nil {
 		return err
 	}
@@ -80,6 +80,7 @@ func (cmd *RebuildCmd) Run(ctx context.Context, args []string) error {
 	if err != nil {
 		return err
 	}
+	// TODO: needs git credentials and configure logging
 
 	_, err = remotecommand.ExecuteConn(ctx, conn, os.Stdin, os.Stdout, os.Stderr, cmd.Log.ErrorStreamOnly())
 	if err != nil {

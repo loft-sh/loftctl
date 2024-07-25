@@ -3,11 +3,11 @@ package use
 import (
 	"os"
 
-	"github.com/loft-sh/api/v4/pkg/product"
-	"github.com/loft-sh/loftctl/v4/cmd/loftctl/flags"
-	"github.com/loft-sh/loftctl/v4/pkg/client"
-	"github.com/loft-sh/loftctl/v4/pkg/kubeconfig"
-	"github.com/loft-sh/loftctl/v4/pkg/upgrade"
+	"github.com/loft-sh/api/v3/pkg/product"
+	"github.com/loft-sh/loftctl/v3/cmd/loftctl/flags"
+	"github.com/loft-sh/loftctl/v3/pkg/client"
+	"github.com/loft-sh/loftctl/v3/pkg/kubeconfig"
+	"github.com/loft-sh/loftctl/v3/pkg/upgrade"
 	"github.com/loft-sh/log"
 	"github.com/mgutz/ansi"
 	"github.com/spf13/cobra"
@@ -59,7 +59,7 @@ devspace use management
 				upgrade.PrintNewerVersionWarning()
 			}
 
-			return cmd.Run(cobraCmd, args)
+			return cmd.Run(args)
 		},
 	}
 
@@ -67,8 +67,8 @@ devspace use management
 	return c
 }
 
-func (cmd *ManagementCmd) Run(cobraCmd *cobra.Command, args []string) error {
-	baseClient, err := client.InitClientFromPath(cobraCmd.Context(), cmd.Config)
+func (cmd *ManagementCmd) Run(args []string) error {
+	baseClient, err := client.NewClientFromPath(cmd.Config)
 	if err != nil {
 		return err
 	}

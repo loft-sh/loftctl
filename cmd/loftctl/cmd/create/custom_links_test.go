@@ -3,7 +3,7 @@ package create
 import (
 	"testing"
 
-	managementv1 "github.com/loft-sh/api/v4/pkg/apis/management/v1"
+	managementv1 "github.com/loft-sh/api/v3/pkg/apis/management/v1"
 	"gotest.tools/v3/assert"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )

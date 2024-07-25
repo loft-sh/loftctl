@@ -4,15 +4,15 @@ import (
 	"context"
 	"fmt"
 
-	agentstoragev1 "github.com/loft-sh/agentapi/v4/pkg/apis/loft/storage/v1"
-	"github.com/loft-sh/api/v4/pkg/product"
-	"github.com/loft-sh/loftctl/v4/cmd/loftctl/flags"
-	"github.com/loft-sh/loftctl/v4/pkg/client"
-	"github.com/loft-sh/loftctl/v4/pkg/client/helper"
-	pdefaults "github.com/loft-sh/loftctl/v4/pkg/defaults"
-	"github.com/loft-sh/loftctl/v4/pkg/projectutil"
-	"github.com/loft-sh/loftctl/v4/pkg/upgrade"
-	"github.com/loft-sh/loftctl/v4/pkg/util"
+	agentstoragev1 "github.com/loft-sh/agentapi/v3/pkg/apis/loft/storage/v1"
+	"github.com/loft-sh/api/v3/pkg/product"
+	"github.com/loft-sh/loftctl/v3/cmd/loftctl/flags"
+	"github.com/loft-sh/loftctl/v3/pkg/client"
+	"github.com/loft-sh/loftctl/v3/pkg/client/helper"
+	"github.com/loft-sh/loftctl/v3/pkg/client/naming"
+	pdefaults "github.com/loft-sh/loftctl/v3/pkg/defaults"
+	"github.com/loft-sh/loftctl/v3/pkg/upgrade"
+	"github.com/loft-sh/loftctl/v3/pkg/util"
 	"github.com/loft-sh/log"
 	"github.com/mgutz/ansi"
 	"github.com/spf13/cobra"
@@ -89,7 +89,7 @@ devspace share vcluster myvcluster --project myproject --user admin
 
 // Run executes the command
 func (cmd *VClusterCmd) Run(cobraCmd *cobra.Command, args []string) error {
-	baseClient, err := client.InitClientFromPath(cobraCmd.Context(), cmd.Config)
+	baseClient, err := client.NewClientFromPath(cmd.Config)
 	if err != nil {
 		return err
 	}
@@ -119,7 +119,7 @@ func (cmd *VClusterCmd) shareVCluster(ctx context.Context, baseClient client.Cli
 		return err
 	}
 
-	virtualClusterInstance, err := managementClient.Loft().ManagementV1().VirtualClusterInstances(projectutil.ProjectNamespace(cmd.Project)).Get(ctx, vClusterName, metav1.GetOptions{})
+	virtualClusterInstance, err := managementClient.Loft().ManagementV1().VirtualClusterInstances(naming.ProjectNamespace(cmd.Project)).Get(ctx, vClusterName, metav1.GetOptions{})
 	if err != nil {
 		return err
 	}
@@ -137,7 +137,7 @@ func (cmd *VClusterCmd) shareVCluster(ctx context.Context, baseClient client.Cli
 	if virtualClusterInstance.Spec.TemplateRef != nil {
 		virtualClusterInstance.Spec.TemplateRef.SyncOnce = true
 	}
-	_, err = managementClient.Loft().ManagementV1().VirtualClusterInstances(projectutil.ProjectNamespace(cmd.Project)).Update(ctx, virtualClusterInstance, metav1.UpdateOptions{})
+	_, err = managementClient.Loft().ManagementV1().VirtualClusterInstances(naming.ProjectNamespace(cmd.Project)).Update(ctx, virtualClusterInstance, metav1.UpdateOptions{})
 	if err != nil {
 		return err
 	}

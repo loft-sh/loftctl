@@ -3,10 +3,10 @@ package vars
 import (
 	"os"
 
-	"github.com/loft-sh/api/v4/pkg/product"
-	"github.com/loft-sh/loftctl/v4/cmd/loftctl/flags"
-	"github.com/loft-sh/loftctl/v4/pkg/client"
-	"github.com/loft-sh/loftctl/v4/pkg/client/helper"
+	"github.com/loft-sh/api/v3/pkg/product"
+	"github.com/loft-sh/loftctl/v3/cmd/loftctl/flags"
+	"github.com/loft-sh/loftctl/v3/pkg/client"
+	"github.com/loft-sh/loftctl/v3/pkg/client/helper"
 	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
 )
@@ -34,7 +34,7 @@ func newUsernameCmd(globalFlags *flags.GlobalFlags) *cobra.Command {
 
 // Run executes the command logic
 func (cmd *usernameCmd) Run(cobraCmd *cobra.Command, args []string) error {
-	baseClient, err := client.InitClientFromPath(cobraCmd.Context(), cmd.Config)
+	baseClient, err := client.NewClientFromPath(cmd.Config)
 	if err != nil {
 		return ErrUserSetNoLogin
 	}

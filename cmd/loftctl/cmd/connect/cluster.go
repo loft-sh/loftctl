@@ -1,28 +1,31 @@
 package connect
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"os"
 	"os/exec"
 	"time"
 
-	"github.com/loft-sh/loftctl/v4/pkg/client"
-	"github.com/loft-sh/loftctl/v4/pkg/client/helper"
-	"github.com/loft-sh/loftctl/v4/pkg/clihelper"
-	"github.com/loft-sh/loftctl/v4/pkg/config"
-	"github.com/loft-sh/loftctl/v4/pkg/kube"
+	"github.com/loft-sh/loftctl/v3/pkg/client"
+	"github.com/loft-sh/loftctl/v3/pkg/client/helper"
+	"github.com/loft-sh/loftctl/v3/pkg/clihelper"
+	"github.com/loft-sh/loftctl/v3/pkg/config"
+	"github.com/loft-sh/loftctl/v3/pkg/kube"
 	"github.com/loft-sh/log"
 	"github.com/sirupsen/logrus"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/kubernetes"
 
-	managementv1 "github.com/loft-sh/api/v4/pkg/apis/management/v1"
-	storagev1 "github.com/loft-sh/api/v4/pkg/apis/storage/v1"
-	"github.com/loft-sh/api/v4/pkg/product"
-	"github.com/loft-sh/loftctl/v4/cmd/loftctl/flags"
-	"github.com/loft-sh/loftctl/v4/pkg/upgrade"
+	managementv1 "github.com/loft-sh/api/v3/pkg/apis/management/v1"
+	storagev1 "github.com/loft-sh/api/v3/pkg/apis/storage/v1"
+	"github.com/loft-sh/api/v3/pkg/product"
+	"github.com/loft-sh/loftctl/v3/cmd/loftctl/cmd/generate"
+	"github.com/loft-sh/loftctl/v3/cmd/loftctl/flags"
+	"github.com/loft-sh/loftctl/v3/pkg/kubeconfig"
+	"github.com/loft-sh/loftctl/v3/pkg/upgrade"
 	"github.com/spf13/cobra"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/rest"
@@ -40,13 +43,14 @@ type ClusterCmd struct {
 	HelmSet          []string
 	HelmValues       []string
 
-	Namespace      string
-	Project        string
-	ServiceAccount string
-	Description    string
-	Development    bool
-	Insecure       bool
-	Wait           bool
+	Namespace       string
+	Project         string
+	ServiceAccount  string
+	Description     string
+	Development     bool
+	EgressOnlyAgent bool
+	Insecure        bool
+	Wait            bool
 }
 
 // NewClusterCmd creates a new command
@@ -98,6 +102,7 @@ devspace connect cluster my-cluster
 	c.Flags().StringVar(&cmd.ServiceAccount, "service-account", "loft-admin", "The service account name to create")
 	c.Flags().StringVar(&cmd.DisplayName, "display-name", "", "The display name to show in the UI for this cluster")
 	c.Flags().BoolVar(&cmd.Wait, "wait", false, "If true, will wait until the cluster is initialized")
+	c.Flags().BoolVar(&cmd.EgressOnlyAgent, "egress-only-agent", true, "If true, will use an egress-only cluster enrollment feature")
 	c.Flags().StringVar(&cmd.Context, "context", "", "The kube context to use for installation")
 	c.Flags().StringVar(&cmd.Project, "project", "", "The project name to use for the project cluster")
 	c.Flags().StringVar(&cmd.Description, "description", "", "The project name to use for the project cluster")
@@ -118,7 +123,7 @@ devspace connect cluster my-cluster
 func (cmd *ClusterCmd) Run(ctx context.Context, localConfig *rest.Config, args []string) error {
 	// Get clusterName from command argument
 	clusterName := args[0]
-	baseClient, err := client.InitClientFromPath(ctx, cmd.Config)
+	baseClient, err := client.NewClientFromPath(cmd.Config)
 	if err != nil {
 		return fmt.Errorf("new client from path: %w", err)
 	}
@@ -139,15 +144,51 @@ func (cmd *ClusterCmd) Run(ctx context.Context, localConfig *rest.Config, args [
 		return fmt.Errorf("get user or team: %w", err)
 	}
 
-	// create new kube client
-	kubeClient, err := kubernetes.NewForConfig(localConfig)
-	if err != nil {
-		return nil
-	}
+	// check if we should connect via the new way
+	if cmd.Project != "" || cmd.EgressOnlyAgent {
+		// create new kube client
+		kubeClient, err := kubernetes.NewForConfig(localConfig)
+		if err != nil {
+			return nil
+		}
 
-	// connect cluster
-	if err = cmd.connectCluster(ctx, baseClient, managementClient, kubeClient, clusterName, user, team); err != nil {
-		return err
+		// connect cluster
+		err = cmd.connectCluster(ctx, baseClient, managementClient, kubeClient, clusterName, user, team)
+		if err != nil {
+			return err
+		}
+	} else {
+		// get cluster config
+		clusterConfig, err := getClusterKubeConfig(ctx, localConfig, cmd.Namespace, cmd.ServiceAccount)
+		if err != nil {
+			return fmt.Errorf("get cluster kubeconfig: %w", err)
+		}
+
+		// connect cluster
+		_, err = managementClient.Loft().ManagementV1().ClusterConnects().Create(ctx, &managementv1.ClusterConnect{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: clusterName,
+			},
+			Spec: managementv1.ClusterConnectSpec{
+				Config:    clusterConfig.String(),
+				AdminUser: user,
+				ClusterTemplate: managementv1.Cluster{
+					Spec: managementv1.ClusterSpec{
+						ClusterSpec: storagev1.ClusterSpec{
+							DisplayName: cmd.DisplayName,
+							Owner: &storagev1.UserOrTeam{
+								User: user,
+								Team: team,
+							},
+							Access: getAccess(user, team),
+						},
+					},
+				},
+			},
+		}, metav1.CreateOptions{})
+		if err != nil {
+			return fmt.Errorf("create cluster connect: %w", err)
+		}
 	}
 
 	if cmd.Wait {
@@ -202,7 +243,7 @@ func (cmd *ClusterCmd) connectCluster(ctx context.Context, baseClient client.Cli
 		return fmt.Errorf("get cluster access key: %w", err)
 	}
 
-	return cmd.deployAgent(ctx, kubeClient, loftVersion.Version, accessKey.LoftHost, accessKey.AccessKey, baseClient.Config().Insecure || accessKey.Insecure, accessKey.CaCert)
+	return cmd.deployAgent(ctx, kubeClient, loftVersion.Version, accessKey.LoftHost, accessKey.AccessKey, accessKey.Insecure, accessKey.CaCert)
 }
 
 func (cmd *ClusterCmd) deployAgent(ctx context.Context, kubeClient kubernetes.Interface, loftVersion, loftHost, accessKey string, insecure bool, caCert string) error {
@@ -334,4 +375,20 @@ func getAccess(user, team string) []storagev1.Access {
 	}
 
 	return access
+}
+
+func getClusterKubeConfig(ctx context.Context, c *rest.Config, namespace, serviceAccount string) (bytes.Buffer, error) {
+	var clusterConfig bytes.Buffer
+
+	token, err := generate.GetAuthToken(ctx, c, namespace, serviceAccount)
+	if err != nil {
+		return bytes.Buffer{}, fmt.Errorf("get auth token: %w", err)
+	}
+
+	err = kubeconfig.WriteTokenKubeConfig(c, string(token), &clusterConfig)
+	if err != nil {
+		return bytes.Buffer{}, fmt.Errorf("write token kubeconfig: %w", err)
+	}
+
+	return clusterConfig, nil
 }

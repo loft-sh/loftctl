@@ -4,12 +4,12 @@ import (
 	"context"
 	"time"
 
-	"github.com/loft-sh/api/v4/pkg/product"
-	"github.com/loft-sh/loftctl/v4/cmd/loftctl/flags"
-	"github.com/loft-sh/loftctl/v4/pkg/client"
-	"github.com/loft-sh/loftctl/v4/pkg/client/helper"
-	"github.com/loft-sh/loftctl/v4/pkg/clihelper"
-	"github.com/loft-sh/loftctl/v4/pkg/upgrade"
+	"github.com/loft-sh/api/v3/pkg/product"
+	"github.com/loft-sh/loftctl/v3/cmd/loftctl/flags"
+	"github.com/loft-sh/loftctl/v3/pkg/client"
+	"github.com/loft-sh/loftctl/v3/pkg/client/helper"
+	"github.com/loft-sh/loftctl/v3/pkg/clihelper"
+	"github.com/loft-sh/loftctl/v3/pkg/upgrade"
 	"github.com/loft-sh/log"
 	"github.com/loft-sh/log/table"
 	"github.com/spf13/cobra"
@@ -64,7 +64,7 @@ devspace list vclusters
 
 // Run executes the functionality
 func (cmd *VirtualClustersCmd) Run(ctx context.Context) error {
-	baseClient, err := client.InitClientFromPath(ctx, cmd.Config)
+	baseClient, err := client.NewClientFromPath(cmd.Config)
 	if err != nil {
 		return err
 	}

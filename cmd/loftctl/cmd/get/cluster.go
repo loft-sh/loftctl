@@ -7,10 +7,10 @@ import (
 	"time"
 
 	"github.com/ghodss/yaml"
-	"github.com/loft-sh/api/v4/pkg/product"
-	"github.com/loft-sh/loftctl/v4/cmd/loftctl/flags"
-	"github.com/loft-sh/loftctl/v4/pkg/client"
-	"github.com/loft-sh/loftctl/v4/pkg/util"
+	"github.com/loft-sh/api/v3/pkg/product"
+	"github.com/loft-sh/loftctl/v3/cmd/loftctl/flags"
+	"github.com/loft-sh/loftctl/v3/pkg/client"
+	"github.com/loft-sh/loftctl/v3/pkg/util"
 	"github.com/loft-sh/log"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
@@ -58,7 +58,7 @@ loft get cluster-access-key [CLUSTER_NAME]
 func (cmd *ClusterTokenCmd) Run(ctx context.Context, args []string) error {
 	clusterName := args[0]
 
-	baseClient, err := client.InitClientFromPath(ctx, cmd.Config)
+	baseClient, err := client.NewClientFromPath(cmd.Config)
 	if err != nil {
 		return fmt.Errorf("new client from path: %w", err)
 	}

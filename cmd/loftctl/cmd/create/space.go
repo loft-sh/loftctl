@@ -7,33 +7,33 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/loft-sh/loftctl/v4/pkg/config"
-	"github.com/loft-sh/loftctl/v4/pkg/projectutil"
-	"github.com/loft-sh/loftctl/v4/pkg/space"
-	"github.com/loft-sh/loftctl/v4/pkg/util"
+	"github.com/loft-sh/loftctl/v3/pkg/client/naming"
+	"github.com/loft-sh/loftctl/v3/pkg/config"
+	"github.com/loft-sh/loftctl/v3/pkg/space"
+	"github.com/loft-sh/loftctl/v3/pkg/util"
 	"k8s.io/apimachinery/pkg/util/wait"
 	client2 "sigs.k8s.io/controller-runtime/pkg/client"
 
-	clusterv1 "github.com/loft-sh/agentapi/v4/pkg/apis/loft/cluster/v1"
-	agentstoragev1 "github.com/loft-sh/agentapi/v4/pkg/apis/loft/storage/v1"
-	storagev1 "github.com/loft-sh/api/v4/pkg/apis/storage/v1"
-	"github.com/loft-sh/api/v4/pkg/product"
-	"github.com/loft-sh/loftctl/v4/cmd/loftctl/cmd/use"
-	"github.com/loft-sh/loftctl/v4/pkg/clihelper"
-	"github.com/loft-sh/loftctl/v4/pkg/constants"
-	"github.com/loft-sh/loftctl/v4/pkg/kube"
-	"github.com/loft-sh/loftctl/v4/pkg/parameters"
-	"github.com/loft-sh/loftctl/v4/pkg/task"
-	"github.com/loft-sh/loftctl/v4/pkg/version"
+	clusterv1 "github.com/loft-sh/agentapi/v3/pkg/apis/loft/cluster/v1"
+	agentstoragev1 "github.com/loft-sh/agentapi/v3/pkg/apis/loft/storage/v1"
+	storagev1 "github.com/loft-sh/api/v3/pkg/apis/storage/v1"
+	"github.com/loft-sh/api/v3/pkg/product"
+	"github.com/loft-sh/loftctl/v3/cmd/loftctl/cmd/use"
+	"github.com/loft-sh/loftctl/v3/pkg/clihelper"
+	"github.com/loft-sh/loftctl/v3/pkg/constants"
+	"github.com/loft-sh/loftctl/v3/pkg/kube"
+	"github.com/loft-sh/loftctl/v3/pkg/parameters"
+	"github.com/loft-sh/loftctl/v3/pkg/task"
+	"github.com/loft-sh/loftctl/v3/pkg/version"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 
-	managementv1 "github.com/loft-sh/api/v4/pkg/apis/management/v1"
-	"github.com/loft-sh/loftctl/v4/cmd/loftctl/flags"
-	"github.com/loft-sh/loftctl/v4/pkg/client"
-	"github.com/loft-sh/loftctl/v4/pkg/client/helper"
-	pdefaults "github.com/loft-sh/loftctl/v4/pkg/defaults"
-	"github.com/loft-sh/loftctl/v4/pkg/kubeconfig"
-	"github.com/loft-sh/loftctl/v4/pkg/upgrade"
+	managementv1 "github.com/loft-sh/api/v3/pkg/apis/management/v1"
+	"github.com/loft-sh/loftctl/v3/cmd/loftctl/flags"
+	"github.com/loft-sh/loftctl/v3/pkg/client"
+	"github.com/loft-sh/loftctl/v3/pkg/client/helper"
+	pdefaults "github.com/loft-sh/loftctl/v3/pkg/defaults"
+	"github.com/loft-sh/loftctl/v3/pkg/kubeconfig"
+	"github.com/loft-sh/loftctl/v3/pkg/upgrade"
 	"github.com/loft-sh/log"
 	"github.com/mgutz/ansi"
 	"github.com/pkg/errors"
@@ -147,7 +147,7 @@ devspace create space myspace --project myproject --team myteam
 // Run executes the command
 func (cmd *SpaceCmd) Run(ctx context.Context, args []string) error {
 	spaceName := args[0]
-	baseClient, err := client.InitClientFromPath(ctx, cmd.Config)
+	baseClient, err := client.NewClientFromPath(cmd.Config)
 	if err != nil {
 		return err
 	}
@@ -174,12 +174,11 @@ func (cmd *SpaceCmd) Run(ctx context.Context, args []string) error {
 }
 
 func (cmd *SpaceCmd) createSpace(ctx context.Context, baseClient client.Client, spaceName string) error {
+	spaceNamespace := naming.ProjectNamespace(cmd.Project)
 	managementClient, err := baseClient.Management()
 	if err != nil {
 		return err
 	}
-
-	spaceNamespace := projectutil.ProjectNamespace(cmd.Project)
 
 	// get current user / team
 	if cmd.User == "" && cmd.Team == "" {
@@ -253,7 +252,7 @@ func (cmd *SpaceCmd) createSpace(ctx context.Context, baseClient client.Client, 
 		zone, offset := time.Now().Zone()
 		spaceInstance = &managementv1.SpaceInstance{
 			ObjectMeta: metav1.ObjectMeta{
-				Namespace: projectutil.ProjectNamespace(cmd.Project),
+				Namespace: naming.ProjectNamespace(cmd.Project),
 				Name:      spaceName,
 				Annotations: map[string]string{
 					clusterv1.SleepModeTimezoneAnnotation: zone + "#" + strconv.Itoa(offset),
